@@ -1,0 +1,21 @@
+# Service fronting the controller's validating/mutating admission webhooks.
+# The admission webhook configurations (deploy/webhook/*.yaml) reference this
+# service by name (zen-cleaner-webhook). TLS terminates on the controller at
+# :9443 using the zen-cleaner-webhook-cert Secret (see docs/WEBHOOK_TLS.md).
+apiVersion: v1
+kind: Service
+metadata:
+  name: zen-cleaner-webhook
+  namespace: zen-cleaner-system
+  labels:
+    app.kubernetes.io/name: zen-cleaner
+    app.kubernetes.io/component: webhook
+spec:
+  type: ClusterIP
+  ports:
+    - name: webhook
+      port: 443
+      targetPort: webhook
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: zen-cleaner
