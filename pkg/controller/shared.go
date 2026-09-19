@@ -215,6 +215,13 @@ func deleteBatchShared(
 			continue
 		}
 
+		// Dry-run: the deleter intentionally performs no deletion, so the
+		// resource must not be counted (status/metrics/events) as deleted
+		// (SUPPORT2-002: dry-run accounting regression found in qualification).
+		if policy.Spec.Behavior.DryRun {
+			continue
+		}
+
 		deletedCount++
 		duration := time.Since(deleteStart).Seconds()
 		reason := reasons[string(resource.GetUID())]
