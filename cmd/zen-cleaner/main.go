@@ -124,10 +124,24 @@ func runMain() int {
 		setupLog.Error(err, "Error loading configuration from environment", sdklog.ErrorCode("CONFIG_LOAD_ERROR"))
 		return 1
 	}
-	controllerConfig.WithCleanupInterval(*cleanupInterval)
-	controllerConfig.WithMaxDeletionsPerSecond(*maxDeletionsPerSecond)
-	controllerConfig.WithBatchSize(*batchSize)
-	controllerConfig.WithMaxConcurrentEvaluations(*maxConcurrentEvaluations)
+	// Precedence: env (ZEN_CLEANER_*) overrides defaults; explicit flags
+	// override env. Flags not explicitly set must not clobber env-provided
+	// values, otherwise the documented ZEN_CLEANER_* contract is inert
+	// whenever a deployment passes the flag defaults verbatim (SUPPORT2-002).
+	setFlags := map[string]bool{}
+	flag.Visit(func(f *flag.Flag) { setFlags[f.Name] = true })
+	if setFlags["cleanup-interval"] {
+		controllerConfig.WithCleanupInterval(*cleanupInterval)
+	}
+	if setFlags["max-deletions-per-second"] {
+		controllerConfig.WithMaxDeletionsPerSecond(*maxDeletionsPerSecond)
+	}
+	if setFlags["batch-size"] {
+		controllerConfig.WithBatchSize(*batchSize)
+	}
+	if setFlags["max-concurrent-evaluations"] {
+		controllerConfig.WithMaxConcurrentEvaluations(*maxConcurrentEvaluations)
+	}
 
 	setupLog.Info("Controller configuration",
 		sdklog.String("cleanupInterval", controllerConfig.CleanupInterval.String()),
