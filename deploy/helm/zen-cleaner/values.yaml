@@ -1,0 +1,45 @@
+image:
+  repository: ghcr.io/zenmesh/zen-cleaner
+  # Pinned version tag; never use :latest for production installs (D039 §4).
+  tag: "0.0.1-alpha"
+  digest: ""
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+leaderElection:
+  enabled: true
+
+rbac:
+  # Explicit allowlist of resource classes the controller may collect
+  # (default deny; no wildcards). Grant only what the controller should
+  # manage in your deployment.
+  targetKinds:
+    - group: batch
+      resource: jobs
+  # true: deletion is confined to the release namespace (Role); reads are
+  # always cluster-wide. false: deletion is granted cluster-wide
+  # (ClusterRole).
+  namespaceScope: true
+
+networkPolicy:
+  enabled: true
+  # Minimum egress: Kubernetes API + DNS only.
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits: {}
+
+probes:
+  readiness:
+    initialDelaySeconds: 3
+    periodSeconds: 10
+  liveness:
+    initialDelaySeconds: 5
+    periodSeconds: 15
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1

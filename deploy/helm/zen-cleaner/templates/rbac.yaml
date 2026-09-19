@@ -1,0 +1,103 @@
+{{- $kinds := .Values.rbac.targetKinds }}
+{{- $scope := .Values.rbac.namespaceScope }}
+# Read access: policies and target resource classes are read cluster-wide
+# (shared controller cache), while the dangerous verb -- delete -- is bounded
+# by namespaceScope below.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-zen-cleaner-read
+rules:
+  - apiGroups: ["cleaner.zen-mesh.io"]
+    resources: ["zencleanerpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["cleaner.zen-mesh.io"]
+    resources: ["zencleanerpolicies/status"]
+    verbs: ["get", "update", "patch"]
+  {{- range $kinds }}
+  - apiGroups: [{{ .group | quote }}]
+    resources: [{{ .resource | quote }}]
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+  # Events: the controller emits policy evaluation/deletion events into the
+  # POLICY's namespace (which may be any namespace), mirroring the canonical
+  # raw-manifest ClusterRole. Without this, event recording is rejected for
+  # policies outside the release namespace.
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-zen-cleaner-read
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-zen-cleaner-read
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-zen-cleaner
+    namespace: {{ .Release.Namespace }}
+---
+# Delete access: confined to the release namespace when namespaceScope=true;
+# a ClusterRole grants cluster-wide delete when namespaceScope=false.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ if $scope }}Role{{ else }}ClusterRole{{ end }}
+metadata:
+  name: {{ .Release.Name }}-zen-cleaner-delete
+  {{- if $scope }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+rules:
+  {{- range $kinds }}
+  - apiGroups: [{{ .group | quote }}]
+    resources: [{{ .resource | quote }}]
+    verbs: ["delete"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ if $scope }}RoleBinding{{ else }}ClusterRoleBinding{{ end }}
+metadata:
+  name: {{ .Release.Name }}-zen-cleaner-delete
+  {{- if $scope }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: {{ if $scope }}Role{{ else }}ClusterRole{{ end }}
+  name: {{ .Release.Name }}-zen-cleaner-delete
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-zen-cleaner
+    namespace: {{ .Release.Namespace }}
+{{- if .Values.leaderElection.enabled }}
+---
+# Leader election: leases and events in the release namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-zen-cleaner-leader
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-zen-cleaner-leader
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Release.Name }}-zen-cleaner-leader
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-zen-cleaner
+    namespace: {{ .Release.Namespace }}
+{{- end }}

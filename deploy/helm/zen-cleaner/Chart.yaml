@@ -1,0 +1,6 @@
+apiVersion: v2
+name: zen-cleaner
+description: Zen Cleaner - declarative garbage collection controller
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

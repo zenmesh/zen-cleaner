@@ -192,4 +192,4 @@ spec:
     kind: ZenCleanerPolicy
     shortNames:
       - zcp
-      - zcpolicy
+      - zencleanerpolicy

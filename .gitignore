@@ -65,4 +65,5 @@ kubeconfig
 
 
 bin/
-zen-cleaner
+# Built binary at the repository root only (must not ignore deploy/helm/zen-cleaner)
+/zen-cleaner
