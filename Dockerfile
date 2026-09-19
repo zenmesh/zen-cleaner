@@ -16,7 +16,7 @@
 # Builder toolchain is pinned to the exact go.mod / CI version: the module
 # declares `go 1.26.6`, CI builds with 1.26.6, and the release contract
 # (project.yaml goVersion, README) declares Go 1.26 images.
-FROM golang:1.26.6-alpine AS builder
+FROM golang:1.27.0-alpine AS builder
 
 WORKDIR /build
 
