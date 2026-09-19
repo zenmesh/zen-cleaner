@@ -1,0 +1,26 @@
+{
+  "run_id": "zen-cleaner-le-20260702T012317",
+  "date": "2026-07-02T01:27:38Z",
+  "git_commit": "2216f47bdeabeeb8136a03747da56cb32ad85995",
+  "cluster_type": "kind",
+  "cluster_name": "zen-cleaner-le-validate",
+  "kubernetes_version": "v1.36.1",
+  "replica_counts_tested": [
+    2,
+    3
+  ],
+  "cleanup_interval": "10s",
+  "ttl": 25,
+  "controller_image": "zenmesh/zen-cleaner:validate-le",
+  "namespace": "gc-le-test",
+  "total_tests": 2,
+  "passed": 2,
+  "failed": 0,
+  "result": "PASS",
+  "test_names": [
+    "LE/2-replicas",
+    "LE/3-replicas"
+  ],
+  "node_version": "v1.36.1",
+  "node_runtime": "containerd://2.3.1"
+}

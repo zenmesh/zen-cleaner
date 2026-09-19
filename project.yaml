@@ -1,0 +1,7 @@
+projectType: controller
+projectName: zen-cleaner
+projectDescription: "Zen Mesh OSS Kubernetes cleanup controller"
+goVersion: "1.26"
+imageName: "zenmesh/zen-cleaner"
+hasHelmChart: false
+runsRace: true

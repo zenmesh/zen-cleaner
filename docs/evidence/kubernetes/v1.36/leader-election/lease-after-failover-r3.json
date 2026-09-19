@@ -1,0 +1,18 @@
+{
+    "apiVersion": "coordination.k8s.io/v1",
+    "kind": "Lease",
+    "metadata": {
+        "creationTimestamp": "2026-07-02T01:23:46Z",
+        "name": "zen-cleaner-leader-election",
+        "namespace": "zen-cleaner-system",
+        "resourceVersion": "1113",
+        "uid": "44245d2e-dada-4005-8a97-1e706b09c6bb"
+    },
+    "spec": {
+        "acquireTime": "2026-07-02T01:24:38.917909Z",
+        "holderIdentity": "zen-cleaner-6d4f87fbf7-hdjv7",
+        "leaseDurationSeconds": 15,
+        "leaseTransitions": 1,
+        "renewTime": "2026-07-02T01:26:09.011710Z"
+    }
+}

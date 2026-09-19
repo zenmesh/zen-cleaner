@@ -1,0 +1,23 @@
+{"level":"info","ts":"2026-07-02T01:24:17.615Z","caller":"logging/logging.go:49","msg":"Controller configuration","component":"zen-cleaner","component":"setup","cleanupInterval":"10s","maxDeletionsPerSecond":50,"batchSize":50,"maxConcurrentEvaluations":5}
+{"level":"info","ts":"2026-07-02T01:24:17.615Z","caller":"logging/logging.go:49","msg":"Leader election enabled","component":"zen-cleaner","component":"setup","electionID":"zen-cleaner-leader-election","namespace":"zen-cleaner-system"}
+I0702 01:24:17.615751       1 leaderelection.go:258] "Attempting to acquire leader lease..." lock="zen-cleaner-system/zen-cleaner-leader-election"
+I0702 01:24:17.624408       1 election.go:204] "New leader elected" leader="zen-cleaner-6d4f87fbf7-g6n9x"
+I0702 01:24:38.923967       1 leaderelection.go:272] "Successfully acquired lease" lock="zen-cleaner-system/zen-cleaner-leader-election"
+I0702 01:24:38.924737       1 election.go:196] "Started leading" electionID="zen-cleaner-leader-election"
+{"level":"info","ts":"2026-07-02T01:24:38.926Z","caller":"logging/logging.go:49","msg":"Starting Zen Cleaner controller manager","component":"zen-cleaner","component":"controller","operation":"start"}
+{"level":"info","ts":"2026-07-02T01:24:38.926Z","logger":"controller-runtime.metrics","msg":"Starting metrics server"}
+{"level":"info","ts":"2026-07-02T01:24:38.926Z","logger":"controller-runtime.metrics","msg":"Serving metrics server","bindAddress":":8080","secure":false}
+{"level":"info","ts":"2026-07-02T01:24:38.926Z","msg":"starting server","name":"health probe","addr":"[::]:8081"}
+{"level":"info","ts":"2026-07-02T01:24:38.926Z","msg":"Starting EventSource","controller":"zencleanerpolicy","controllerGroup":"cleaner.zen-mesh.io","controllerKind":"ZenCleanerPolicy","source":"kind source: *v1alpha1.ZenCleanerPolicy"}
+{"level":"info","ts":"2026-07-02T01:24:38.926Z","msg":"Starting Controller","controller":"zencleanerpolicy","controllerGroup":"cleaner.zen-mesh.io","controllerKind":"ZenCleanerPolicy"}
+{"level":"info","ts":"2026-07-02T01:24:39.027Z","msg":"Starting workers","controller":"zencleanerpolicy","controllerGroup":"cleaner.zen-mesh.io","controllerKind":"ZenCleanerPolicy","worker count":1}
+{"level":"info","ts":"2026-07-02T01:24:39.155Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r2-mgtph","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:24:39.179Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r2-mgtph","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:24:39.321Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r2-mgtph","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:24:39.333Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r2-mgtph","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:24:39.363Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r2-mgtph","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:25:09.197Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r2-5rq7l","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:25:09.213Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r2-5rq7l","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:25:09.224Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r2-5rq7l","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:25:09.251Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r2-5rq7l","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:25:09.263Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r2-5rq7l","reason":"ttl_expired"}

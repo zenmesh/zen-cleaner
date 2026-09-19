@@ -1,0 +1,175 @@
+{
+  "project": "zen-cleaner",
+  "version": "1.0",
+  "description": "Machine-readable evidence index for zen-cleaner. Each entry describes whether evidence exists for a given category.",
+  "categories": [
+    {
+      "id": "ci-unit-tests",
+      "name": "Unit tests",
+      "status": "present",
+      "detail": "go test ./... runs in CI. 65% coverage gate enforced.",
+      "location": ".github/workflows/ci.yml"
+    },
+    {
+      "id": "ci-integration-tests",
+      "name": "Integration tests",
+      "status": "present",
+      "detail": "test/integration/ run in CI with controller-runtime envtest.",
+      "location": ".github/workflows/ci.yml"
+    },
+    {
+      "id": "ci-race-detection",
+      "name": "Race detection",
+      "status": "present",
+      "detail": "go test -v -race run in CI.",
+      "location": ".github/workflows/ci.yml"
+    },
+    {
+      "id": "vulnerability-scan",
+      "name": "Vulnerability scanning",
+      "status": "present",
+      "detail": "govulncheck + gosec in CI security job. All 14 reachable vulnerabilities remediated: golang.org/x/net v0.47.0→v0.55.0, Go 1.26.0→1.26.4. govulncheck PASS.",
+      "location": ".github/workflows/security.yml"
+    },
+    {
+      "id": "kubernetes-compatibility-client-go",
+      "name": "Kubernetes API compatibility (client-go version)",
+      "status": "present",
+      "detail": "client-go v0.35 targets K8s 1.31.x.",
+      "location": "go.mod"
+    },
+    {
+      "id": "kubernetes-compatibility-kind-136",
+      "name": "Kubernetes v1.36 kind validation",
+      "status": "present",
+      "detail": "Validated on kind with K8s v1.36.1. Full CRD + runtime + real deletion matrix: 4 TTL modes (fixed, dynamic, mapped, relative) × Pod, ReplicaSet, ConfigMap, Secret, Job. Real deletion confirmed via controller logs.",
+      "location": "docs/evidence/kubernetes/v1.36/kind.md"
+    },
+    {
+      "id": "kubernetes-compatibility-k3d-136",
+      "name": "Kubernetes v1.36 k3d (K3s) validation",
+      "status": "present",
+      "detail": "Validated on k3d with K3s v1.36.2+k3s1. Full CRD + runtime + real deletion matrix: 4 TTL modes (fixed, dynamic, mapped, relative) × Pod, ReplicaSet. Real deletion confirmed via controller logs.",
+      "location": "docs/evidence/kubernetes/v1.36/k3d.md"
+    },
+    {
+      "id": "kubernetes-compatibility-kubeadm-136",
+      "name": "Kubernetes v1.36 kubeadm validation",
+      "status": "present",
+      "detail": "Validated on kubeadm with K8s v1.36.2 (single control-plane, flannel CNI, containerd 2.2.5). CRDs registered, CRUD operations pass, schema validation enforces types. Full controller runtime + cleanup deletion behavior validated.",
+      "location": "docs/evidence/kubernetes/v1.36/kubeadm.md"
+    },
+    {
+      "id": "kubernetes-compatibility-kubeadm-134",
+      "name": "Kubernetes v1.34 kubeadm validation",
+      "status": "present",
+      "detail": "Validated on kubeadm with K8s v1.34.9 (single control-plane, flannel CNI). CRDs registered, CRUD operations pass, schema validation enforces types. Full controller runtime + cleanup deletion behavior validated with containerd 2.2.5.",
+      "location": "docs/evidence/kubernetes/v1.34/kubeadm.md"
+    },
+    {
+      "id": "kubernetes-compatibility-cloud-e2e",
+      "name": "Cloud Kubernetes E2E",
+      "status": "missing",
+      "detail": "No EKS/GKE/AKS E2E tests or results published.",
+      "location": null
+    },
+    {
+      "id": "container-image",
+      "name": "Container image build",
+      "status": "present",
+      "detail": "Multi-arch (amd64, arm64) image built in CI.",
+      "location": ".github/workflows/build-multiarch.yml"
+    },
+    {
+      "id": "leader-election-kind",
+      "name": "Leader election safety (kind)",
+      "status": "present",
+      "detail": "Validated on kind with K8s v1.36.1 (2 and 3 controller replicas). Single leader, non-leader idle, leader failover works, no cross-leader duplicate deletions, matching resources deleted after TTL, control resources retained.",
+      "location": "docs/evidence/kubernetes/v1.36/leader-election.md"
+    },
+    {
+      "id": "leader-election-claims",
+      "name": "Leader election public claims",
+      "status": "present",
+      "detail": "Public claims qualified: leader-election validated on kind only; not a cloud HA or multi-node HA claim.",
+      "location": "docs/claims.md"
+    },
+    {
+      "id": "helm-chart",
+      "name": "Helm chart",
+      "status": "present",
+      "detail": "Chart published to Artifact Hub. Version 0.0.1-alpha.",
+      "location": "docs/zen-cleaner-0.0.1-alpha.tgz"
+    },
+    {
+      "id": "release-evidence",
+      "name": "Release evidence documentation",
+      "status": "template-only",
+      "detail": "Template exists; no release-specific evidence files populated.",
+      "location": "docs/evidence/releases/template.md"
+    },
+    {
+      "id": "sbom",
+      "name": "SBOM",
+      "status": "missing",
+      "detail": "No CycloneDX/SPDX SBOM generated during build.",
+      "location": null
+    },
+    {
+      "id": "slsa-provenance",
+      "name": "SLSA provenance",
+      "status": "missing",
+      "detail": "No build attestation published.",
+      "location": null
+    },
+    {
+      "id": "security-policy",
+      "name": "Security policy",
+      "status": "present",
+      "detail": "Vulnerability disclosure policy documented.",
+      "location": "SECURITY.md"
+    },
+    {
+      "id": "threat-model",
+      "name": "Threat model",
+      "status": "present",
+      "detail": "Threat model document created for this release.",
+      "location": "docs/security/threat-model.md"
+    },
+    {
+      "id": "supply-chain",
+      "name": "Supply chain documentation",
+      "status": "present",
+      "detail": "Supply chain posture documented.",
+      "location": "docs/security/supply-chain.md"
+    },
+    {
+      "id": "rbac-documentation",
+      "name": "RBAC documentation",
+      "status": "present",
+      "detail": "Detailed RBAC permissions and security considerations documented.",
+      "location": "docs/RBAC.md"
+    },
+    {
+      "id": "code-ownership",
+      "name": "Code ownership",
+      "status": "present",
+      "detail": "CODEOWNERS file defines review requirements.",
+      "location": ".github/CODEOWNERS"
+    },
+    {
+      "id": "dependabot",
+      "name": "Dependabot dependency updates",
+      "status": "present",
+      "detail": "Automated updates for Go modules, Docker, and GitHub Actions.",
+      "location": ".github/dependabot.yml"
+    },
+    {
+      "id": "vulnerability-remediation",
+      "name": "Vulnerability remediation (govulncheck)",
+      "status": "present",
+      "detail": "14 reachable vulnerabilities remediated. golang.org/x/net v0.47.0→v0.55.0. Go toolchain 1.26.0→1.26.4. govulncheck PASS.",
+      "location": "go.mod, .github/workflows/*.yml"
+    }
+  ]
+}

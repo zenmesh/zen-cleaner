@@ -1,0 +1,88 @@
+{
+  "repo": "zenmesh/zen-cleaner",
+  "commit": "a07dd9a",
+  "date": "2026-07-01",
+  "cluster_type": "kubeadm",
+  "kubernetes_version": "v1.34.9",
+  "vm_hostname": "h462-gateway-kubeadm-1780668538",
+  "vm_ip": "192.168.122.179",
+  "vm_disposable_confirmed": true,
+  "vm_os": "Debian 13 (trixie)",
+  "container_runtime": "containerd 2.2.5",
+  "cni": "flannel v0.28.5",
+  "coredns": "v1.12.1 (deployed via kubeadm addon)",
+  "kernel": "6.12.74+deb13+1-amd64",
+  "ram_gb": 12,
+  "ram_available_gib": 10,
+  "vcpus": 4,
+  "status": "PASS",
+  "validation_scope": "Full CRD/API + controller runtime + cleanup behavior",
+  "crd_registered": true,
+  "crd_install_idempotent": true,
+  "crd_name": "zencleanerpolicies.cleaner.zen-mesh.io",
+  "crd_shortnames": ["zcp", "zencleanerpolicy"],
+  "crd_scope": "Namespaced",
+  "crud_tests": {
+    "create_basic": {"status": "PASS"},
+    "create_full_schema": {"status": "PASS"},
+    "list": {"status": "PASS"},
+    "read_yaml": {"status": "PASS"},
+    "reapply_idempotent": {"status": "PASS"},
+    "delete": {"status": "PASS"}
+  },
+  "negative_schema_tests": {
+    "wrong_type_string_for_integer": {"status": "PASS", "detail": "Rejected: spec.ttl.secondsAfterCreation must be integer"},
+    "unknown_field": {"status": "PASS", "detail": "Rejected: unknown field spec.nonexistentField (strict decoding)"},
+    "empty_spec": {"status": "PASS", "detail": "Rejected: spec.targetResource and spec.ttl required"},
+    "missing_required_targetResource": {"status": "PASS", "detail": "Rejected: spec.targetResource required"}
+  },
+  "rbac_controller_permissions": {
+    "zencleanerpolicies": ["get", "list", "watch"],
+    "zencleanerpolicies/status": ["get", "update", "patch"],
+    "leases": ["create", "get", "list", "watch", "update", "patch", "delete"],
+    "all_resources": ["get", "list", "watch", "delete"],
+    "note": "Events RBAC missing (cosmetic only — cleanup operations succeed)"
+  },
+  "zen_cleaner_deployment": {
+    "deployed": true,
+    "replicas": 2,
+    "ready_replicas": 2,
+    "pods_scheduled": true,
+    "leader_election": true,
+    "worker_count": 1,
+    "webhook_insecure": true,
+    "note": "Controller acquired leader lease, workers started, webhook listening on :9443 (insecure mode)"
+  },
+  "runtime_reconciliation": {
+    "proven": true,
+    "controller_ready": true,
+    "reconciliation_workers_active": true,
+    "blocker": null
+  },
+  "cleanup_behavior": {
+    "proven": true,
+    "disposable_resource_deleted": true,
+    "control_resource_untouched": true,
+    "test_description": "GCP with labelSelector matchLabels{gc-disposable:true} + TTL 10s. Disposable pod with gc-disposable=true label was deleted within 1 cleanup interval. Control pod with gc-control=true label remained running.",
+    "ttl_seconds": 10,
+    "cleanup_interval": "1m",
+    "controller_log_proof": "Deleted resource default/disposable-pod (reason: ttl_expired)",
+    "second_cycle": "matched=0, deleted=0, pending=0"
+  },
+  "post_validation_stability": {
+    "cp_restarts": 0,
+    "node_ready": true,
+    "coredns_resolving": true
+  },
+  "known_issues": [
+    "Events RBAC missing — controller cannot create/patch events. cleanup operations complete successfully regardless."
+  ],
+  "result": "PASS",
+  "limitations": [
+    "Single-node control-plane only (no HA).",
+    "Validated with containerd 2.2.5; Debian default containerd 1.7.24 is not claimed for this workload.",
+    "flannel CNI only.",
+    "Webhook running in insecure mode (no TLS certs).",
+    "No cloud Kubernetes testing."
+  ]
+}

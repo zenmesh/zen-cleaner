@@ -1,0 +1,124 @@
+# Copyright 2026 Zen Mesh
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: zen-cleaner-alerts
+  namespace: zen-cleaner-system
+  labels:
+    app: zen-cleaner
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: zen-cleaner.rules
+      interval: 30s
+      rules:
+        # Alert when Zen Cleaner controller is down
+        - alert: CleanerControllerDown
+          expr: up{job="zen-cleaner"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: zen-cleaner
+          annotations:
+            summary: "Zen Cleaner Controller is down"
+            description: "Zen Cleaner Controller has been down for more than 5 minutes."
+        # Alert on high error rate
+        - alert: CleanerControllerHighErrorRate
+          expr: rate(zen_cleaner_errors_total[5m]) > 10
+          for: 5m
+          labels:
+            severity: warning
+            component: zen-cleaner
+          annotations:
+            summary: "High cleanup error rate detected"
+            description: >
+              Zen Cleaner Controller is experiencing {{ $value }} errors per second
+              for policy {{ $labels.policy_name }}.
+        # Alert on deletion failures
+        - alert: CleanerControllerDeletionFailures
+          expr: rate(zen_cleaner_errors_total{error_type="deletion_failed"}[5m]) > 5
+          for: 10m
+          labels:
+            severity: warning
+            component: zen-cleaner
+          annotations:
+            summary: "High deletion failure rate"
+            description: >
+              Zen Cleaner Controller is failing to delete resources
+              for policy {{ $labels.policy_name }}.
+        # Alert on policy errors
+        - alert: CleanerControllerPolicyErrors
+          expr: zen_cleaner_policies_total{phase="Error"} > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: zen-cleaner
+          annotations:
+            summary: "Cleanup policy in error state"
+            description: >
+              Cleanup policy {{ $labels.policy_name }} is in error state.
+        # Alert on slow deletion duration
+        - alert: CleanerControllerSlowDeletions
+          expr: >
+            histogram_quantile(0.95,
+            rate(zen_cleaner_deletion_duration_seconds_bucket[5m])) > 10
+          for: 10m
+          labels:
+            severity: warning
+            component: zen-cleaner
+          annotations:
+            summary: "Slow cleanup deletions detected"
+            description: >
+              95th percentile deletion duration is high
+              for policy {{ $labels.policy_name }}.
+        # Alert on high evaluation duration
+        - alert: CleanerControllerSlowEvaluation
+          expr: >
+            histogram_quantile(0.95,
+            rate(zen_cleaner_evaluation_duration_seconds_bucket[5m])) > 5
+          for: 10m
+          labels:
+            severity: warning
+            component: zen-cleaner
+          annotations:
+            summary: "Slow cleanup policy evaluation"
+            description: >
+              95th percentile evaluation duration is high
+              for policy {{ $labels.policy_name }}.
+        # Alert when no policies are active
+        - alert: CleanerControllerNoActivePolicies
+          expr: zen_cleaner_policies_total{phase="Active"} == 0
+          for: 1h
+          labels:
+            severity: info
+            component: zen-cleaner
+          annotations:
+            summary: "No active cleanup policies"
+            description: >
+              No active cleanup policies are configured.
+              This may be expected if cleanup is not needed.
+        # Alert on high deletion rate (may indicate issues)
+        - alert: CleanerControllerHighDeletionRate
+          expr: rate(zen_cleaner_resources_deleted_total[5m]) > 100
+          for: 5m
+          labels:
+            severity: warning
+            component: zen-cleaner
+          annotations:
+            summary: "High cleanup deletion rate"
+            description: >
+              Zen Cleaner Controller is deleting resources at a high rate.
+              This may indicate a configuration issue.

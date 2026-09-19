@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.26.6'
+          cache-dependency-path: go.sum
+      
+      - name: Verify Go version
+        run: |
+          go version
+          EXPECTED="$(awk '$1=="go" {print $2}' go.mod)"
+          if ! go version | grep -q "go$EXPECTED"; then
+            echo "❌ Go version does not match go.mod (expected go$EXPECTED)"
+            exit 1
+          fi
+          echo "✅ Go version matches go.mod (go$EXPECTED)"
+      
+      - name: Install dependencies
+        run: go mod download
+      
+      - name: Install golangci-lint
+        run: |
+          echo "Installing golangci-lint v2 with Go 1.26..."
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+          GOBIN=$(go env GOPATH)/bin
+          echo "$GOBIN" >> $GITHUB_PATH
+          echo "Verifying golangci-lint installation..."
+          $GOBIN/golangci-lint version
+          echo "golangci-lint installed successfully"
+      
+      - name: Run golangci-lint
+        run: |
+          GOBIN=$(go env GOPATH)/bin
+          $GOBIN/golangci-lint run --timeout=5m
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.26.6'
+          cache-dependency-path: go.sum
+      
+      - name: Install dependencies
+        run: go mod download
+      
+      - name: Install bc
+        run: sudo apt-get update && sudo apt-get install -y bc
+      
+      - name: Run tests
+        run: go test -v -race -timeout=15m ./...
+      
+      - name: Check coverage
+        run: make coverage
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.26.6'
+          cache-dependency-path: go.sum
+      
+      - name: Install dependencies
+        run: go mod download
+      
+      - name: Build
+        run: |
+          mkdir -p bin
+          go build -o bin/zen-cleaner ./cmd/zen-cleaner
+      
+      - name: Verify binary
+        run: |
+          if [ ! -f bin/zen-cleaner ]; then
+            echo "Binary not found"
+            exit 1
+          fi
+          file bin/zen-cleaner

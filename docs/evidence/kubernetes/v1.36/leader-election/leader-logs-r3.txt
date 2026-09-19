@@ -1,0 +1,25 @@
+{"level":"info","ts":"2026-07-02T01:26:13.895Z","caller":"logging/logging.go:49","msg":"Controller configuration","component":"zen-cleaner","component":"setup","cleanupInterval":"10s","maxDeletionsPerSecond":50,"batchSize":50,"maxConcurrentEvaluations":5}
+{"level":"info","ts":"2026-07-02T01:26:13.896Z","caller":"logging/logging.go:49","msg":"Leader election enabled","component":"zen-cleaner","component":"setup","electionID":"zen-cleaner-leader-election","namespace":"zen-cleaner-system"}
+I0702 01:26:13.896414       1 leaderelection.go:258] "Attempting to acquire leader lease..." lock="zen-cleaner-system/zen-cleaner-leader-election"
+I0702 01:26:13.904079       1 election.go:204] "New leader elected" leader="zen-cleaner-6d4f87fbf7-hdjv7"
+I0702 01:26:30.752167       1 leaderelection.go:272] "Successfully acquired lease" lock="zen-cleaner-system/zen-cleaner-leader-election"
+I0702 01:26:30.752321       1 election.go:196] "Started leading" electionID="zen-cleaner-leader-election"
+{"level":"info","ts":"2026-07-02T01:26:30.752Z","caller":"logging/logging.go:49","msg":"Starting Zen Cleaner controller manager","component":"zen-cleaner","component":"controller","operation":"start"}
+{"level":"info","ts":"2026-07-02T01:26:30.753Z","logger":"controller-runtime.metrics","msg":"Starting metrics server"}
+{"level":"info","ts":"2026-07-02T01:26:30.753Z","msg":"starting server","name":"health probe","addr":"[::]:8081"}
+{"level":"info","ts":"2026-07-02T01:26:30.753Z","logger":"controller-runtime.metrics","msg":"Serving metrics server","bindAddress":":8080","secure":false}
+{"level":"info","ts":"2026-07-02T01:26:30.753Z","msg":"Starting EventSource","controller":"zencleanerpolicy","controllerGroup":"cleaner.zen-mesh.io","controllerKind":"ZenCleanerPolicy","source":"kind source: *v1alpha1.ZenCleanerPolicy"}
+{"level":"info","ts":"2026-07-02T01:26:30.753Z","msg":"Starting Controller","controller":"zencleanerpolicy","controllerGroup":"cleaner.zen-mesh.io","controllerKind":"ZenCleanerPolicy"}
+{"level":"info","ts":"2026-07-02T01:26:30.854Z","msg":"Starting workers","controller":"zencleanerpolicy","controllerGroup":"cleaner.zen-mesh.io","controllerKind":"ZenCleanerPolicy","worker count":1}
+{"level":"info","ts":"2026-07-02T01:26:30.964Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-relative-r3","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:26:31.093Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-relative-r3","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:26:31.107Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-relative-r3","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:26:31.121Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-relative-r3","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:26:31.144Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-relative-r3","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:26:31.156Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-relative-r3","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:26:31.176Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-relative-r3","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:27:01.003Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r3-77f6j","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:27:01.018Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r3-77f6j","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:27:01.033Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r3-77f6j","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:27:01.148Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r3-77f6j","reason":"ttl_expired"}
+{"level":"info","ts":"2026-07-02T01:27:01.158Z","caller":"logging/logging.go:49","msg":"Deleted resource","component":"zen-cleaner","operation":"delete_batch","resource":"gc-le-test/match-rs-r3-77f6j","reason":"ttl_expired"}

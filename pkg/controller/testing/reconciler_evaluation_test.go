@@ -1,0 +1,274 @@
+/*
+Copyright 2026 Zen Mesh
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package testing
+
+import (
+	"context"
+	"strings"
+	"testing"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
+	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
+	"github.com/zenmesh/zen-cleaner/pkg/config"
+	"github.com/zenmesh/zen-cleaner/pkg/controller"
+)
+
+// contains checks if a string contains a substring (case-insensitive).
+func contains(s, substr string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
+}
+
+// TestPolicyReconciler_EvaluatePolicy_WithMocks tests evaluatePolicy using PolicyEvaluationService with mocks.
+// This test demonstrates that we can now test policy evaluation without complex fake client setup.
+func TestPolicyReconciler_EvaluatePolicy_WithMocks(t *testing.T) {
+	ctx := context.Background()
+
+	// Setup fake clients (minimal setup - no complex resource registration needed)
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add scheme: %v", err)
+	}
+
+	// Create a test policy
+	policy := &v1alpha1.ZenCleanerPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sPolicyNameTest,
+			Namespace: k8sNSDefault,
+			UID:       types.UID(k8sUIDTest),
+		},
+		Spec: v1alpha1.ZenCleanerPolicySpec{
+			TargetResource: v1alpha1.TargetResourceSpec{
+				APIVersion: k8sAPIV1,
+				Kind:       k8sKindConfigMap,
+			},
+			TTL: v1alpha1.TTLSpec{
+				SecondsAfterCreation: func() *int64 { v := int64(3600); return &v }(),
+			},
+		},
+	}
+
+	// Create fake client with the policy
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).WithObjects(policy).Build()
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+
+	// Create reconciler (RESTMapper is optional, nil is OK for tests)
+	reconciler := controller.NewPolicyReconcilerWithRESTMapper(
+		fakeClient,
+		scheme,
+		dynamicClient,
+		nil, // RESTMapper - nil is OK, will use pluralization fallback
+		controller.NewStatusUpdater(dynamicClient),
+		controller.NewEventRecorder(nil),
+		config.NewControllerConfig(),
+	)
+
+	// Create mock dependencies for PolicyEvaluationService
+	mockLister := NewMockResourceLister()
+	mockSelectorMatcher := NewMockSelectorMatcher()
+	mockConditionMatcher := NewMockConditionMatcher()
+	mockRateLimiter := NewMockRateLimiterProvider()
+	mockDeleter := NewMockBatchDeleterCore()
+
+	// Set up mock expectations
+	gvr := schema.GroupVersionResource{Group: "", Version: k8sAPIV1, Resource: k8sResConfigMaps}
+	testResources := []*unstructured.Unstructured{
+		{
+			Object: map[string]interface{}{
+				k8sKeyAPIVersion: k8sAPIV1,
+				k8sKeyKind:       k8sKindConfigMap,
+				k8sKeyMetadata: map[string]interface{}{
+					k8sKeyName:       k8sNameTestCM,
+					k8sKeyNamespace:  k8sNSDefault,
+					k8sKeyCreationTS: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+				},
+			},
+		},
+	}
+	mockLister.SetResources(gvr, "default", testResources)
+	mockSelectorMatcher.SetMatch(testResources[0], true)
+	mockConditionMatcher.SetMeetsConditions(testResources[0], true)
+	mockDeleter.SetDeleteResult(testResources[0], nil)
+
+	// Create PolicyEvaluationService with mocks
+	// Pass nil for StatusUpdater - the service handles nil gracefully
+	// We're testing the PolicyEvaluationService logic with mocks, not status updates
+	service := controller.NewPolicyEvaluationService(
+		mockLister,
+		mockSelectorMatcher,
+		mockConditionMatcher,
+		nil, // TTLCalculator
+		mockRateLimiter,
+		mockDeleter,
+		nil, // StatusUpdater - nil is OK, status update logic tested elsewhere
+		reconciler.GetEventRecorder(),
+		nil,
+		reconciler.GetLogger(),
+	)
+
+	// Inject the service into reconciler (bypassing getOrCreateEvaluationService for testing)
+	// Status update may fail (nil StatusUpdater), but that's OK for this test
+	// We're testing that the PolicyEvaluationService logic works with mocks
+	err := reconciler.EvaluatePolicyForTesting(ctx, policy, service)
+	// Status update failure is expected (nil StatusUpdater), but evaluation logic should work
+	if err != nil && !contains(err.Error(), "status") && !contains(err.Error(), "StatusUpdater") {
+		t.Errorf("evaluatePolicy() returned unexpected error: %v", err)
+	}
+}
+
+// TestPolicyReconciler_EvaluatePolicy_EmptyResources tests evaluation with no resources.
+func TestPolicyReconciler_EvaluatePolicy_EmptyResources(t *testing.T) {
+	ctx := context.Background()
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add scheme: %v", err)
+	}
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+
+	reconciler := controller.NewPolicyReconciler(
+		fakeClient,
+		scheme,
+		dynamicClient,
+		controller.NewStatusUpdater(dynamicClient),
+		controller.NewEventRecorder(nil),
+		config.NewControllerConfig(),
+	)
+
+	policy := &v1alpha1.ZenCleanerPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sPolicyNameTest,
+			Namespace: k8sNSDefault,
+			UID:       types.UID(k8sUIDTest),
+		},
+		Spec: v1alpha1.ZenCleanerPolicySpec{
+			TargetResource: v1alpha1.TargetResourceSpec{
+				APIVersion: k8sAPIV1,
+				Kind:       k8sKindConfigMap,
+			},
+			TTL: v1alpha1.TTLSpec{
+				SecondsAfterCreation: func() *int64 { v := int64(3600); return &v }(),
+			},
+		},
+	}
+
+	// Create mocks with empty resources
+	mockLister := NewMockResourceLister()
+	mockSelectorMatcher := NewMockSelectorMatcher()
+	mockConditionMatcher := NewMockConditionMatcher()
+	mockRateLimiter := NewMockRateLimiterProvider()
+	mockDeleter := NewMockBatchDeleterCore()
+
+	gvr := schema.GroupVersionResource{Group: "", Version: k8sAPIV1, Resource: k8sResConfigMaps}
+	mockLister.SetResources(gvr, "default", []*unstructured.Unstructured{})
+
+	service := controller.NewPolicyEvaluationService(
+		mockLister,
+		mockSelectorMatcher,
+		mockConditionMatcher,
+		nil,
+		mockRateLimiter,
+		mockDeleter,
+		nil, // StatusUpdater - nil is OK, status update logic tested elsewhere
+		reconciler.GetEventRecorder(),
+		nil,
+		reconciler.GetLogger(),
+	)
+
+	// Should handle empty resources gracefully
+	// Status update may fail (nil StatusUpdater), but that's OK for this test
+	err := reconciler.EvaluatePolicyForTesting(ctx, policy, service)
+	if err != nil && !contains(err.Error(), "status") && !contains(err.Error(), "StatusUpdater") {
+		t.Errorf("evaluatePolicy() with empty resources returned unexpected error: %v", err)
+	}
+}
+
+// TestPolicyReconciler_EvaluatePolicy_ContextCancellation tests context cancellation.
+func TestPolicyReconciler_EvaluatePolicy_ContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add scheme: %v", err)
+	}
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+
+	reconciler := controller.NewPolicyReconciler(
+		fakeClient,
+		scheme,
+		dynamicClient,
+		controller.NewStatusUpdater(dynamicClient),
+		controller.NewEventRecorder(nil),
+		config.NewControllerConfig(),
+	)
+
+	policy := &v1alpha1.ZenCleanerPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sPolicyNameTest,
+			Namespace: k8sNSDefault,
+			UID:       types.UID(k8sUIDTest),
+		},
+		Spec: v1alpha1.ZenCleanerPolicySpec{
+			TargetResource: v1alpha1.TargetResourceSpec{
+				APIVersion: k8sAPIV1,
+				Kind:       k8sKindConfigMap,
+			},
+			TTL: v1alpha1.TTLSpec{
+				SecondsAfterCreation: func() *int64 { v := int64(3600); return &v }(),
+			},
+		},
+	}
+
+	// Create mocks
+	mockLister := NewMockResourceLister()
+	mockSelectorMatcher := NewMockSelectorMatcher()
+	mockConditionMatcher := NewMockConditionMatcher()
+	mockRateLimiter := NewMockRateLimiterProvider()
+	mockDeleter := NewMockBatchDeleterCore()
+
+	// Set error for context cancellation
+	mockLister.SetError(context.Canceled)
+
+	service := controller.NewPolicyEvaluationService(
+		mockLister,
+		mockSelectorMatcher,
+		mockConditionMatcher,
+		nil,
+		mockRateLimiter,
+		mockDeleter,
+		nil, // StatusUpdater - nil is OK, status update logic tested elsewhere
+		reconciler.GetEventRecorder(),
+		nil,
+		reconciler.GetLogger(),
+	)
+
+	// Should handle context cancellation gracefully
+	err := reconciler.EvaluatePolicyForTesting(ctx, policy, service)
+	if err == nil {
+		t.Error("Expected error for context cancellation, got nil")
+	}
+}

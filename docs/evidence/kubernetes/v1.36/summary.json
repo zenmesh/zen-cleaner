@@ -1,0 +1,60 @@
+{
+  "repo": "zenmesh/zen-cleaner",
+  "commit": "a07dd9a",
+  "date": "2026-07-01",
+  "controller_image": "zenmesh/zen-cleaner:v0.0.1-alpha-a07dd9a",
+  "go_version": "go1.26.4",
+  "client_go": "v0.35.0",
+  "controller_runtime": "v0.19.0",
+  "validation_matrix": {
+    "kind": {
+      "status": "PASS",
+      "real_deletion": true,
+      "kubernetes_version": "v1.36.1",
+      "tool_version": "kind v0.20.0",
+      "node_image": "kindest/node:v1.36.1",
+      "evidence_md": "docs/evidence/kubernetes/v1.36/kind.md",
+      "evidence_json": "docs/evidence/kubernetes/v1.36/kind.json"
+    },
+    "k3d": {
+      "status": "PASS",
+      "real_deletion": true,
+      "kubernetes_version": "v1.36.2+k3s1",
+      "tool_version": "k3d v5.8.3",
+      "k3s_image": "rancher/k3s:v1.36.2-k3s1",
+      "evidence_md": "docs/evidence/kubernetes/v1.36/k3d.md",
+      "evidence_json": "docs/evidence/kubernetes/v1.36/k3d.json"
+    },
+    "kubeadm": {
+      "status": "PASS",
+      "real_deletion": true,
+      "kubernetes_version": "v1.36.2",
+      "vm_hostname": "h462-gateway-kubeadm-1780668538",
+      "vm_disposable_confirmed": true,
+      "vm_os": "Debian 13 (trixie)",
+      "container_runtime": "containerd 2.2.5",
+      "cni": "flannel v0.28.5",
+      "kernel": "6.12.74+deb13+1-amd64",
+      "crd_registered": true,
+      "crd_shortnames": ["zcp", "zencleanerpolicy"],
+      "crud_tests_passed": ["create_basic", "create_full_schema", "list", "read", "delete", "schema_validation"],
+      "controller_deployed": true,
+      "controller_ready": true,
+      "leader_election": true,
+      "gc_behavior_proven": true,
+      "notes": [
+        "Full CRD/API + controller runtime + cleanup deletion behavior validated.",
+        "Validated with containerd 2.2.5 (Debian default containerd 1.7.24 not claimed for this workload)."
+      ],
+      "evidence_md": "docs/evidence/kubernetes/v1.36/kubeadm.md",
+      "evidence_json": "docs/evidence/kubernetes/v1.36/kubeadm.json"
+    }
+  },
+  "notes": [
+    "This does not imply validation on EKS, GKE, AKS, OpenShift, Rancher, all CNIs, all storage providers, or all Kubernetes 1.36 environments.",
+    "Operators should validate in their own environment.",
+    "Webhook uses self-signed certificates for testing; production deployments should use proper certificate management.",
+    "Real deletion behavior validated. See individual matrix pages for exact TTL mode × resource kind results.",
+    "A known cosmetic status-reporting race causes counters to reset mid-cycle for some resource kinds; deletion occurs regardless."
+  ]
+}

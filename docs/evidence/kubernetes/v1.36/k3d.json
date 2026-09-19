@@ -1,0 +1,24 @@
+{
+  "repo": "zenmesh/zen-cleaner",
+  "commit": "a07dd9a",
+  "date": "2026-07-01",
+  "cluster_type": "k3d",
+  "kubernetes_version": "v1.36.2+k3s1",
+  "k3d_version": "v5.8.3",
+  "k3s_image": "rancher/k3s:v1.36.2-k3s1",
+  "container_runtime": "containerd://2.3.2-k3s2",
+  "go_version": "go1.26.4",
+  "result": "PASS",
+  "real_deletion_validated": true,
+  "real_deletion_matrix": {
+    "Pod": ["fixed", "dynamic", "mapped", "relative"],
+    "ReplicaSet": ["fixed", "mapped"]
+  },
+  "limitations": [
+    "Single-server k3d cluster only (no agent nodes)",
+    "Self-signed webhook certs (not validated via TLS)",
+    "K3s bundles flannel, CoreDNS, metrics-server; may differ from non-K3s K8s distributions"
+  ],
+  "logs_evidence": "k3d.md#real-deletion-matrix",
+  "cleanup_succeeded": true
+}

@@ -1,0 +1,28 @@
+{
+  "repo": "zenmesh/zen-cleaner",
+  "commit": "a07dd9a",
+  "date": "2026-07-01",
+  "cluster_type": "kind",
+  "kubernetes_version": "v1.36.1",
+  "tool_version": "kind v0.20.0",
+  "node_image": "kindest/node:v1.36.1",
+  "container_runtime": "containerd://2.3.1",
+  "os_image": "Debian GNU/Linux 13 (trixie)",
+  "kernel": "6.17.0-35-generic",
+  "result": "PASS",
+  "real_deletion_validated": true,
+  "real_deletion_matrix": {
+    "Pod": ["fixed", "dynamic", "mapped", "relative"],
+    "ReplicaSet": ["fixed", "mapped"],
+    "ConfigMap": ["fixed", "mapped"],
+    "Secret": ["fixed", "mapped"],
+    "Job": ["fixed", "mapped"]
+  },
+  "limitations": [
+    "Single-node kind cluster only",
+    "Self-signed webhook certs (not validated via TLS)",
+    "kind v0.20.0 required manual image import (containerd snapshotter incompatibility)"
+  ],
+  "logs_evidence": "kind.md#real-deletion-matrix",
+  "cleanup_succeeded": true
+}

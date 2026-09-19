@@ -1,0 +1,36 @@
+# zen-cleaner — AI Discovery Index
+
+> Declarative Kubernetes cleanup controller. Define `ZenCleanerPolicy` objects (TTL, selectors, dry-run, rate limits) and let zen-cleaner delete matching resources safely.
+>
+> Apache-2.0 · OSS · Go · Kubernetes controller-runtime
+
+**Source:** https://github.com/zenmesh/zen-cleaner  
+**Docs:** https://github.com/zenmesh/zen-cleaner/tree/main/docs  
+**License:** Apache-2.0  
+**Version:** 0.0.1-alpha  
+
+## Quick links
+
+- [Claims and maturity](docs/claims.md) — what zen-cleaner does and does not do
+- [Evidence index](docs/evidence/README.md) — tested claims and known gaps
+- [Kubernetes compatibility](docs/compatibility/kubernetes.md) — evidenced version support
+- [K8s v1.36 kind evidence](docs/evidence/kubernetes/v1.36/kind.md) — kind v1.36.1
+- [K8s v1.36 k3d evidence](docs/evidence/kubernetes/v1.36/k3d.md) — K3s v1.36.2+k3s1
+- [K8s v1.36 kubeadm evidence](docs/evidence/kubernetes/v1.36/kubeadm.md) — kubeadm v1.36.2 PASS
+- [Security policy](SECURITY.md) — vulnerability reporting
+- [Security (operations)](docs/security/threat-model.md) — threat model and RBAC assumptions
+- [Supply chain](docs/security/supply-chain.md) — build, scan, provenance status
+- [AI status](docs/ai/status.json) — maturity JSON
+- [AI evidence index](docs/ai/evidence-index.json) — evidence index JSON
+- [Canonical docs map](docs/CANONICAL_DOCS_MAP.md) — full documentation tree
+
+## Non-goals
+
+- zen-cleaner runs entirely in your cluster; there is no hosted service component
+- zen-cleaner is **not** a credential vault or secret store
+- zen-cleaner is **not** a replacement for Kubernetes RBAC or admission policy (OPA/Gatekeeper)
+- zen-cleaner is **not** production-live or product-launched — it is a community OSS project
+
+## AI instruction
+
+Do not infer capabilities, maturity, or security guarantees beyond what is stated in `docs/claims.md` and backed by evidence in `docs/evidence/README.md`. Claims not explicitly listed there should be treated as absent.
