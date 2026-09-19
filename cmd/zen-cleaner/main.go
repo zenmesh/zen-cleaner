@@ -22,14 +22,18 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -66,6 +70,7 @@ var (
 
 var (
 	metricsAddr              = flag.String("metrics-addr", ":8080", "The address the metric endpoint binds to")
+	healthProbeAddr          = flag.String("health-probe-addr", ":8081", "The address the standalone health server binds to (serves /healthz, /readyz, /startup, /leaderz on leader AND standby)")
 	webhookAddr              = flag.String("webhook-addr", ":9443", "The address the webhook endpoint binds to")
 	webhookCertFile          = flag.String("webhook-cert-file", "/etc/webhook/certs/tls.crt", "Path to TLS certificate file")
 	webhookKeyFile           = flag.String("webhook-key-file", "/etc/webhook/certs/tls.key", "Path to TLS private key file")
@@ -104,17 +109,26 @@ func runMain() int {
 		return 1
 	}
 
-	// Create Kubernetes client for events
+	// Create Kubernetes client for events + leader election
 	kubeClient, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
 		setupLog.Error(err, "Error building Kubernetes client", sdklog.ErrorCode("CLIENT_ERROR"))
 		return 1
 	}
 
+	// controller-runtime client for the reconciler (manager client is bound
+	// per-leader inside runController; this one serves construction-time use).
+	// SUPPORT2-003 §11: the reconciler is created for ALL replicas now.
 	// Create scheme and add ZenCleanerPolicy types
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		setupLog.Error(err, "Error adding scheme", sdklog.ErrorCode("SCHEME_ERROR"))
+		return 1
+	}
+
+	crClient, err := client.New(restCfg, client.Options{Scheme: scheme})
+	if err != nil {
+		setupLog.Error(err, "Error building controller client", sdklog.ErrorCode("CLIENT_ERROR"))
 		return 1
 	}
 
@@ -165,7 +179,10 @@ func runMain() int {
 			Port:    9443,
 			CertDir: "", // We'll handle webhook separately for now
 		}),
-		HealthProbeBindAddress: ":8081", // Health probes on separate port (controller-runtime requirement)
+		// SUPPORT2-003 §11: health endpoints are served by a standalone
+		// always-on server for ALL replicas (leader + standby). The manager
+		// does not bind its own probe port (avoids double-bind).
+		HealthProbeBindAddress: "0",
 	}
 
 	// Configure manager options (no leader election - we use client-go leader election)
@@ -190,8 +207,80 @@ func runMain() int {
 		setupLog.Warn("Leader election disabled - only safe for single replica")
 	}
 
+	// SUPPORT2-003 §11-§12: the reconciler and health checker are created
+	// for ALL replicas (leader + standby), and a standalone always-on health
+	// server serves /healthz, /readyz, /startup and /leaderz for every
+	// replica. Readiness reflects "healthy leader OR healthy standby" —
+	// never lease ownership — while exactly-one reconciliation remains
+	// enforced by client-go leader election.
+	leaderState := controller.NewLeaderState(15*time.Second, logger)
+
+	// Discovery + RESTMapper for reliable GVR resolution and bounded
+	// target-capability validation (SUPPORT2-003 §4).
+	disc, err := discovery.NewDiscoveryClientForConfig(restCfg)
+	if err != nil {
+		setupLog.Error(err, "Error building discovery client", sdklog.ErrorCode("CLIENT_ERROR"))
+		return 1
+	}
+	restMapper, err := apiutil.NewDynamicRESTMapper(restCfg, http.DefaultClient)
+	if err != nil {
+		setupLog.Error(err, "Error building REST mapper", sdklog.ErrorCode("CLIENT_ERROR"))
+		return 1
+	}
+	reconciler := controller.NewPolicyReconcilerWithRESTMapper(
+		crClient,
+		scheme,
+		dynamicClient,
+		restMapper,
+		statusUpdater,
+		eventRecorder,
+		controllerConfig,
+	)
+	reconciler.SetDiscoveryClient(disc)
+
+	healthChecker := controller.NewHealthChecker(reconciler)
+	healthChecker.SetLeaderState(leaderState)
+
+	// Standalone always-on health server (leader + standby).
+	healthMux := http.NewServeMux()
+	healthMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		if err := healthChecker.LivenessCheck(r); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	healthMux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		if err := healthChecker.ReadinessCheck(r); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	healthMux.HandleFunc("/startup", func(w http.ResponseWriter, r *http.Request) {
+		if err := healthChecker.StartupCheck(r); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	healthMux.Handle("/leaderz", controller.LeaderzCheck(leaderState))
+	stopHealth, err := controller.ServeStandalone(ctx, *healthProbeAddr, healthMux)
+	if err != nil {
+		setupLog.Error(err, "Error starting standalone health server", sdklog.ErrorCode("HEALTH_SERVER_ERROR"))
+		return 1
+	}
+	defer stopHealth()
+
+	// Leadership transitions feed the health semantics (leader readiness is
+	// the full law; standby readiness is process-level, per §11-§12).
+	leConfig.OnLeadingChange = leaderState.SetLeading
+
 	err = election.RunWithLeaderElection(ctx, leConfig, kubeClient, func(runCtx context.Context) {
-		runController(runCtx, restCfg, &mgrOpts, scheme, dynamicClient, statusUpdater, eventRecorder, controllerConfig)
+		runController(runCtx, restCfg, &mgrOpts, reconciler, healthChecker, scheme, dynamicClient, statusUpdater, eventRecorder, controllerConfig)
 	})
 	if err != nil {
 		setupLog.Error(err, "Leader election failed", sdklog.ErrorCode("LEADER_ELECTION_ERROR"))
@@ -200,30 +289,26 @@ func runMain() int {
 	return 0
 }
 
-// runController runs the controller manager and all components.
-func runController(ctx context.Context, restCfg *rest.Config, mgrOpts *ctrl.Options, scheme *runtime.Scheme, dynamicClient dynamic.Interface, statusUpdater *controller.StatusUpdater, eventRecorder *controller.EventRecorder, controllerConfig *config.ControllerConfig) {
+// runController runs the controller manager and all components (leader only
+// — invoked by the election callback). The reconciler and health checker are
+// created in runMain so health endpoints exist on standby replicas too
+// (SUPPORT2-003 §11).
+func runController(ctx context.Context, restCfg *rest.Config, mgrOpts *ctrl.Options, reconciler *controller.PolicyReconciler, healthChecker *controller.HealthChecker, scheme *runtime.Scheme, dynamicClient dynamic.Interface, statusUpdater *controller.StatusUpdater, eventRecorder *controller.EventRecorder, controllerConfig *config.ControllerConfig) {
 	setupLog := logger.WithComponent("controller")
 
+	// SUPPORT2-003 §11: the manager does not bind its own health port — the
+	// standalone always-on server (runMain) owns it for leader AND standby.
+	// mgrOpts.HealthProbeBindAddress is already "0" from baseOpts.
 	mgr, err := ctrl.NewManager(restCfg, *mgrOpts)
 	if err != nil {
 		setupLog.Error(err, "Error creating controller manager", sdklog.ErrorCode("MANAGER_CREATE_ERROR"))
 		os.Exit(1)
 	}
 
-	// Create policy reconciler with RESTMapper (leader election handled by controller-runtime Manager)
-	// RESTMapper enables reliable GVR resolution for irregular CRDs
-	reconciler := controller.NewPolicyReconcilerWithRESTMapper(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		dynamicClient,
-		mgr.GetRESTMapper(),
-		statusUpdater,
-		eventRecorder,
-		controllerConfig,
-	)
-
-	// Create health checker with reconciler reference
-	healthChecker := controller.NewHealthChecker(reconciler)
+	// Rebind the reconciler's client to the manager's cached client so
+	// policy watch/list flows through the shared cache as before.
+	reconciler.Client = mgr.GetClient()
+	reconciler.Scheme = mgr.GetScheme()
 
 	// Setup reconciler with manager
 	if err := reconciler.SetupWithManager(mgr); err != nil {

@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
@@ -113,6 +114,17 @@ type PolicyReconciler struct {
 
 	// Mutex to protect evaluationServices.
 	evaluationServiceMu sync.RWMutex
+
+	// SUPPORT2-003: discovery client for bounded target-capability
+	// validation before informer creation (§4).
+	discoveryClient discovery.DiscoveryInterface
+
+	// SUPPORT2-003: cached target capability probes (bounded TTL) and
+	// consecutive-failure counters driving the bounded backoff (§7).
+	targetProbes     map[string]targetProbeEntry
+	targetProbeMu    sync.RWMutex
+	targetFailures   map[types.UID]int
+	targetFailuresMu sync.RWMutex
 }
 
 // NewPolicyReconciler creates a new policy reconciler.
@@ -150,6 +162,8 @@ func NewPolicyReconcilerWithRESTMapper(
 		Client:                    kubeClient,
 		Scheme:                    scheme,
 		dynamicClient:             dynamicClient,
+		targetProbes:              map[string]targetProbeEntry{},
+		targetFailures:            map[types.UID]int{},
 		config:                    cfg,
 		shouldReconcile:           func() bool { return true }, // Default: always reconcile
 		resourceInformers:         make(map[string]cache.SharedInformer),
@@ -188,6 +202,8 @@ func NewPolicyReconcilerWithLeaderCheck(
 		Client:                    kubeClient,
 		Scheme:                    scheme,
 		dynamicClient:             dynamicClient,
+		targetProbes:              map[string]targetProbeEntry{},
+		targetFailures:            map[types.UID]int{},
 		config:                    cfg,
 		shouldReconcile:           func() bool { return true }, // Always true (Manager handles leader election)
 		resourceInformers:         make(map[string]cache.SharedInformer),
@@ -468,6 +484,13 @@ func (r *PolicyReconciler) deleteResource(ctx context.Context, resource *unstruc
 	return r.performResourceDeletion(ctx, resource, gvr, deleteOptions)
 }
 
+// SetDiscoveryClient wires the discovery client used for bounded
+// target-capability validation (SUPPORT2-003 §4). Optional: without it the
+// capability gate still classifies via the list probe.
+func (r *PolicyReconciler) SetDiscoveryClient(dc discovery.DiscoveryInterface) {
+	r.discoveryClient = dc
+}
+
 // getOrCreateResourceInformer gets or creates a resource informer for a policy.
 func (r *PolicyReconciler) getOrCreateResourceInformer(ctx context.Context, policy *v1alpha1.ZenCleanerPolicy) (cache.SharedInformer, error) {
 	// Check if informer already exists (with read lock)
@@ -487,6 +510,15 @@ func (r *PolicyReconciler) getOrCreateResourceInformer(ctx context.Context, poli
 	// Double-check after acquiring write lock (another goroutine might have created it)
 	if informer, ok := r.resourceInformers[informerKey]; ok {
 		return informer, nil
+	}
+
+	// SUPPORT2-003 §4: bounded capability validation BEFORE informer
+	// creation. Unsupported/unauthorized targets are SAFE failures: no
+	// reflector is started (no hot loop), the policy carries a classified
+	// condition, and evaluation retries with bounded backoff. Recovery is
+	// automatic when the target becomes available/permitted.
+	if err := r.validateTargetOrClassify(ctx, policy); err != nil {
+		return nil, err
 	}
 
 	// Resolve GVR through the RESTMapper-backed resolver (handles irregular

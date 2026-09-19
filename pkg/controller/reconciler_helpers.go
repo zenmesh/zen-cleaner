@@ -18,10 +18,11 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -68,7 +69,22 @@ func (r *PolicyReconciler) handlePausedPolicy() (ctrl.Result, error) {
 }
 
 // handleEvaluationError handles errors during policy evaluation.
+// SUPPORT2-003 §7: classified target-capability failures requeue with
+// BOUNDED exponential backoff (30s doubling, capped at 10m) — no hot loop,
+// no informer recreation storm, no leader churn. Other errors keep the
+// fixed 30s requeue.
 func (r *PolicyReconciler) handleEvaluationError(err error, policy *v1alpha1.ZenCleanerPolicy) (ctrl.Result, error) {
+	var tcErr *TargetCapabilityError
+	if errors.As(err, &tcErr) {
+		count := r.targetFailureCount(policy.UID)
+		delay := TargetBackoffFor(count)
+		r.logger.Warn("Target capability validation failed; bounded backoff",
+			sdklog.Operation("evaluate_policy"),
+			sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+			sdklog.String("target_class", string(tcErr.Type)),
+			sdklog.String("retry_in", delay.String()))
+		return ctrl.Result{RequeueAfter: delay}, nil
+	}
 	cleanerErr := cleanererrors.WithPolicy(err, policy.Namespace, policy.Name)
 	if cleanerErr.Type == "" {
 		cleanerErr.Type = ErrorTypeEvaluationFailed
@@ -120,7 +136,7 @@ func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource
 		err = r.dynamicClient.Resource(gvr).Namespace(namespace).Delete(ctx, resource.GetName(), *deleteOptions)
 	}
 
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 

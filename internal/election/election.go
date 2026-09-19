@@ -44,6 +44,10 @@ type Config struct {
 	RetryPeriod   time.Duration
 	Enable        bool
 	GetIdentity   func() string
+
+	// OnLeadingChange is invoked on leadership transitions (SUPPORT2-003
+	// §11: feeds the leadership-aware health server). Optional.
+	OnLeadingChange func(leading bool)
 }
 
 // LeaderElector is implemented by types that run leader election until cancel.
@@ -194,10 +198,16 @@ func RunWithLeaderElection(ctx context.Context, cfg *Config, client kubernetes.I
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
 				klog.InfoS("Started leading", "electionID", cfg.ElectionID)
+				if cfg.OnLeadingChange != nil {
+					cfg.OnLeadingChange(true)
+				}
 				runFn(ctx)
 			},
 			OnStoppedLeading: func() {
 				klog.InfoS("Stopped leading, shutting down")
+				if cfg.OnLeadingChange != nil {
+					cfg.OnLeadingChange(false)
+				}
 			},
 			OnNewLeader: func(id string) {
 				if id != identity() {

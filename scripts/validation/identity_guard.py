@@ -50,8 +50,11 @@ LEGACY_PATTERNS = [
 ]
 
 # Narrowly classified exceptions: (path substring, allowed pattern).
-# Currently empty — every legacy hit in a product-owned file is a failure.
-ALLOWLIST = []
+# The guard itself must contain legacy needles to detect them — scanning its
+# own source is a narrowly classified self-scan exception.
+ALLOWLIST = [
+    ("scripts/validation/identity_guard.py", "*"),
+]
 
 # ── 2. Canonical new identity assertions ────────────────────────────────────
 NEW_ID = [

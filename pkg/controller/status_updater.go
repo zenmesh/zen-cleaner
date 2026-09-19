@@ -168,3 +168,72 @@ func (s *StatusUpdater) UpdateStatus(
 
 	return nil
 }
+
+// UpdateTargetCondition merges a single TargetReady condition into the
+// policy status without touching counters (SUPPORT2-003 §5: classified,
+// operator-visible target failures). phase=Error is set only when the
+// failure is permanent-class so transient unavailability doesn't flip the
+// policy to Error.
+func (s *StatusUpdater) UpdateTargetCondition(
+	ctx context.Context,
+	policy *v1alpha1.ZenCleanerPolicy,
+	conditionType, reason, message string, permanent bool,
+) error {
+	unstructuredPolicy, err := s.dynClient.Resource(PolicyGVR).
+		Namespace(policy.Namespace).
+		Get(ctx, policy.Name, metav1.GetOptions{})
+	if err != nil {
+		return cleanererrors.Wrap(err, "target_condition_get_failed", "failed to get ZenCleanerPolicy CRD")
+	}
+
+	nowStr := metav1.Now().Format(time.RFC3339)
+	newCondition := map[string]interface{}{
+		"type":               conditionType,
+		statusSubresourceKey: boolStatus(permanent),
+		"lastTransitionTime": nowStr,
+		"reason":             reason,
+		"message":            message,
+	}
+
+	existingStatus, ok := unstructuredPolicy.Object[statusSubresourceKey].(map[string]interface{})
+	if !ok {
+		existingStatus = map[string]interface{}{}
+	}
+	existingConditions, _ := existingStatus["conditions"].([]interface{})
+
+	// Replace same-type condition, append otherwise; cap total conditions.
+	replaced := false
+	for i, c := range existingConditions {
+		if cm, ok := c.(map[string]interface{}); ok && cm["type"] == conditionType {
+			existingConditions[i] = newCondition
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		existingConditions = append(existingConditions, newCondition)
+	}
+	if len(existingConditions) > 16 {
+		existingConditions = existingConditions[len(existingConditions)-16:]
+	}
+	existingStatus["conditions"] = existingConditions
+	if permanent {
+		existingStatus["phase"] = PolicyPhaseError
+	}
+	unstructuredPolicy.Object[statusSubresourceKey] = existingStatus
+
+	_, err = s.dynClient.Resource(PolicyGVR).
+		Namespace(policy.Namespace).
+		UpdateStatus(ctx, unstructuredPolicy, metav1.UpdateOptions{})
+	if err != nil {
+		return cleanererrors.Wrap(err, "target_condition_update_failed", "failed to update target condition")
+	}
+	return nil
+}
+
+func boolStatus(v bool) string {
+	if v {
+		return "True"
+	}
+	return "False"
+}

@@ -7,7 +7,11 @@ zen-cleaner is a Kubernetes controller that provides **declarative cleanup** for
 - Watches `ZenCleanerPolicy` CRDs and reconciles matching resources
 - Supports **four TTL modes**: fixed (`secondsAfterCreation`), field-based dynamic (`fieldPath`), mapped (`fieldPath` + `mappings`), relative (`relativeTo` + `secondsAfter`)
 - Supports **label selectors, field selectors, and conditions** (phase, labels, annotations, fields)
-- Provides **rate limiting** (per-policy token bucket) and **dry-run** mode
+- Provides **rate limiting** (per-policy token bucket) and **dry-run** mode.
+  Dry-run semantics: a dry-run policy **matches** candidate resources and
+  reports them (matched counter, events, logs say "would delete"), but the
+  **deletion counter and status only reflect real deletions** — a dry-run
+  match never counts as a deletion, and the resource is always retained
 - Emits **Prometheus metrics**, Kubernetes events, and structured logs
 - Runs **leader election** (2+ replicas; multi-node HA runtime not validated)
 - Runs **non-root** with **restricted** Pod Security Standards

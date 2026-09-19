@@ -6,6 +6,7 @@
   "language": "Go",
   "go_version": "1.26.4",
   "maturity": "alpha",
+  "dry_run_semantics": "dry-run matches candidates and reports them; deletion counters/status reflect real deletions only",
   "api_stability": "v1alpha1 (may change)",
   "ci_status": {
     "unit_tests": "passing",
@@ -44,13 +45,13 @@
     "replica_counts": "2,3",
     "kubernetes_version": "kind v1.36.1",
     "k3d_attempted": "not completed (namespace timing issue)",
-    "kind_result": "PASS — all 10 safety checks met"
+    "kind_result": "PASS \u2014 all 10 safety checks met"
   },
   "validated_environments": [
     "kind with Kubernetes v1.36.1 (PASS)",
     "k3d (K3s) with Kubernetes v1.36.2+k3s1 (PASS)",
-    "kubeadm with Kubernetes v1.36.2 (PASS — CRD/API + runtime + cleanup)",
-    "kubeadm with Kubernetes v1.34.9 (PASS — CRD/API + runtime + cleanup)"
+    "kubeadm with Kubernetes v1.36.2 (PASS \u2014 CRD/API + runtime + cleanup)",
+    "kubeadm with Kubernetes v1.34.9 (PASS \u2014 CRD/API + runtime + cleanup)"
   ],
   "validation_evidence_dir": "docs/evidence/kubernetes/v1.36/ and docs/evidence/kubernetes/v1.34/",
   "known_gaps": [

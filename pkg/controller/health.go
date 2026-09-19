@@ -39,6 +39,19 @@ type HealthChecker struct {
 
 	// Reconciler reference for checking informer sync status.
 	reconciler *PolicyReconciler
+
+	// leader tracks leadership-aware health semantics (SUPPORT2-003 §11):
+	// nil => election disabled => always "leading" (existing law applies).
+	leader *LeaderState
+}
+
+// SetLeaderState wires leadership-aware health semantics. When set:
+//   - standby: /readyz and /healthz report healthy (a healthy standby CAN
+//     serve — it just does not reconcile; client-go election enforces
+//     exactly-one);
+//   - leader: the existing informer-sync/evaluation law applies.
+func (h *HealthChecker) SetLeaderState(leader *LeaderState) {
+	h.leader = leader
 }
 
 // NewHealthChecker creates a new health checker.
@@ -79,10 +92,14 @@ func (h *HealthChecker) UpdateLastEvaluationTime() {
 }
 
 // ReadinessCheck verifies that the controller is ready to serve requests.
-// It checks:
-// 1. All resource informers are synced
-// 2. Controller has been running long enough (at least 10 seconds).
+// SUPPORT2-003 §11-§12: leadership-aware.
+//   - standby: Ready — the pod can serve as a healthy standby (it does not
+//     reconcile; leader election enforces exactly-one).
+//   - leader: all resource informers synced + started >= 10s (existing law).
 func (h *HealthChecker) ReadinessCheck(req *http.Request) error {
+	if h.leader != nil && !h.leader.IsLeading() {
+		return nil // healthy standby
+	}
 	return h.informerChecker.ReadinessCheck(req)
 }
 
@@ -92,6 +109,12 @@ func (h *HealthChecker) ReadinessCheck(req *http.Request) error {
 // 2. If no policies exist, controller is still considered alive (no work to do)
 // 3. If policies exist but haven't been evaluated, check if reconciler is processing.
 func (h *HealthChecker) LivenessCheck(req *http.Request) error {
+	// SUPPORT2-003 §11: a healthy standby is alive by definition — the
+	// evaluation-recency law applies only while leading.
+	if h.leader != nil && !h.leader.IsLeading() {
+		return nil
+	}
+
 	// Use informer checker for basic liveness
 	if err := h.informerChecker.LivenessCheck(req); err != nil {
 		return err
