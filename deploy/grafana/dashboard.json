@@ -138,12 +138,12 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum(rate(gc_deletion_duration_seconds_bucket[5m])) by (le, policy_name))",
+            "expr": "histogram_quantile(0.95, sum(rate(zen_cleaner_deletion_duration_seconds_bucket[5m])) by (le, policy_name))",
             "legendFormat": "P95 - {{policy_name}}",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.50, sum(rate(gc_deletion_duration_seconds_bucket[5m])) by (le, policy_name))",
+            "expr": "histogram_quantile(0.50, sum(rate(zen_cleaner_deletion_duration_seconds_bucket[5m])) by (le, policy_name))",
             "legendFormat": "P50 - {{policy_name}}",
             "refId": "B"
           }
@@ -165,12 +165,12 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum(rate(gc_evaluation_duration_seconds_bucket[5m])) by (le, policy_name))",
+            "expr": "histogram_quantile(0.95, sum(rate(zen_cleaner_evaluation_duration_seconds_bucket[5m])) by (le, policy_name))",
             "legendFormat": "P95 - {{policy_name}}",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.50, sum(rate(gc_evaluation_duration_seconds_bucket[5m])) by (le, policy_name))",
+            "expr": "histogram_quantile(0.50, sum(rate(zen_cleaner_evaluation_duration_seconds_bucket[5m])) by (le, policy_name))",
             "legendFormat": "P50 - {{policy_name}}",
             "refId": "B"
           }
@@ -264,12 +264,12 @@
         "gridPos": {"h": 4, "w": 6, "x": 0, "y": 36},
         "targets": [
           {
-            "expr": "gc_informers_total",
+            "expr": "zen_cleaner_informers_total",
             "legendFormat": "Informers",
             "refId": "A"
           },
           {
-            "expr": "gc_rate_limiters_total",
+            "expr": "zen_cleaner_rate_limiters_total",
             "legendFormat": "Rate Limiters",
             "refId": "B"
           }
@@ -288,7 +288,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 6, "y": 36},
         "targets": [
           {
-            "expr": "gc_leader_election_status",
+            "expr": "zen_cleaner_leader_election_status",
             "legendFormat": "Leader (1=leader, 0=follower)",
             "refId": "A"
           }
@@ -315,7 +315,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 12, "y": 36},
         "targets": [
           {
-            "expr": "gc_leader_election_transitions_total",
+            "expr": "zen_cleaner_leader_election_transitions_total",
             "legendFormat": "Transitions",
             "refId": "A"
           }

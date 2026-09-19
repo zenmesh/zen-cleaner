@@ -198,7 +198,7 @@ kubectl describe pod -n zen-cleaner-system -l app=zen-cleaner | grep -i oom
 - CPU throttling (check `container_cpu_cfs_throttled_seconds_total`)
 - Memory pressure (check `container_memory_working_set_bytes`)
 - OOMKills (pod restarts)
-- Slow policy evaluation (check `gc_evaluation_duration_seconds`)
+- Slow policy evaluation (check `zen_cleaner_evaluation_duration_seconds`)
 - High error rates (check `zen_cleaner_errors_total`)
 
 #### Vertical Pod Autoscaler (VPA) Support
@@ -257,7 +257,7 @@ Key metrics to monitor:
 - `zen_cleaner_policies_total` - Number of policies
 - `zen_cleaner_resources_deleted_total` - Deletion rate
 - `zen_cleaner_errors_total` - Error rate
-- `gc_deletion_duration_seconds` - Deletion performance
+- `zen_cleaner_deletion_duration_seconds` - Deletion performance
 
 ### Health Checks
 

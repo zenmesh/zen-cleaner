@@ -1,6 +1,6 @@
 # zen-cleaner — AI Discovery Index
 
-> Declarative Kubernetes cleanup controller. Define `ZenCleanerPolicy` objects (TTL, selectors, dry-run, rate limits) and let zen-cleaner delete matching resources safely.
+> Declarative Kubernetes cleanup controller. Define `ZenCleanerPolicy` objects (API group `cleaner.zen-mesh.io`) (TTL, selectors, dry-run, rate limits) and let zen-cleaner delete matching resources safely.
 >
 > Apache-2.0 · OSS · Go · Kubernetes controller-runtime
 

@@ -1,4 +1,4 @@
-.PHONY: build test test-unit test-integration test-e2e fmt vet lint clean deploy coverage verify ci-check security-check
+.PHONY: identity-guard build test test-unit test-integration test-e2e fmt vet lint clean deploy coverage verify ci-check security-check
 
 # Build the zen-cleaner binary (development build with basic optimizations)
 build:
@@ -179,14 +179,20 @@ check-mod:
 	fi
 	@echo "✅ go.mod check passed"
 
+# Product-identity regression guard (HELPER: legacy names must not return;
+# canonical Zen Cleaner identity must stay coherent)
+identity-guard:
+	@echo "Checking product identity..."
+	@python3 scripts/validation/identity_guard.py
+
 # Verify code compiles
-verify: check-fmt check-mod vet
+verify: check-fmt check-mod vet identity-guard
 	@echo "Verifying code compiles..."
 	go build ./...
 	@echo "✅ Code compiles successfully"
 
 # CI check (runs all checks)
-ci-check: verify lint test-unit security-check
+ci-check: verify identity-guard lint test-unit security-check
 	@echo "✅ All CI checks passed"
 
 # Clean build artifacts

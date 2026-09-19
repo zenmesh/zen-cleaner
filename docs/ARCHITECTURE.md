@@ -618,14 +618,14 @@ zen-cleaner is a community OSS project at **v0.0.1-alpha** maturity (API version
 - `zen_cleaner_policies_total` - Policies by phase (gauge)
 - `zen_cleaner_resources_matched_total` - Resources matched (counter)
 - `zen_cleaner_resources_deleted_total` - Resources deleted (counter)
-- `gc_deletion_duration_seconds` - Deletion latency (histogram)
+- `zen_cleaner_deletion_duration_seconds` - Deletion latency (histogram)
 - `zen_cleaner_errors_total` - Errors by type (counter)
-- `gc_evaluation_duration_seconds` - Evaluation latency (histogram)
-- `gc_informers_total` - Active informers (gauge)
-- `gc_rate_limiters_total` - Active rate limiters (gauge)
+- `zen_cleaner_evaluation_duration_seconds` - Evaluation latency (histogram)
+- `zen_cleaner_informers_total` - Active informers (gauge)
+- `zen_cleaner_rate_limiters_total` - Active rate limiters (gauge)
 - `zen_cleaner_resources_pending_total` - Pending deletions (gauge)
-- `gc_leader_election_status` - Leader status (gauge)
-- `gc_leader_election_transitions_total` - Transitions (counter)
+- `zen_cleaner_leader_election_status` - Leader status (gauge)
+- `zen_cleaner_leader_election_transitions_total` - Transitions (counter)
 
 See [METRICS.md](METRICS.md) for complete documentation.
 
