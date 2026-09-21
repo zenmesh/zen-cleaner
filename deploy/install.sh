@@ -23,7 +23,6 @@ if grep -rq "REPLACE_WITH\|SET_BY_INSTALLER" deploy/manifests/deployment.yaml; t
 
 kubectl create ns "$NS" --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f deploy/crds/
-kubectl apply -n "$NS" -f deploy/manifests/rbac.yaml
 
 bash deploy/gen-webhook-cert.sh
 
@@ -32,14 +31,14 @@ bash deploy/gen-webhook-cert.sh
 WEBHOOK_CA_BUNDLE="$(kubectl -n "$NS" get secret zen-cleaner-webhook-cert -o jsonpath='{.data.tls\.crt}')"
 export WEBHOOK_CA_BUNDLE
 
-kubectl apply -n "$NS" -f deploy/manifests/service.yaml
-
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-envsubst < deploy/manifests/deployment.yaml > "$TMP/deployment.yaml"
-envsubst < deploy/webhook/mutating-webhook.yaml > "$TMP/mutating-webhook.yaml"
-envsubst < deploy/webhook/validating-webhook.yaml > "$TMP/validating-webhook.yaml"
+for src in deploy/manifests/rbac.yaml deploy/manifests/service.yaml deploy/manifests/deployment.yaml deploy/webhook/mutating-webhook.yaml deploy/webhook/validating-webhook.yaml; do
+  envsubst < "$src" > "$TMP/$(basename "$src")"
+done
 if grep -rI '\${' "$TMP"; then fail "unsubstituted placeholder in rendered manifests"; fi
 
+kubectl apply -n "$NS" -f "$TMP/rbac.yaml"
+kubectl apply -n "$NS" -f "$TMP/service.yaml"
 kubectl apply -n "$NS" -f "$TMP/deployment.yaml"
 kubectl apply -f "$TMP/mutating-webhook.yaml" -f "$TMP/validating-webhook.yaml"
 
