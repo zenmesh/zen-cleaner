@@ -1,0 +1,40 @@
+{
+  "product": "Zen Cleaner", "task": "SUPPORT2_028 24h continuity receipt + freeze",
+  "source_commit": "b795c47 (UNCHANGED — evidence-only tranche; no source modification)",
+  "resident_classification": "OLDER_QUALIFIED_RESIDENT",
+  "resident": {
+    "cluster": "k3d-zen-dogfood", "namespace": "zen-cleaner",
+    "workload": "Deployment/zen-cleaner-zen-cleaner",
+    "helm_labels": {"instance": "zen-cleaner", "managed-by": "Helm", "name": "zen-cleaner"},
+    "helm_release_visible": false,
+    "deployment_generation": 1,
+    "replicaset": "zen-cleaner-zen-cleaner-55ffd86669 (created 2026-09-20T06:20:13Z)",
+    "pod_uid": "68f2ef18-ad8b-4182-a749-19e0e0474f7f",
+    "pod_created": "2026-09-20T20:44:11Z",
+    "restart_count": 1,
+    "last_termination": {"exitCode": 0, "reason": "Completed", "finishedAt": "2026-09-20T23:43:16Z"},
+    "image": "k3d-zen-dogfood-reg:5700/zenmesh/zen-cleaner@sha256:5e5c26147de5d2535139e55e4d9a0355534c7ff125085698044994e81e75dc97",
+    "image_id": "same registry digest (immutable)",
+    "ready": true
+  },
+  "residence": {
+    "start": "2026-09-20T06:20:13Z (RS creation == Scout recorded 02:20:13 EDT exactly)",
+    "observed_at": "2026-09-21T12:27:50Z",
+    "elapsed": "30h07m37s",
+    "threshold": "24h PASSED",
+    "continuity_proven": true,
+    "evidence": [
+      "generation 1 since creation (no rollout)",
+      "single ReplicaSet since 2026-09-20T06:20:13Z with identical immutable imageID",
+      "pod replacement 2026-09-20T20:44:11Z was same-generation rescheduling (same RS, same imageID) — continuity preserved",
+      "container restart 2026-09-20T23:43:16Z exit 0 (clean) — continuity preserved"
+    ]
+  },
+  "laws": {"execution_is_verification": false, "receipt_is_not_verification": true},
+  "caveats": [
+    "bounded leader-election retry logs (dial 10.43.0.1:443 connection refused, ~7s cadence) during intermittent API reachability dips — Ready maintained, holder continuous, classified CLEAN_RESTART_CAVEAT",
+    "no ZenCleanerPolicy CRs present in dogfood estate: no active deletion surface to observe (deletion laws live-proven in S027 disposable cluster)",
+    "S027 fixture poststate was on deleted disposable cluster — not assertable here; recorded honestly"
+  ],
+  "lane_status": "PARK_FEATURE_DEVELOPMENT"
+}

@@ -1,0 +1,3 @@
+{"regression_gates": {"build": "GREEN", "vet": "GREEN", "full_suite": "16 ok packages", "receipt_tests": "5/5 GREEN (-count=1)", "race_selected": "GREEN", "source_unchanged": "b795c47"},
+ "continuity_receipt": {"issued": true, "artifact": "k3d-zen-dogfood-reg:5700/zenmesh/zen-cleaner@sha256:5e5c2614...", "elapsed": "30h07m37s >= 24h", "qualification": "RESIDENCE_CONTINUITY_PROVEN with retry caveat"},
+ "freeze": "FROZEN_GOOD_CHECKPOINT (PARK_FEATURE_DEVELOPMENT)"}
