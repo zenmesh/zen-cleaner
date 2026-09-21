@@ -15,7 +15,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: zen-cleaner-webhook
-  namespace: zen-cleaner-system
+  namespace: ${WEBHOOK_NAMESPACE:-zen-cleaner-system}
 spec:
   ports:
     - port: 443
@@ -35,8 +35,9 @@ webhooks:
     clientConfig:
       service:
         name: zen-cleaner-webhook
-        namespace: zen-cleaner-system
+        namespace: ${WEBHOOK_NAMESPACE:-zen-cleaner-system}
         path: "/validate-cleanup-policy"
+      caBundle: ${WEBHOOK_CA_BUNDLE:-}
     rules:
       - apiGroups: ["cleaner.zen-mesh.io"]
         apiVersions: ["v1alpha1"]

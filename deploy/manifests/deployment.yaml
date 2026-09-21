@@ -15,7 +15,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: zen-cleaner
-  namespace: zen-cleaner-system
+  namespace: ${WEBHOOK_NAMESPACE:-zen-cleaner-system}
   labels:
     app: zen-cleaner
 spec:
@@ -37,7 +37,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: zen-cleaner
-          image: ghcr.io/zenmesh/zen-cleaner:0.0.1-alpha
+          image: ${CLEANER_IMAGE}
           imagePullPolicy: IfNotPresent
           args:
             - --metrics-addr=:8080
