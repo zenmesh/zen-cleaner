@@ -3,7 +3,15 @@ package controller
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
+
+// served registers custom metrics with the registry actually exported by
+// the manager's metrics endpoint. promauto's default (the global
+// prometheus.DefaultRegisterer) is invisible to that endpoint, which left
+// every documented zen_cleaner_* metric absent from :8080/metrics
+// (SUPPORT2-032R).
+var served = promauto.With(metrics.Registry)
 
 const (
 	labelPhase              = "phase"
@@ -17,7 +25,7 @@ const (
 
 var (
 	// CleanerPoliciesTotal is a gauge that tracks the total number of GC policies by phase.
-	gcPoliciesTotal = promauto.NewGaugeVec(
+	gcPoliciesTotal = served.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "zen_cleaner_policies_total",
 			Help: "Total number of cleanup policies",
@@ -26,7 +34,7 @@ var (
 	)
 
 	// CleanerResourcesMatchedTotal is a counter that tracks the total number of resources matched by GC policies.
-	gcResourcesMatchedTotal = promauto.NewCounterVec(
+	gcResourcesMatchedTotal = served.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "zen_cleaner_resources_matched_total",
 			Help: "Total number of resources matched by cleanup policies",
@@ -35,7 +43,7 @@ var (
 	)
 
 	// CleanerResourcesDeletedTotal is a counter that tracks the total number of resources deleted by GC.
-	gcResourcesDeletedTotal = promauto.NewCounterVec(
+	gcResourcesDeletedTotal = served.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "zen_cleaner_resources_deleted_total",
 			Help: "Total number of resources deleted by cleanup",
@@ -44,7 +52,7 @@ var (
 	)
 
 	// CleanerDeletionDurationSeconds is a histogram that tracks the time taken to delete resources.
-	gcDeletionDurationSeconds = promauto.NewHistogramVec(
+	gcDeletionDurationSeconds = served.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "zen_cleaner_deletion_duration_seconds",
 			Help:    "Time taken to delete resources",
@@ -54,7 +62,7 @@ var (
 	)
 
 	// CleanerErrorsTotal is a counter that tracks the total number of GC errors.
-	cleanerErrorsTotal = promauto.NewCounterVec(
+	cleanerErrorsTotal = served.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "zen_cleaner_errors_total",
 			Help: "Total number of cleanup errors",
@@ -63,7 +71,7 @@ var (
 	)
 
 	// CleanerEvaluationDurationSeconds is a histogram that tracks the time taken to evaluate policies.
-	gcEvaluationDurationSeconds = promauto.NewHistogramVec(
+	gcEvaluationDurationSeconds = served.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "zen_cleaner_evaluation_duration_seconds",
 			Help:    "Time taken to evaluate cleanup policies",
@@ -73,7 +81,7 @@ var (
 	)
 
 	// CleanerInformersTotal is a gauge that tracks the total number of active resource informers.
-	gcInformersTotal = promauto.NewGauge(
+	gcInformersTotal = served.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "zen_cleaner_informers_total",
 			Help: "Total number of active resource informers",
@@ -81,7 +89,7 @@ var (
 	)
 
 	// CleanerRateLimitersTotal is a gauge that tracks the total number of active rate limiters.
-	gcRateLimitersTotal = promauto.NewGauge(
+	gcRateLimitersTotal = served.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "zen_cleaner_rate_limiters_total",
 			Help: "Total number of active rate limiters",
@@ -89,7 +97,7 @@ var (
 	)
 
 	// GcResourcesPendingTotal is a gauge that tracks the number of resources pending deletion.
-	gcResourcesPendingTotal = promauto.NewGaugeVec(
+	gcResourcesPendingTotal = served.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "zen_cleaner_resources_pending_total",
 			Help: "Number of resources pending deletion (matched but TTL not expired)",
@@ -98,7 +106,7 @@ var (
 	)
 
 	// CleanerLeaderElectionStatus is a gauge that tracks leader election status (1 = leader, 0 = follower).
-	gcLeaderElectionStatus = promauto.NewGauge(
+	gcLeaderElectionStatus = served.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "zen_cleaner_leader_election_status",
 			Help: "Leader election status (1 if this instance is the leader, 0 otherwise)",
@@ -106,7 +114,7 @@ var (
 	)
 
 	// CleanerLeaderElectionTransitionsTotal is a counter that tracks the number of leader election transitions.
-	gcLeaderElectionTransitionsTotal = promauto.NewCounter(
+	gcLeaderElectionTransitionsTotal = served.NewCounter(
 		prometheus.CounterOpts{
 			Name: "zen_cleaner_leader_election_transitions_total",
 			Help: "Total number of leader election transitions (becoming leader or losing leadership)",
