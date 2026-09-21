@@ -279,6 +279,12 @@ func runMain() int {
 	// the full law; standby readiness is process-level, per §11-§12).
 	leConfig.OnLeadingChange = leaderState.SetLeading
 
+	// SUPPORT2-032R: admission is stateless and the webhook Service routes
+	// to every ready replica, so every replica serves the webhook — not
+	// only the leader (a leader-only webhook 502s whenever the apiserver's
+	// dial lands on the standby under failurePolicy=Fail).
+	startWebhookServer(ctx)
+
 	err = election.RunWithLeaderElection(ctx, leConfig, kubeClient, func(runCtx context.Context) {
 		runController(runCtx, restCfg, &mgrOpts, reconciler, healthChecker, scheme, dynamicClient, statusUpdater, eventRecorder, controllerConfig)
 	})
@@ -287,6 +293,50 @@ func runMain() int {
 		return 1
 	}
 	return 0
+}
+
+// startWebhookServer starts the admission webhook server on this replica
+// (invoked for ALL replicas, before leader election). TLS is required
+// unless --insecure-webhook is explicitly set (testing only).
+func startWebhookServer(ctx context.Context) {
+	if !*enableWebhook {
+		return
+	}
+	webhookServer, err := gcwebhook.NewWebhookServer(*webhookAddr, *webhookCertFile, *webhookKeyFile)
+	if err != nil {
+		setupLog.Error(err, "Error creating webhook server", sdklog.ErrorCode("WEBHOOK_CREATE_ERROR"))
+		os.Exit(1)
+	}
+
+	certExists := false
+	keyExists := false
+	if _, err := os.Stat(*webhookCertFile); err == nil {
+		certExists = true
+	}
+	if _, err := os.Stat(*webhookKeyFile); err == nil {
+		keyExists = true
+	}
+
+	if !certExists || !keyExists {
+		if !*insecureWebhook {
+			setupLog.Error(fmt.Errorf("%w (cert: %s, key: %s). TLS is required for production. Use --insecure-webhook flag only for testing", ErrWebhookTLSCertificatesMissing, *webhookCertFile, *webhookKeyFile), "TLS certificates missing", sdklog.ErrorCode("TLS_CERT_MISSING"))
+			os.Exit(1)
+		}
+		setupLog.Warn("Webhook starting without TLS (insecure mode) - NOT RECOMMENDED FOR PRODUCTION", sdklog.Component("webhook"))
+		go func() {
+			if err := webhookServer.Start(ctx); err != nil {
+				setupLog.Error(err, "Error starting webhook server", sdklog.ErrorCode("WEBHOOK_START_ERROR"))
+			}
+		}()
+		return
+	}
+
+	go func() {
+		if err := webhookServer.StartTLS(ctx, *webhookCertFile, *webhookKeyFile); err != nil {
+			setupLog.Error(err, "Error starting webhook server", sdklog.ErrorCode("WEBHOOK_START_ERROR"))
+		}
+	}()
+	setupLog.Info("Webhook server starting with TLS", sdklog.String("address", *webhookAddr), sdklog.Component("webhook"))
 }
 
 // runController runs the controller manager and all components (leader only
@@ -337,66 +387,11 @@ func runController(ctx context.Context, restCfg *rest.Config, mgrOpts *ctrl.Opti
 	}
 
 	// Start webhook server if enabled (separate from controller-runtime webhook server)
-	var webhookServer *gcwebhook.WebhookServer
-	if *enableWebhook {
-		var err error
-		webhookServer, err = gcwebhook.NewWebhookServer(*webhookAddr, *webhookCertFile, *webhookKeyFile)
-		if err != nil {
-			setupLog.Error(err, "Error creating webhook server", sdklog.ErrorCode("WEBHOOK_CREATE_ERROR"))
-			os.Exit(1)
-		}
-
-		// Check if TLS files exist
-		certExists := false
-		keyExists := false
-		if _, err := os.Stat(*webhookCertFile); err == nil {
-			certExists = true
-		}
-		if _, err := os.Stat(*webhookKeyFile); err == nil {
-			keyExists = true
-		}
-
-		// TLS files missing - check if insecure mode is allowed (before creating context)
-		if !certExists || !keyExists {
-			if !*insecureWebhook {
-				setupLog.Error(fmt.Errorf("%w (cert: %s, key: %s). TLS is required for production. Use --insecure-webhook flag only for testing", ErrWebhookTLSCertificatesMissing, *webhookCertFile, *webhookKeyFile), "TLS certificates missing", sdklog.ErrorCode("TLS_CERT_MISSING"))
-				os.Exit(1)
-			}
-		}
-	}
-
-	// Graceful shutdown is handled by election context
-	// The election.RunWithLeaderElection provides the context that cancels on SIGINT/SIGTERM
-
-	// Start webhook server if enabled (now that context is created)
-	if *enableWebhook {
-		// Check if TLS files exist (already checked above, but need to check again for the actual start)
-		certExists := false
-		keyExists := false
-		if _, err := os.Stat(*webhookCertFile); err == nil {
-			certExists = true
-		}
-		if _, err := os.Stat(*webhookKeyFile); err == nil {
-			keyExists = true
-		}
-
-		if certExists && keyExists {
-			// TLS files exist, start with TLS
-			go func() {
-				if err := webhookServer.StartTLS(ctx, *webhookCertFile, *webhookKeyFile); err != nil {
-					setupLog.Error(err, "Error starting webhook server", sdklog.ErrorCode("WEBHOOK_START_ERROR"))
-				}
-			}()
-			setupLog.Info("Webhook server starting with TLS", sdklog.String("address", *webhookAddr), sdklog.Component("webhook"))
-		} else {
-			setupLog.Warn("Webhook starting without TLS (insecure mode) - NOT RECOMMENDED FOR PRODUCTION", sdklog.Component("webhook"))
-			go func() {
-				if err := webhookServer.Start(ctx); err != nil {
-					setupLog.Error(err, "Error starting webhook server", sdklog.ErrorCode("WEBHOOK_START_ERROR"))
-				}
-			}()
-		}
-	}
+	// SUPPORT2-032R: the admission webhook is started in runMain for ALL
+	// replicas (leader and standby) — see startWebhookServer. Inside the
+	// leader-only callback the webhook Service routed admission dials to
+	// the standby too, which serves nothing on :9443, so roughly half of
+	// all admissions failed with 502 under failurePolicy=Fail.
 
 	// Start the manager (this blocks until context is canceled)
 	// mgr.Start() errors are typically non-fatal (e.g., context canceled on shutdown)
