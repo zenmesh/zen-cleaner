@@ -22,9 +22,9 @@ webhooks:
     clientConfig:
       service:
         name: zen-cleaner-webhook
-        namespace: ${WEBHOOK_NAMESPACE:-zen-cleaner-system}
+        namespace: ${WEBHOOK_NAMESPACE}
         path: "/mutate-cleanup-policy"
-      caBundle: ${WEBHOOK_CA_BUNDLE:-}
+      caBundle: ${WEBHOOK_CA_BUNDLE}
     rules:
       - apiGroups: ["cleaner.zen-mesh.io"]
         apiVersions: ["v1alpha1"]
