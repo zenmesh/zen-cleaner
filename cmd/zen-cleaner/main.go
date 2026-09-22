@@ -283,7 +283,7 @@ func runMain() int {
 	// to every ready replica, so every replica serves the webhook — not
 	// only the leader (a leader-only webhook 502s whenever the apiserver's
 	// dial lands on the standby under failurePolicy=Fail).
-	startWebhookServer(ctx)
+	startWebhookServer(ctx, gcwebhook.NewPolicyTargetGate(controllerConfig))
 
 	err = election.RunWithLeaderElection(ctx, leConfig, kubeClient, func(runCtx context.Context) {
 		runController(runCtx, restCfg, &mgrOpts, reconciler, healthChecker, scheme, dynamicClient, statusUpdater, eventRecorder, controllerConfig)
@@ -298,7 +298,7 @@ func runMain() int {
 // startWebhookServer starts the admission webhook server on this replica
 // (invoked for ALL replicas, before leader election). TLS is required
 // unless --insecure-webhook is explicitly set (testing only).
-func startWebhookServer(ctx context.Context) {
+func startWebhookServer(ctx context.Context, targetGate gcwebhook.TargetGate) {
 	if !*enableWebhook {
 		return
 	}
@@ -307,6 +307,7 @@ func startWebhookServer(ctx context.Context) {
 		setupLog.Error(err, "Error creating webhook server", sdklog.ErrorCode("WEBHOOK_CREATE_ERROR"))
 		os.Exit(1)
 	}
+	webhookServer.SetTargetGate(targetGate)
 
 	certExists := false
 	keyExists := false

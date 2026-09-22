@@ -16,193 +16,198 @@ kind: CustomResourceDefinition
 metadata:
   name: zencleanerpolicies.cleaner.zen-mesh.io
   annotations:
-    api-approved.kubernetes.io: "unapproved, experimental-only"
+    api-approved.kubernetes.io: unapproved, experimental-only
 spec:
   group: cleaner.zen-mesh.io
   versions:
-    - name: v1alpha1
-      served: true
-      storage: true
-      schema:
-        openAPIV3Schema:
-          type: object
-          properties:
-            spec:
-              type: object
-              required:
-                - targetResource
-                - ttl
-              properties:
-                targetResource:
-                  type: object
-                  required:
-                    - apiVersion
-                    - kind
-                  properties:
-                    apiVersion:
-                      type: string
-                    kind:
-                      type: string
-                    namespace:
-                      type: string
-                    labelSelector:
-                      type: object
-                      properties:
-                        matchLabels:
-                          type: object
-                          additionalProperties:
-                            type: string
-                        matchExpressions:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              key:
-                                type: string
-                              operator:
-                                type: string
-                              values:
-                                type: array
-                                items:
-                                  type: string
-                    fieldSelector:
-                      type: object
-                      properties:
-                        matchFields:
-                          type: object
-                          additionalProperties:
-                            type: string
-                ttl:
-                  type: object
-                  properties:
-                    secondsAfterCreation:
-                      type: integer
-                    fieldPath:
-                      type: string
-                    mappings:
-                      type: object
-                      additionalProperties:
-                        type: integer
-                    default:
-                      type: integer
-                    relativeTo:
-                      type: string
-                    secondsAfter:
-                      type: integer
-                conditions:
-                  type: object
-                  properties:
-                    phase:
-                      type: array
-                      items:
-                        type: string
-                    hasLabels:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          key:
-                            type: string
-                          value:
-                            type: string
-                          operator:
-                            type: string
-                    hasAnnotations:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          key:
-                            type: string
-                          value:
-                            type: string
-                    and:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          fieldPath:
-                            type: string
-                          operator:
-                            type: string
-                          value:
-                            type: string
-                          values:
-                            type: array
-                            items:
-                              type: string
-                behavior:
-                  type: object
-                  properties:
-                    maxDeletionsPerSecond:
-                      type: integer
-                    batchSize:
-                      type: integer
-                    dryRun:
-                      type: boolean
-                    finalizer:
-                      type: string
-                    propagationPolicy:
-                      type: string
-                      enum:
-                        - Foreground
-                        - Background
-                        - Orphan
-                    gracePeriodSeconds:
-                      type: integer
-                    allowWorkloadDeletion:
-                      type: boolean
-                      description: >-
-                        Explicit opt-in required before workload kinds (Pod,
-                        Job, CronJob) may be deleted. Pods are only deletable
-                        in a terminal phase even with this opt-in.
-            status:
-              type: object
-              properties:
-                phase:
-                  type: string
-                resourcesMatched:
-                  type: integer
-                resourcesDeleted:
-                  type: integer
-                resourcesPending:
-                  type: integer
-                lastCycleRefusals:
-                  type: object
-                  additionalProperties:
-                    type: integer
-                  description: >-
-                    Bounded refusal reason classes from the most recent
-                    evaluation cycle.
-                lastGCRun:
-                  type: string
-                  format: date-time
-                nextGCRun:
-                  type: string
-                  format: date-time
-                conditions:
-                  type: array
-                  items:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required:
+            - targetResource
+            - ttl
+            properties:
+              targetResource:
+                type: object
+                required:
+                - apiVersion
+                - kind
+                properties:
+                  apiVersion:
+                    type: string
+                  kind:
+                    type: string
+                  namespace:
+                    type: string
+                  labelSelector:
                     type: object
                     properties:
-                      type:
-                        type: string
-                      status:
-                        type: string
-                      lastTransitionTime:
-                        type: string
-                        format: date-time
-                      reason:
-                        type: string
-                      message:
-                        type: string
-      subresources:
-        status: {}
+                      matchLabels:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      matchExpressions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            key:
+                              type: string
+                            operator:
+                              type: string
+                            values:
+                              type: array
+                              items:
+                                type: string
+                  fieldSelector:
+                    type: object
+                    properties:
+                      matchFields:
+                        type: object
+                        additionalProperties:
+                          type: string
+              ttl:
+                type: object
+                properties:
+                  secondsAfterCreation:
+                    type: integer
+                  fieldPath:
+                    type: string
+                  mappings:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  default:
+                    type: integer
+                  relativeTo:
+                    type: string
+                  secondsAfter:
+                    type: integer
+              conditions:
+                type: object
+                properties:
+                  phase:
+                    type: array
+                    items:
+                      type: string
+                  hasLabels:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                        value:
+                          type: string
+                        operator:
+                          type: string
+                  hasAnnotations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                        value:
+                          type: string
+                  and:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        fieldPath:
+                          type: string
+                        operator:
+                          type: string
+                        value:
+                          type: string
+                        values:
+                          type: array
+                          items:
+                            type: string
+              behavior:
+                type: object
+                properties:
+                  maxDeletionsPerSecond:
+                    type: integer
+                  batchSize:
+                    type: integer
+                  dryRun:
+                    type: boolean
+                  finalizer:
+                    type: string
+                  propagationPolicy:
+                    type: string
+                    enum:
+                    - Foreground
+                    - Background
+                    - Orphan
+                  gracePeriodSeconds:
+                    type: integer
+                  allowWorkloadDeletion:
+                    type: boolean
+                    description: Explicit opt-in required before workload kinds (Pod,
+                      Job, CronJob) may be deleted. Pods are only deletable in a terminal
+                      phase even with this opt-in.
+              paused:
+                type: boolean
+                description: Pause all cleanup for this policy without deleting it.
+              evaluationInterval:
+                type: string
+                description: Per-policy evaluation cadence (Go duration string, e.g.
+                  30s, 2m).
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+              resourcesMatched:
+                type: integer
+              resourcesDeleted:
+                type: integer
+              resourcesPending:
+                type: integer
+              lastCycleRefusals:
+                type: object
+                additionalProperties:
+                  type: integer
+                description: Bounded refusal reason classes from the most recent evaluation
+                  cycle.
+              lastGCRun:
+                type: string
+                format: date-time
+              nextGCRun:
+                type: string
+                format: date-time
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string
+    subresources:
+      status: {}
   scope: Namespaced
   names:
     plural: zencleanerpolicies
     singular: zencleanerpolicy
     kind: ZenCleanerPolicy
     shortNames:
-      - zcp
-      - zencleanerpolicy
+    - zcp
+    - zencleanerpolicy

@@ -32,6 +32,8 @@ import (
 
 	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
+	"github.com/zenmesh/zen-cleaner/pkg/config"
+	"github.com/zenmesh/zen-cleaner/pkg/safety"
 	"github.com/zenmesh/zen-cleaner/pkg/validation"
 )
 
@@ -55,6 +57,24 @@ func init() {
 //nolint:revive // Renaming would be a breaking change
 type WebhookServer struct {
 	server *http.Server
+
+	// gate optionally enforces the policy-target safety laws (protected
+	// namespaces incl. the controller's own, hard-protected kinds) at
+	// admission time, in addition to reconcile-time enforcement
+	// (SUPPORT2-033 §2/§9).
+	gate TargetGate
+}
+
+// TargetGate is the admission-time subset of the safety gate.
+type TargetGate interface {
+	EvaluatePolicyTarget(target v1alpha1.TargetResourceSpec) (allowed bool, reason string)
+}
+
+// SetTargetGate wires the safety gate. Optional: without it admission still
+// runs the full spec validation, and the reconcile loop enforces the same
+// target laws fail-closed.
+func (ws *WebhookServer) SetTargetGate(gate TargetGate) {
+	ws.gate = gate
 }
 
 // NewServer creates a new webhook server.
@@ -209,6 +229,16 @@ func (ws *WebhookServer) validatePolicy(req *admissionv1.AdmissionRequest) error
 		return fmt.Errorf("policy validation failed: %w", err)
 	}
 
+	// SUPPORT2-033 §2: admission-time enforcement of the policy-target
+	// safety laws (protected namespaces incl. the controller's own,
+	// hard-protected kinds). Reconcile-time enforcement remains as the
+	// fail-closed backstop for policies created while the webhook is down.
+	if ws.gate != nil {
+		if _, refusal := ws.gate.EvaluatePolicyTarget(policyObj.Spec.TargetResource); refusal != "" {
+			return fmt.Errorf("policy target refused by safety law: %s", refusal)
+		}
+	}
+
 	return nil
 }
 
@@ -357,4 +387,14 @@ func (ws *WebhookServer) mutatePolicy(req *admissionv1.AdmissionRequest) ([]map[
 	// the operator must state the scope explicitly).
 
 	return patches, nil
+}
+
+// NewPolicyTargetGate builds the admission-time target gate from the
+// controller configuration (SUPPORT2-033 §2): the built-in protected
+// namespaces plus the controller's own namespace.
+func NewPolicyTargetGate(cfg *config.ControllerConfig) TargetGate {
+	return safety.NewGate(safety.Config{
+		ProtectedNamespaces: cfg.ProtectedNamespaces,
+		OwnNamespace:        cfg.OwnNamespace,
+	})
 }
