@@ -39,6 +39,12 @@ spec:
         - name: zen-cleaner
           image: ${CLEANER_IMAGE}
           imagePullPolicy: IfNotPresent
+          # SUPPORT2-033 §14: hardened container context.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
           args:
             - --metrics-addr=:8080
             - --webhook-addr=:9443

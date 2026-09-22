@@ -1,0 +1,13 @@
+# SUPPORT2-033 §14: PodDisruptionBudget for the 2-replica HA deployment.
+# minAvailable=1 keeps one authoritative actor available across voluntary
+# disruptions while leader election guarantees exactly-one reconciler.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: zen-cleaner
+  namespace: ${WEBHOOK_NAMESPACE}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: zen-cleaner

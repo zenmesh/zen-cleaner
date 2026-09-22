@@ -41,7 +41,11 @@ rules:
       - get
       - update
       - patch
-  # Read and delete any resource (for cleanup operations)
+  # Cleanup operations on policy-selected target resources. The wildcard is
+  # the product contract: operators choose arbitrary target kinds. Verbs are
+  # exactly read+delete — the controller never creates, updates, patches, or
+  # delete-collections targets. Safety law (pkg/safety) refines this at
+  # runtime: protected namespaces/kinds, exclusion labels, UID preconditions.
   - apiGroups:
       - "*"
     resources:

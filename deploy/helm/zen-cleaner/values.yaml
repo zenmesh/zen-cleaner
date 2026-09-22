@@ -41,5 +41,6 @@ probes:
     periodSeconds: 15
 
 podDisruptionBudget:
-  enabled: false
+  # SUPPORT2-033 §14: applies only when replicas > 1.
+  enabled: true
   minAvailable: 1

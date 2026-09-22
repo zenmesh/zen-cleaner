@@ -26,6 +26,12 @@ spec:
           image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # SUPPORT2-033 §14: hardened container context.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
           args:
             - "--metrics-addr=:8080"
             - "--enable-webhook=false"
@@ -53,7 +59,7 @@ spec:
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-{{- if .Values.podDisruptionBudget.enabled }}
+{{- if and .Values.podDisruptionBudget.enabled (gt (int .Values.replicas) 1) }}
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget

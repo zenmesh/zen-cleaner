@@ -32,7 +32,7 @@ WEBHOOK_CA_BUNDLE="$(kubectl -n "$NS" get secret zen-cleaner-webhook-cert -o jso
 export WEBHOOK_CA_BUNDLE
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-for src in deploy/manifests/rbac.yaml deploy/manifests/service.yaml deploy/manifests/deployment.yaml deploy/webhook/mutating-webhook.yaml deploy/webhook/validating-webhook.yaml; do
+for src in deploy/manifests/rbac.yaml deploy/manifests/service.yaml deploy/manifests/pdb.yaml deploy/manifests/deployment.yaml deploy/webhook/mutating-webhook.yaml deploy/webhook/validating-webhook.yaml; do
   envsubst < "$src" > "$TMP/$(basename "$src")"
 done
 if grep -rI '\${' "$TMP"; then fail "unsubstituted placeholder in rendered manifests"; fi
@@ -40,6 +40,7 @@ if grep -rI '\${' "$TMP"; then fail "unsubstituted placeholder in rendered manif
 kubectl apply -n "$NS" -f "$TMP/rbac.yaml"
 kubectl apply -n "$NS" -f "$TMP/service.yaml"
 kubectl apply -n "$NS" -f "$TMP/deployment.yaml"
+kubectl apply -n "$NS" -f "$TMP/pdb.yaml"
 kubectl apply -f "$TMP/mutating-webhook.yaml" -f "$TMP/validating-webhook.yaml"
 
 echo "installed zen-cleaner; verify: kubectl -n $NS rollout status deployment/zen-cleaner"
