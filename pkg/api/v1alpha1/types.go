@@ -153,7 +153,9 @@ type BehaviorSpec struct {
 	// Dry run: don't actually delete, just log
 	DryRun bool `json:"dryRun,omitempty"`
 
-	// Finalizer: add finalizer before deletion (for graceful cleanup)
+	// Finalizer: NOT SUPPORTED in RC1. Policies setting this field are
+	// rejected (it was historically accepted and silently ignored, which is
+	// a safety trap). Admission-time rejection keeps the field honest.
 	Finalizer string `json:"finalizer,omitempty"`
 
 	// Deletion propagation policy
@@ -161,6 +163,12 @@ type BehaviorSpec struct {
 
 	// Grace period in seconds before force deletion
 	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty"`
+
+	// AllowWorkloadDeletion is the explicit opt-in required before any
+	// workload kind (Pod, Job, CronJob) may be deleted. Even with the
+	// opt-in, Pods are only deletable in a terminal phase
+	// (Succeeded/Failed). Defaults to false: workload kinds are refused.
+	AllowWorkloadDeletion bool `json:"allowWorkloadDeletion,omitempty"`
 }
 
 // ZenCleanerPolicyStatus defines the observed state of ZenCleanerPolicy.
@@ -178,6 +186,12 @@ type ZenCleanerPolicyStatus struct {
 
 	// Next cleanup run timestamp
 	NextGCRun *metav1.Time `json:"nextGCRun,omitempty"`
+
+	// LastCycleRefusals summarizes why matching objects were NOT deleted in
+	// the most recent evaluation cycle, keyed by bounded refusal reason
+	// class (see pkg/safety). Bounded to 8 entries by the controller.
+	// Operators read this to answer "why was an object excluded?".
+	LastCycleRefusals map[string]int64 `json:"lastCycleRefusals,omitempty"`
 
 	// Conditions
 	Conditions []metav1.Condition `json:"conditions,omitempty"`

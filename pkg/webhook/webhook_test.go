@@ -63,6 +63,7 @@ func TestWebhookServer_handleValidate(t *testing.T) {
 								TargetResource: v1alpha1.TargetResourceSpec{
 									APIVersion: "v1",
 									Kind:       "ConfigMap",
+									Namespace:  "default",
 								},
 								TTL: v1alpha1.TTLSpec{
 									SecondsAfterCreation: int64Ptr(3600),
@@ -92,6 +93,7 @@ func TestWebhookServer_handleValidate(t *testing.T) {
 								TargetResource: v1alpha1.TargetResourceSpec{
 									APIVersion: "v1",
 									Kind:       "ConfigMap",
+									Namespace:  "default",
 								},
 								TTL: v1alpha1.TTLSpec{},
 							},
@@ -362,6 +364,7 @@ func TestWebhookServer_handleMutate(t *testing.T) {
 								TargetResource: v1alpha1.TargetResourceSpec{
 									APIVersion: "v1",
 									Kind:       "ConfigMap",
+									Namespace:  "default",
 								},
 							},
 						}),
@@ -388,6 +391,7 @@ func TestWebhookServer_handleMutate(t *testing.T) {
 								TargetResource: v1alpha1.TargetResourceSpec{
 									APIVersion: "v1",
 									Kind:       "ConfigMap",
+									Namespace:  "default",
 								},
 							},
 						}),
@@ -468,7 +472,7 @@ func TestWebhookServer_mutatePolicy(t *testing.T) {
 					}),
 				},
 			},
-			expectedPatches: 2, // behavior defaults + namespace default
+			expectedPatches: 1, // behavior defaults only; namespace default removed (SUPPORT2-033 §2)
 			expectError:     false,
 		},
 		{
@@ -553,8 +557,8 @@ func TestWebhookServer_mutatePolicy_WithExistingBehavior(t *testing.T) {
 	}
 
 	// Should add PropagationPolicy default
-	if len(patches) != 2 { // PropagationPolicy + namespace
-		t.Errorf("Expected 2 patches, got %d", len(patches))
+	if len(patches) != 1 { // PropagationPolicy only (namespace is no longer defaulted — SUPPORT2-033 §2)
+		t.Errorf("Expected 1 patch, got %d", len(patches))
 	}
 }
 

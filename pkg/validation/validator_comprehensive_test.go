@@ -19,6 +19,7 @@ func TestValidateTargetResource(t *testing.T) {
 			target: &v1alpha1.TargetResourceSpec{
 				APIVersion: "v1",
 				Kind:       "ConfigMap",
+				Namespace:  "default",
 			},
 			expectError: false,
 		},
@@ -367,6 +368,7 @@ func TestValidatePolicy_Comprehensive(t *testing.T) {
 					TargetResource: v1alpha1.TargetResourceSpec{
 						APIVersion: "v1",
 						Kind:       "ConfigMap",
+						Namespace:  "default",
 					},
 					TTL: v1alpha1.TTLSpec{
 						RelativeTo:   "status.lastProcessedAt",
@@ -387,6 +389,7 @@ func TestValidatePolicy_Comprehensive(t *testing.T) {
 					TargetResource: v1alpha1.TargetResourceSpec{
 						APIVersion: "v1",
 						Kind:       "ConfigMap",
+						Namespace:  "default",
 					},
 					TTL: v1alpha1.TTLSpec{
 						FieldPath: "spec.severity",

@@ -351,14 +351,10 @@ func (ws *WebhookServer) mutatePolicy(req *admissionv1.AdmissionRequest) ([]map[
 		}
 	}
 
-	// Set default namespace to "*" if not specified (for cluster-wide policies)
-	if policyObj.Spec.TargetResource.Namespace == "" {
-		patches = append(patches, map[string]interface{}{
-			"op":    "add",
-			"path":  "/spec/targetResource/namespace",
-			"value": "*",
-		})
-	}
+	// SUPPORT2-033 §2: the namespace is NO LONGER defaulted. The historic
+	// default of "*" made cluster-wide cleanup the implicit posture, which
+	// is unsafe. An empty namespace is now a validation error (fail-safe:
+	// the operator must state the scope explicitly).
 
 	return patches, nil
 }

@@ -65,6 +65,25 @@ var (
 
 	// ErrInvalidLabelExpressionValue indicates invalid label expression value format.
 	ErrInvalidLabelExpressionValue = errors.New("invalid label expression value")
+
+	// ErrNamespaceRequired indicates targetResource.namespace must be explicit.
+	// An empty namespace historically meant cluster-wide, which is an unsafe
+	// implicit default (SUPPORT2-033 §2).
+	ErrNamespaceRequired = errors.New("targetResource.namespace must be explicit (a namespace name or '*')")
+
+	// ErrProtectedNamespace indicates the policy targets a protected namespace.
+	ErrProtectedNamespace = errors.New("targetResource.namespace is protected and can never be a cleanup target")
+
+	// ErrProtectedKind indicates the policy targets a hard-protected kind.
+	ErrProtectedKind = errors.New("targetResource.kind is protected and can never be a cleanup target")
+
+	// ErrUnsafeBroadScope indicates a cluster-wide target without an explicit
+	// label selector: nothing bounds what such a policy would match.
+	ErrUnsafeBroadScope = errors.New("unsafe broad scope: namespace '*' (or omitted selector) requires a non-empty labelSelector")
+
+	// ErrFinalizerUnsupported indicates behavior.finalizer is set; the field
+	// has never been implemented and is rejected rather than silently ignored.
+	ErrFinalizerUnsupported = errors.New("behavior.finalizer is not supported and is rejected to avoid a silent no-op")
 )
 
 // ValidatePolicy validates a ZenCleanerPolicy.
@@ -109,21 +128,33 @@ func validateTargetResource(target *gcapi.TargetResourceSpec) error {
 	if target.Kind == "" {
 		return fmt.Errorf("%w", ErrKindRequired)
 	}
-	// Kind should be non-empty and not contain leading/trailing whitespace
-	// Kubernetes kinds are typically PascalCase (e.g., ConfigMap, Pod, Deployment)
+	// Kind should not contain leading/trailing whitespace
 	if strings.TrimSpace(target.Kind) != target.Kind {
 		return fmt.Errorf("%w: contains leading or trailing whitespace", ErrInvalidKind)
 	}
-	// Basic validation: must start with a letter and contain only alphanumeric characters
-	if target.Kind == "" {
-		return fmt.Errorf("%w: cannot be empty", ErrKindRequired)
+
+	// Safety law (SUPPORT2-033 §2): hard-protected kinds can never be
+	// cleanup targets, at admission time or runtime.
+	if reason := safetyProtectedKind(target.Kind); reason {
+		return fmt.Errorf("%w: %s", ErrProtectedKind, target.Kind)
 	}
-	// Allow PascalCase, camelCase, and lowercase (Kubernetes allows various formats)
-	// Just ensure it's not empty and doesn't have whitespace
 
 	// Validate Namespace
 	if err := validateNamespace(target.Namespace); err != nil {
 		return fmt.Errorf("invalid namespace: %w", err)
+	}
+
+	// Safety law: protected namespaces can never be cleanup targets.
+	if target.Namespace != "" && target.Namespace != "*" && ProtectedNamespaces[target.Namespace] {
+		return fmt.Errorf("%w: %s", ErrProtectedNamespace, target.Namespace)
+	}
+
+	// Safety law: a cluster-wide target must carry an explicit non-empty
+	// label selector. Without it nothing bounds what the policy matches.
+	hasSelector := target.LabelSelector != nil &&
+		(len(target.LabelSelector.MatchLabels) > 0 || len(target.LabelSelector.MatchExpressions) > 0)
+	if target.Namespace == "*" && !hasSelector {
+		return fmt.Errorf("%w", ErrUnsafeBroadScope)
 	}
 
 	// Validate LabelSelector if provided
@@ -136,13 +167,32 @@ func validateTargetResource(target *gcapi.TargetResourceSpec) error {
 	return nil
 }
 
+// safetyProtectedKind reports whether a kind is in the hard-protected set.
+func safetyProtectedKind(kind string) bool {
+	switch kind {
+	case "Namespace", "PersistentVolume", "PersistentVolumeClaim", "StorageClass",
+		"CustomResourceDefinition", "ValidatingWebhookConfiguration", "MutatingWebhookConfiguration":
+		return true
+	}
+	return false
+}
+
+// ProtectedNamespaces can never be cleanup targets. Keep in one place; the
+// runtime gate (pkg/safety) carries the same built-ins plus deployment-level
+// additions.
+var ProtectedNamespaces = map[string]bool{
+	"kube-system":     true,
+	"kube-public":     true,
+	"kube-node-lease": true,
+}
+
 // validateNamespace validates a namespace string.
-// Valid values: empty string, "*" for all namespaces, or a valid DNS-1123 label.
-// Kubernetes namespaces must start with a letter or number, but cannot start with a number.
+// Valid values: a valid DNS-1123 label, or "*" for all namespaces.
+// The empty string is REJECTED as of SUPPORT2-033: it historically meant
+// cluster-wide, which is an unsafe implicit default.
 func validateNamespace(namespace string) error {
-	// Empty namespace is valid (will default to policy namespace)
 	if namespace == "" {
-		return nil
+		return ErrNamespaceRequired
 	}
 
 	// "*" is valid for cluster-wide watching
@@ -311,6 +361,12 @@ func validateBehavior(behavior *gcapi.BehaviorSpec) error {
 
 	if behavior.BatchSize < 0 {
 		return fmt.Errorf("%w", ErrBatchSizeNegative)
+	}
+
+	// Safety law (SUPPORT2-033 §2): the finalizer field was never
+	// implemented; accepting it silently is a safety trap.
+	if behavior.Finalizer != "" {
+		return fmt.Errorf("%w", ErrFinalizerUnsupported)
 	}
 
 	if behavior.PropagationPolicy != "" {

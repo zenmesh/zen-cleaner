@@ -25,6 +25,7 @@ func TestValidatePolicy(t *testing.T) {
 					TargetResource: v1alpha1.TargetResourceSpec{
 						APIVersion: "v1",
 						Kind:       "ConfigMap",
+						Namespace:  "default",
 					},
 					TTL: v1alpha1.TTLSpec{
 						SecondsAfterCreation: int64Ptr(3600),
@@ -44,6 +45,7 @@ func TestValidatePolicy(t *testing.T) {
 					TargetResource: v1alpha1.TargetResourceSpec{
 						APIVersion: "v1",
 						Kind:       "ConfigMap",
+						Namespace:  "default",
 					},
 					TTL: v1alpha1.TTLSpec{
 						FieldPath: "spec.severity",
@@ -75,6 +77,7 @@ func TestValidatePolicy(t *testing.T) {
 					TargetResource: v1alpha1.TargetResourceSpec{
 						APIVersion: "v1",
 						Kind:       "ConfigMap",
+						Namespace:  "default",
 					},
 				},
 			},
@@ -87,6 +90,7 @@ func TestValidatePolicy(t *testing.T) {
 					TargetResource: v1alpha1.TargetResourceSpec{
 						APIVersion: "v1",
 						Kind:       "ConfigMap",
+						Namespace:  "default",
 					},
 					TTL: v1alpha1.TTLSpec{
 						SecondsAfterCreation: int64Ptr(3600),
@@ -105,6 +109,7 @@ func TestValidatePolicy(t *testing.T) {
 					TargetResource: v1alpha1.TargetResourceSpec{
 						APIVersion: "v1",
 						Kind:       "ConfigMap",
+						Namespace:  "default",
 					},
 					TTL: v1alpha1.TTLSpec{
 						SecondsAfterCreation: int64Ptr(3600),

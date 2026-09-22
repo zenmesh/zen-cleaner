@@ -31,9 +31,11 @@ func TestValidateNamespace(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:        "empty namespace",
+			// SUPPORT2-033 §2: empty namespace historically meant
+			// cluster-wide; it is now rejected as an unsafe implicit default.
+			name:        "empty namespace rejected",
 			namespace:   "",
-			expectError: false,
+			expectError: true,
 		},
 		{
 			name:        "wildcard namespace",
@@ -212,22 +214,65 @@ func TestValidateTargetResource_Namespace(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "wildcard namespace",
+			name: "wildcard namespace with explicit selector",
+			target: &v1alpha1.TargetResourceSpec{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+				Namespace:  "*",
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"app": "disposable"},
+				},
+			},
+			expectError: false,
+		},
+		{
+			// SUPPORT2-033 §2/§3: cluster-wide without a selector is unsafe.
+			name: "wildcard namespace without selector rejected",
 			target: &v1alpha1.TargetResourceSpec{
 				APIVersion: "v1",
 				Kind:       "ConfigMap",
 				Namespace:  "*",
 			},
-			expectError: false,
+			expectError: true,
 		},
 		{
-			name: "empty namespace",
+			// SUPPORT2-033 §2: empty namespace is no longer implicit
+			// cluster-wide; it must be explicit.
+			name: "empty namespace rejected",
 			target: &v1alpha1.TargetResourceSpec{
 				APIVersion: "v1",
 				Kind:       "ConfigMap",
 				Namespace:  "",
 			},
-			expectError: false,
+			expectError: true,
+		},
+		{
+			name: "protected namespace rejected",
+			target: &v1alpha1.TargetResourceSpec{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+				Namespace:  "kube-system",
+			},
+			expectError: true,
+		},
+		{
+			name: "protected kind rejected",
+			target: &v1alpha1.TargetResourceSpec{
+				APIVersion: "v1",
+				Kind:       "PersistentVolumeClaim",
+				Namespace:  "default",
+			},
+			expectError: true,
+		},
+		{
+			// SUPPORT2-033 §2: empty namespace must be explicit now.
+			name: "empty namespace rejected",
+			target: &v1alpha1.TargetResourceSpec{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+				Namespace:  "",
+			},
+			expectError: true,
 		},
 		{
 			name: "invalid namespace",
