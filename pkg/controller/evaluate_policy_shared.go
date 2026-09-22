@@ -181,7 +181,7 @@ func updatePolicyStatusShared(
 	defer statusCancel()
 
 	logger := sdklog.NewLogger("zen-cleaner")
-	if err := statusUpdater.UpdateStatus(statusCtx, policy, matchedCount, deletedCount, pendingCount); err != nil {
+	if err := statusUpdater.UpdateStatus(statusCtx, policy, matchedCount, deletedCount, pendingCount, nil); err != nil {
 		// Check if error is due to context cancellation/timeout
 		if statusCtx.Err() != nil {
 			logger.Debug("Status update canceled or timed out", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Error(statusCtx.Err()))

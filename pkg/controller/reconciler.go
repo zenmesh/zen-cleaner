@@ -41,6 +41,8 @@ import (
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/config"
 	cleanererrors "github.com/zenmesh/zen-cleaner/pkg/errors"
+	"github.com/zenmesh/zen-cleaner/pkg/safety"
+	"github.com/zenmesh/zen-cleaner/pkg/validation"
 )
 
 // PolicyReconciler reconciles ZenCleanerPolicy resources.
@@ -52,6 +54,11 @@ type PolicyReconciler struct {
 
 	// Controller configuration.
 	config *config.ControllerConfig
+
+	// safetyGate is the single destructive-decision choke point
+	// (SUPPORT2-033 §2). Nil in tests without a gate; the production
+	// constructor always sets it.
+	safetyGate *safety.Gate
 
 	// shouldReconcile is a function that returns true if reconciliation should proceed.
 	// Leader election is handled by controller-runtime Manager, so this always returns true.
@@ -159,12 +166,17 @@ func NewPolicyReconcilerWithRESTMapper(
 	gvrResolver := NewGVRResolver(restMapper)
 
 	return &PolicyReconciler{
-		Client:                    kubeClient,
-		Scheme:                    scheme,
-		dynamicClient:             dynamicClient,
-		targetProbes:              map[string]targetProbeEntry{},
-		targetFailures:            map[types.UID]int{},
-		config:                    cfg,
+		Client:         kubeClient,
+		Scheme:         scheme,
+		dynamicClient:  dynamicClient,
+		targetProbes:   map[string]targetProbeEntry{},
+		targetFailures: map[types.UID]int{},
+		config:         cfg,
+		safetyGate: safety.NewGate(safety.Config{
+			ProtectedNamespaces: cfg.ProtectedNamespaces,
+			OwnNamespace:        cfg.OwnNamespace,
+			DeletesDisabled:     !cfg.DeleteEnabled,
+		}),
 		shouldReconcile:           func() bool { return true }, // Default: always reconcile
 		resourceInformers:         make(map[string]cache.SharedInformer),
 		resourceInformerFactories: make(map[string]dynamicinformer.DynamicSharedInformerFactory),
@@ -199,12 +211,17 @@ func NewPolicyReconcilerWithLeaderCheck(
 	// Leader election is handled by controller-runtime Manager.
 	// Manager only calls Reconcile on the leader.
 	return &PolicyReconciler{
-		Client:                    kubeClient,
-		Scheme:                    scheme,
-		dynamicClient:             dynamicClient,
-		targetProbes:              map[string]targetProbeEntry{},
-		targetFailures:            map[types.UID]int{},
-		config:                    cfg,
+		Client:         kubeClient,
+		Scheme:         scheme,
+		dynamicClient:  dynamicClient,
+		targetProbes:   map[string]targetProbeEntry{},
+		targetFailures: map[types.UID]int{},
+		config:         cfg,
+		safetyGate: safety.NewGate(safety.Config{
+			ProtectedNamespaces: cfg.ProtectedNamespaces,
+			OwnNamespace:        cfg.OwnNamespace,
+			DeletesDisabled:     !cfg.DeleteEnabled,
+		}),
 		shouldReconcile:           func() bool { return true }, // Always true (Manager handles leader election)
 		resourceInformers:         make(map[string]cache.SharedInformer),
 		resourceInformerFactories: make(map[string]dynamicinformer.DynamicSharedInformerFactory),
@@ -234,6 +251,33 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return r.handlePolicyFetchError(err)
 	}
 
+	// SUPPORT2-033 §3: reconcile-time policy validation. Admission is the
+	// first line, but policies created while the webhook was down would
+	// otherwise bypass every rule; the runtime path fails closed instead.
+	// A validated policy is also checked against the policy-target safety
+	// laws (protected namespaces/kinds, broad scope).
+	if r.safetyGate != nil {
+		invalid := validation.ValidatePolicy(policy)
+		if invalid == nil {
+			if _, refusal := r.safetyGate.EvaluatePolicyTarget(policy.Spec.TargetResource); refusal != "" {
+				invalid = fmt.Errorf("%w", stderrors.New("policy target refused: "+refusal))
+			}
+		}
+		if invalid != nil {
+			RecordReconcileOutcome("invalid_policy")
+			RecordSafetyRefusal(safety.ReasonPolicyInvalid)
+			r.logger.Error(invalid, "Policy failed runtime validation; no cleanup will run",
+				sdklog.Operation("reconcile"),
+				sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+				sdklog.ErrorCode("POLICY_INVALID"))
+			if r.statusUpdater != nil {
+				policy.Status.Phase = "Error"
+				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "Ready", "PolicyInvalid", invalid.Error(), true)
+			}
+			return ctrl.Result{RequeueAfter: time.Hour}, nil
+		}
+	}
+
 	// Track policy UID for cleanup on deletion
 	r.trackPolicyUID(req.NamespacedName, policy.UID)
 
@@ -250,11 +294,15 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// Evaluate the policy
 	if err := r.evaluatePolicy(ctx, policy); err != nil {
+		RecordReconcileOutcome("error")
+		RecordAPIError(err)
 		return r.handleEvaluationError(err, policy)
 	}
 
 	// Record policy phase metrics periodically
 	r.recordPolicyPhaseMetrics(ctx)
+
+	RecordReconcileOutcome("success")
 
 	// Determine requeue interval based on policy evaluation interval or default
 	requeueAfter := r.getRequeueIntervalForPolicy(policy)
@@ -344,6 +392,9 @@ func (r *PolicyReconciler) getOrCreateEvaluationService(ctx context.Context, pol
 		r.config,
 		r.logger,
 	)
+	// SUPPORT2-033 §2: evaluation-time safety gate (excluded objects never
+	// join the deletion plan). The delete-time choke point runs regardless.
+	svc.SetSafetyGate(r.safetyGate)
 
 	r.evaluationServices[key] = svc
 	return svc, nil
@@ -470,6 +521,7 @@ func (r *PolicyReconciler) deleteResource(ctx context.Context, resource *unstruc
 
 	// Dry run check
 	if policy.Spec.Behavior.DryRun {
+		RecordDryRunCandidate()
 		r.logger.Info("[DRY RUN] Would delete resource", sdklog.Operation("delete_resource"), sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
 		return nil
 	}
@@ -480,8 +532,8 @@ func (r *PolicyReconciler) deleteResource(ctx context.Context, resource *unstruc
 	// Build delete options
 	deleteOptions := buildDeleteOptions(policy)
 
-	// Perform deletion
-	return r.performResourceDeletion(ctx, resource, gvr, deleteOptions)
+	// Perform deletion (safety gate + UID precondition live inside).
+	return r.performResourceDeletion(ctx, resource, gvr, deleteOptions, policy.Spec.Behavior)
 }
 
 // SetDiscoveryClient wires the discovery client used for bounded

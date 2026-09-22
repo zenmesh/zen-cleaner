@@ -99,7 +99,7 @@ func TestStatusUpdater_UpdateStatus(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	err = updater.UpdateStatus(ctx, policy, 10, 5, 3)
+	err = updater.UpdateStatus(ctx, policy, 10, 5, 3, nil)
 	if err != nil {
 		t.Errorf("UpdateStatus() returned error: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestStatusUpdater_UpdateStatus_WithExistingStatus(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	err = updater.UpdateStatus(ctx, policy, 10, 5, 3)
+	err = updater.UpdateStatus(ctx, policy, 10, 5, 3, nil)
 	if err != nil {
 		t.Errorf("UpdateStatus() returned error: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestStatusUpdater_UpdateStatus_WithConfig(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	err = updater.UpdateStatus(ctx, policy, 10, 5, 3)
+	err = updater.UpdateStatus(ctx, policy, 10, 5, 3, nil)
 	if err != nil {
 		t.Errorf("UpdateStatus() returned error: %v", err)
 	}

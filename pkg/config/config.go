@@ -19,6 +19,8 @@ limitations under the License.
 package config
 
 import (
+	"os"
+	"strings"
 	"time"
 
 	sdkconfig "github.com/zenmesh/zen-cleaner/internal/config"
@@ -55,6 +57,19 @@ type ControllerConfig struct {
 	// MaxConcurrentEvaluations is the maximum number of policies to evaluate concurrently.
 	// Defaults to 5 if not set.
 	MaxConcurrentEvaluations int
+
+	// DeleteEnabled is the emergency stop (SUPPORT2-033 Â§2/Â§19). When
+	// false, nothing is deleted: candidates are logged and counted with
+	// refusal reason "deletes_disabled". Defaults to true.
+	DeleteEnabled bool
+
+	// OwnNamespace is the namespace the controller runs in; it is always
+	// protected. Empty in unit tests.
+	OwnNamespace string
+
+	// ProtectedNamespaces are denied in addition to the built-in protected
+	// set (kube-system, kube-public, kube-node-lease, ...).
+	ProtectedNamespaces []string
 }
 
 // NewControllerConfig creates a new controller config with defaults.
@@ -94,6 +109,33 @@ func (c *ControllerConfig) LoadFromEnv() error {
 	// ZEN_CLEANER_MAX_CONCURRENT_EVALUATIONS - integer
 	if val := validator.OptionalInt("ZEN_CLEANER_MAX_CONCURRENT_EVALUATIONS", 0); val > 0 {
 		c.MaxConcurrentEvaluations = val
+	}
+
+	// ZEN_CLEANER_DELETE_ENABLED - emergency stop (SUPPORT2-033 Â§19).
+	// "false"/"0" disables ALL deletions (fail-safe default is enabled).
+	if val := os.Getenv("ZEN_CLEANER_DELETE_ENABLED"); val != "" {
+		switch val {
+		case "false", "0", "no":
+			c.DeleteEnabled = false
+		case "true", "1", "yes":
+			c.DeleteEnabled = true
+		}
+	} else {
+		c.DeleteEnabled = true
+	}
+
+	// ZEN_CLEANER_PROTECTED_NAMESPACES - extra protected namespaces (CSV).
+	if val := os.Getenv("ZEN_CLEANER_PROTECTED_NAMESPACES"); val != "" {
+		for _, ns := range strings.Split(val, ",") {
+			if ns = strings.TrimSpace(ns); ns != "" {
+				c.ProtectedNamespaces = append(c.ProtectedNamespaces, ns)
+			}
+		}
+	}
+
+	// POD_NAMESPACE - the controller's own namespace (always protected).
+	if val := os.Getenv("POD_NAMESPACE"); val != "" {
+		c.OwnNamespace = val
 	}
 
 	// Return validation errors if any

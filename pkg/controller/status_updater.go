@@ -55,6 +55,7 @@ func (s *StatusUpdater) UpdateStatus(
 	ctx context.Context,
 	policy *v1alpha1.ZenCleanerPolicy,
 	matched, deleted, pending int64,
+	refusals map[string]int64,
 ) error {
 	// Get the current policy CRD
 	unstructuredPolicy, err := s.dynClient.Resource(PolicyGVR).
@@ -81,6 +82,21 @@ func (s *StatusUpdater) UpdateStatus(
 		"resourcesPending": pending,
 		"lastGCRun":        now.Format(time.RFC3339),
 		"nextGCRun":        nextRun.Format(time.RFC3339),
+	}
+
+	// SUPPORT2-033 §8: surface why matching objects were not deleted,
+	// keyed by bounded refusal reason class (capped at 8 entries).
+	if len(refusals) > 0 {
+		refusalStatus := map[string]interface{}{}
+		n := 0
+		for reason, count := range refusals {
+			if n >= 8 {
+				break
+			}
+			refusalStatus[reason] = count
+			n++
+		}
+		statusObj["lastCycleRefusals"] = refusalStatus
 	}
 
 	// Set phase based on spec.paused and evaluation state

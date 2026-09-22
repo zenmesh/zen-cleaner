@@ -1,8 +1,11 @@
 package controller
 
 import (
+	"strings"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
@@ -177,4 +180,136 @@ func recordLeaderElectionStatus(isLeader bool) {
 // recordLeaderElectionTransition records a leader election transition.
 func recordLeaderElectionTransition() {
 	gcLeaderElectionTransitionsTotal.Inc()
+}
+
+// SUPPORT2-033 §7: bounded productization metrics. Labels are closed
+// vocabularies (refusal reason classes, reconcile outcome classes, API error
+// classes) — never namespace or object identity.
+
+// safetyRefusalsTotal counts objects the safety gate refused to delete,
+// keyed by bounded refusal reason class.
+var safetyRefusalsTotal = served.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "zen_cleaner_safety_refusals_total",
+		Help: "Objects the safety gate refused to delete, by refusal reason class",
+	},
+	[]string{"reason"},
+)
+
+// candidatesConsideredTotal counts objects that passed selector+condition
+// matching and reached the safety/deletion decision point.
+var candidatesConsideredTotal = served.NewCounter(
+	prometheus.CounterOpts{
+		Name: "zen_cleaner_candidates_considered_total",
+		Help: "Matching objects that reached the deletion decision point",
+	},
+)
+
+// deletionsAttemptedTotal counts DELETE calls issued (after safety gate).
+var deletionsAttemptedTotal = served.NewCounter(
+	prometheus.CounterOpts{
+		Name: "zen_cleaner_deletions_attempted_total",
+		Help: "DELETE calls issued after the safety gate allowed them",
+	},
+)
+
+// deletionsFailedTotal counts DELETE calls that returned an error.
+var deletionsFailedTotal = served.NewCounter(
+	prometheus.CounterOpts{
+		Name: "zen_cleaner_deletions_failed_total",
+		Help: "DELETE calls that failed (after bounded retries)",
+	},
+)
+
+// dryRunCandidatesTotal counts objects a dry-run policy would have deleted.
+var dryRunCandidatesTotal = served.NewCounter(
+	prometheus.CounterOpts{
+		Name: "zen_cleaner_dry_run_candidates_total",
+		Help: "Objects a dry-run policy would have deleted",
+	},
+)
+
+// reconcileOutcomeTotal counts reconcile outcomes by bounded result class.
+var reconcileOutcomeTotal = served.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "zen_cleaner_reconcile_total",
+		Help: "Reconcile outcomes by result class (success, error, invalid_policy)",
+	},
+	[]string{"result"},
+)
+
+// apiErrorsTotal counts API errors by bounded class.
+var apiErrorsTotal = served.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "zen_cleaner_api_errors_total",
+		Help: "API errors by bounded class (conflict, forbidden, notfound, throttled, server_error, network, other)",
+	},
+	[]string{"class"},
+)
+
+// RecordSafetyRefusal counts a safety-gate refusal by reason class.
+func RecordSafetyRefusal(reason string) {
+	safetyRefusalsTotal.WithLabelValues(reason).Inc()
+}
+
+// RecordCandidateConsidered counts an object reaching the deletion decision.
+func RecordCandidateConsidered() {
+	candidatesConsideredTotal.Inc()
+}
+
+// RecordDeletionAttempted counts an issued DELETE call.
+func RecordDeletionAttempted() {
+	deletionsAttemptedTotal.Inc()
+}
+
+// RecordDeletionFailed counts a failed DELETE call.
+func RecordDeletionFailed() {
+	deletionsFailedTotal.Inc()
+}
+
+// RecordDryRunCandidate counts an object a dry-run policy would delete.
+func RecordDryRunCandidate() {
+	dryRunCandidatesTotal.Inc()
+}
+
+// RecordReconcileOutcome counts a reconcile outcome by result class.
+func RecordReconcileOutcome(result string) {
+	reconcileOutcomeTotal.WithLabelValues(result).Inc()
+}
+
+// RecordAPIError counts an API error by bounded class.
+func RecordAPIError(err error) {
+	apiErrorsTotal.WithLabelValues(apiErrorClass(err)).Inc()
+}
+
+// apiErrorClass maps a Kubernetes API error to a bounded class label.
+func apiErrorClass(err error) string {
+	if err == nil {
+		return "other"
+	}
+	switch {
+	case apierrors.IsConflict(err):
+		return "conflict"
+	case apierrors.IsNotFound(err):
+		return "notfound"
+	case apierrors.IsForbidden(err):
+		return "forbidden"
+	case apierrors.IsUnauthorized(err):
+		return "unauthorized"
+	case apierrors.IsTooManyRequests(err):
+		return "throttled"
+	case apierrors.IsServiceUnavailable(err), apierrors.IsInternalError(err), apierrors.IsServerTimeout(err), apierrors.IsTimeout(err):
+		return "server_error"
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "TLS handshake") ||
+		strings.Contains(msg, "no such host") ||
+		strings.Contains(msg, "i/o timeout") ||
+		strings.Contains(msg, "EOF") ||
+		strings.Contains(msg, "proxy") {
+		return "network"
+	}
+	return "other"
 }

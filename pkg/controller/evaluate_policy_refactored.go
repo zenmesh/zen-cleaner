@@ -29,6 +29,7 @@ import (
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/config"
 	cleanererrors "github.com/zenmesh/zen-cleaner/pkg/errors"
+	"github.com/zenmesh/zen-cleaner/pkg/safety"
 	"github.com/zenmesh/zen-cleaner/pkg/validation"
 )
 
@@ -42,9 +43,17 @@ type PolicyEvaluationService struct {
 	rateLimiterProvider RateLimiterProvider
 	batchDeleter        BatchDeleterCore
 	statusUpdater       *StatusUpdater
+	safetyGate          *safety.Gate
 	eventRecorder       *EventRecorder
 	controllerConfig    *config.ControllerConfig
 	logger              *sdklog.Logger
+}
+
+// SetSafetyGate wires the evaluation-time safety gate (SUPPORT2-033 §2).
+// Nil clears the gate; the delete-time choke point in performResourceDeletion
+// still runs regardless.
+func (s *PolicyEvaluationService) SetSafetyGate(gate *safety.Gate) {
+	s.safetyGate = gate
 }
 
 // NewPolicyEvaluationService creates a new PolicyEvaluationService with injected dependencies.
@@ -118,6 +127,10 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 
 	var matchedCount, deletedCount, pendingCount int64
 
+	// SUPPORT2-033 §8: per-cycle refusal summary surfaced on the policy
+	// status so operators can answer "why was an object excluded?".
+	refusals := make(map[string]int64)
+
 	resourceAPIVersion := policy.Spec.TargetResource.APIVersion
 	resourceKind := policy.Spec.TargetResource.Kind
 
@@ -130,7 +143,7 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 	resourcesToDeleteReasons := make(map[string]string, estimatedDeletions)
 
 	// Evaluate each resource
-	matchedCount, pendingCount = s.evaluateResources(ctx, resources, policy, &resourcesToDelete, resourcesToDeleteReasons, resourceAPIVersion, resourceKind)
+	matchedCount, pendingCount = s.evaluateResources(ctx, resources, policy, &resourcesToDelete, resourcesToDeleteReasons, refusals, resourceAPIVersion, resourceKind)
 
 	// Delete resources in batches using BatchDeleterCore interface
 	if len(resourcesToDelete) > 0 {
@@ -143,7 +156,7 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 	}
 
 	// Update policy status
-	if err := s.updatePolicyStatus(ctx, policy, matchedCount, deletedCount, pendingCount); err != nil {
+	if err := s.updatePolicyStatus(ctx, policy, matchedCount, deletedCount, pendingCount, refusals); err != nil {
 		return err
 	}
 
@@ -162,6 +175,7 @@ func (s *PolicyEvaluationService) evaluateResources(
 	policy *v1alpha1.ZenCleanerPolicy,
 	resourcesToDelete *[]*unstructured.Unstructured,
 	resourcesToDeleteReasons map[string]string,
+	refusals map[string]int64,
 	resourceAPIVersion, resourceKind string,
 ) (matchedCount, pendingCount int64) {
 	// Check context cancellation at start to avoid unnecessary work
@@ -192,6 +206,17 @@ func (s *PolicyEvaluationService) evaluateResources(
 		matchedCount++
 		recordResourceMatched(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind)
 
+		// SUPPORT2-033 §2: evaluation-time safety gate. Refused objects are
+		// excluded from the deletion plan entirely and surfaced by refusal
+		// class (metrics + policy status).
+		if s.safetyGate != nil {
+			if allowed, refusal := s.safetyGate.EvaluateObject(resource, policy.Spec.Behavior); !allowed {
+				refusals[refusal]++
+				RecordSafetyRefusal(refusal)
+				continue
+			}
+		}
+
 		// Check conditions using ConditionMatcher interface
 		if policy.Spec.Conditions != nil {
 			if !s.conditionMatcher.MeetsConditions(resource, policy.Spec.Conditions) {
@@ -199,6 +224,9 @@ func (s *PolicyEvaluationService) evaluateResources(
 				continue
 			}
 		}
+
+		// SUPPORT2-033 §7: the object reached the deletion decision point.
+		RecordCandidateConsidered()
 
 		// Check TTL using shared function (TTLCalculator interface is for future use)
 		shouldDelete, reason := s.shouldDelete(resource, policy)
@@ -278,6 +306,7 @@ func (s *PolicyEvaluationService) updatePolicyStatus(
 	ctx context.Context,
 	policy *v1alpha1.ZenCleanerPolicy,
 	matchedCount, deletedCount, pendingCount int64,
+	refusals map[string]int64,
 ) error {
 	if s.statusUpdater == nil {
 		return nil
@@ -286,7 +315,7 @@ func (s *PolicyEvaluationService) updatePolicyStatus(
 	statusCtx, statusCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer statusCancel()
 
-	if err := s.statusUpdater.UpdateStatus(statusCtx, policy, matchedCount, deletedCount, pendingCount); err != nil {
+	if err := s.statusUpdater.UpdateStatus(statusCtx, policy, matchedCount, deletedCount, pendingCount, refusals); err != nil {
 		if statusCtx.Err() != nil {
 			s.logger.Debug("Status update canceled or timed out", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Error(statusCtx.Err()))
 			return nil

@@ -31,6 +31,7 @@ import (
 	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	cleanererrors "github.com/zenmesh/zen-cleaner/pkg/errors"
+	"github.com/zenmesh/zen-cleaner/pkg/safety"
 	"github.com/zenmesh/zen-cleaner/pkg/validation"
 )
 
@@ -126,21 +127,86 @@ func buildDeleteOptions(policy *v1alpha1.ZenCleanerPolicy) *metav1.DeleteOptions
 	return deleteOptions
 }
 
-// performResourceDeletion performs the actual resource deletion.
-func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource *unstructured.Unstructured, gvr schema.GroupVersionResource, deleteOptions *metav1.DeleteOptions) error {
-	namespace := resource.GetNamespace()
-	var err error
-	if namespace == "" {
-		err = r.dynamicClient.Resource(gvr).Delete(ctx, resource.GetName(), *deleteOptions)
-	} else {
-		err = r.dynamicClient.Resource(gvr).Namespace(namespace).Delete(ctx, resource.GetName(), *deleteOptions)
+// ErrStaleUID is returned by performResourceDeletion when the live object's
+// UID differs from the observation the deletion decision was made on. The
+// object is NOT deleted: a stale-cache decision must never destroy a
+// replacement resource (SUPPORT2-033 Â§4).
+var ErrStaleUID = errors.New("stale observation: live UID differs from the observed UID; deletion refused")
+
+// performResourceDeletion is the single choke point for DELETE calls. The
+// safety gate runs here unconditionally (last line of defense), and the live
+// UID precondition guarantees the decision still applies to the object that
+// is actually deleted.
+func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource *unstructured.Unstructured, gvr schema.GroupVersionResource, deleteOptions *metav1.DeleteOptions, behavior v1alpha1.BehaviorSpec) error {
+	// Last-line safety gate (SUPPORT2-033 Â§2): protected namespaces,
+	// hard-protected kinds, exclusion labels, workload laws, emergency stop.
+	if r.safetyGate != nil {
+		if allowed, reason := r.safetyGate.EvaluateObject(resource, behavior); !allowed {
+			RecordSafetyRefusal(reason)
+			r.logger.Info("Safety gate refused deletion",
+				sdklog.Operation("delete_resource"),
+				sdklog.String("reason", reason),
+				sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
+			return nil
+		}
 	}
 
-	if err != nil && !apierrors.IsNotFound(err) {
+	// Live UID precondition: re-read the object from the API server and
+	// refuse to delete a replacement (same name, new UID) or an object that
+	// vanished after the decision (treated as already deleted).
+	live, err := r.getLiveForPrecondition(ctx, resource, gvr)
+	if err != nil {
+		RecordAPIError(err)
 		return err
+	}
+	if live == nil {
+		// Already gone: idempotent success, nothing was deleted.
+		return nil
+	}
+	if live.GetUID() != resource.GetUID() {
+		RecordSafetyRefusal(safety.ReasonStaleUID)
+		r.logger.Info("Stale-cache deletion refused (UID precondition)",
+			sdklog.Operation("delete_resource"),
+			sdklog.String("reason", safety.ReasonStaleUID),
+			sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
+		return nil
+	}
+
+	namespace := resource.GetNamespace()
+	RecordDeletionAttempted()
+	var err2 error
+	if namespace == "" {
+		err2 = r.dynamicClient.Resource(gvr).Delete(ctx, resource.GetName(), *deleteOptions)
+	} else {
+		err2 = r.dynamicClient.Resource(gvr).Namespace(namespace).Delete(ctx, resource.GetName(), *deleteOptions)
+	}
+
+	if err2 != nil && !apierrors.IsNotFound(err2) {
+		RecordDeletionFailed()
+		RecordAPIError(err2)
+		return err2
 	}
 
 	return nil
+}
+
+// getLiveForPrecondition re-reads the object from the API server for the UID
+// precondition. nil (with nil error) means the object is already gone.
+func (r *PolicyReconciler) getLiveForPrecondition(ctx context.Context, resource *unstructured.Unstructured, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
+	var live *unstructured.Unstructured
+	var err error
+	if resource.GetNamespace() == "" {
+		live, err = r.dynamicClient.Resource(gvr).Get(ctx, resource.GetName(), metav1.GetOptions{})
+	} else {
+		live, err = r.dynamicClient.Resource(gvr).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
+	}
+	if apierrors.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return live, nil
 }
 
 // normalizeNamespace normalizes namespace for informer creation.
