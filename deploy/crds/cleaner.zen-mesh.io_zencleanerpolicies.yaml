@@ -150,6 +150,12 @@ spec:
                         - Orphan
                     gracePeriodSeconds:
                       type: integer
+                    allowWorkloadDeletion:
+                      type: boolean
+                      description: >-
+                        Explicit opt-in required before workload kinds (Pod,
+                        Job, CronJob) may be deleted. Pods are only deletable
+                        in a terminal phase even with this opt-in.
             status:
               type: object
               properties:
@@ -161,6 +167,13 @@ spec:
                   type: integer
                 resourcesPending:
                   type: integer
+                lastCycleRefusals:
+                  type: object
+                  additionalProperties:
+                    type: integer
+                  description: >-
+                    Bounded refusal reason classes from the most recent
+                    evaluation cycle.
                 lastGCRun:
                   type: string
                   format: date-time
