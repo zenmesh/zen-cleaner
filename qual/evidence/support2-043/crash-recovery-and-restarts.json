@@ -31,7 +31,7 @@
     "restored": "cert regenerated via deploy/gen-webhook-cert.sh + webhook configs re-applied + pods restarted -> admission works (policy created)"
   },
   "bounded_survival": {
-    "duration_minutes": 35,
+    "duration_minutes": 28.8,
     "iterations": 30,
     "churn_per_iteration": "5 eligible objects + 3 dry-run-target objects",
     "leader_transitions_forced": 5,
@@ -41,7 +41,7 @@
     "goroutines_range": "59-84",
     "rss_range_bytes": "20.7e6-35.4e6",
     "pod_restarts_during_run": "only the 5 forced leader replacements; no crash restarts",
-    "label": "35-minute bounded survival run; 24h NOT observed and remains MISSING"
+    "label": "28.8-minute (1728s) bounded survival run; 24h NOT observed and remains MISSING"
   },
   "generated_at_utc": "2026-09-24T00:00:00Z"
 }
