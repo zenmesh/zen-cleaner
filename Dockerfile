@@ -59,6 +59,11 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Copy binary
 COPY --from=builder /build/zen-cleaner /zen-cleaner
 
+# Run as a non-root user (scratch has no user database; numeric ID required).
+# The in-cluster Helm/securityContext also enforces runAsNonRoot — this makes
+# the image safe by default even when run bare.
+USER 65532:65532
+
 EXPOSE 8080
 
 ENTRYPOINT ["/zen-cleaner"]
