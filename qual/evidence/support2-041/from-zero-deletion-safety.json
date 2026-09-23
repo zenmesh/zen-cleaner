@@ -1,0 +1,37 @@
+{
+  "schema": "zen-mgmt/operability-evidence/v1",
+  "run": "SUPPORT2-041 Zen Cleaner standalone qualification",
+  "cluster": "fresh disposable k3d s041-cleaner-qual (k8s v1.35.5+k3s1), stopped after qualification",
+  "build": {"image": "s041/zen-cleaner:180187bb5195", "source_sha": "180187bb5195", "binary": "scratch final stage, nonroot 65532, matching Dockerfile"},
+  "from_zero": [
+    "CRD applied; namespace+rbac+service+pdb via deploy/manifests (envsubst for image/namespace); webhook cert via deploy/gen-webhook-cert.sh",
+    "2 replicas Ready; leader election live: /leaderz leader on one replica, standby on the other",
+    "healthz/readyz 200 on both replicas; metrics 200 on leader (standby metrics absent - structural: manager starts on leader only)",
+    "validating webhook live: rejected non-explicit namespace, protected namespace target, protected kind target with typed messages",
+    "real cleanup: 2 stale labeled ConfigMaps deleted by policy; non-matching and exclusion-labeled objects survived",
+    "uninstall: CRD, webhooks, workload, rbac removed; zero residue"
+  ],
+  "deletion_safety_battery": [
+    {"probe": "kube-system target policy", "result": "DENIED at admission", "detail": "targetResource.namespace is protected and can never be a cleanup target"},
+    {"probe": "PersistentVolumeClaim target policy", "result": "DENIED at admission", "detail": "kind is protected"},
+    {"probe": "Pod policy without allowWorkloadDeletion", "result": "refused at runtime", "detail": "running pod survived; zen_cleaner_safety_refusals_total{reason=workload_managed} incremented"},
+    {"probe": "matching bait object in kube-system under namespace=* policy", "result": "survived", "detail": "zen_cleaner_safety_refusals_total{reason=protected_namespace} incremented"},
+    {"probe": "exclusion label", "result": "survived", "detail": "zen_cleaner_safety_refusals_total{reason=excluded_label} counted"},
+    {"probe": "behavior.dryRun=true", "result": "honored", "detail": "policy status resourcesMatched=1 resourcesDeleted=0; zen_cleaner_dry_run_candidates_total=16; object survived past TTL. NOTE: an earlier apparent violation was test contamination by an overlapping live wildcard policy (f4 app=s041 selector), proven by forensics with the policy-identity log improvement"},
+    {"probe": "emergency stop ZEN_CLEANER_DELETE_ENABLED=false", "result": "honored", "detail": "3 fresh matching stale objects survived 100s with stop engaged; after lifting, same-label objects deleted next cycle"},
+    {"probe": "leader failover mid-qualification", "result": "PASS", "detail": "leader pod deleted; standby promoted; cleanup continued post-failover"},
+    {"probe": "UID precondition", "result": "unit-proven", "detail": "pkg/controller/uid_precondition_test.go; live code path pkg/controller/reconciler_helpers.go:154"},
+    {"probe": "malformed/unsafe policy", "result": "typed rejection", "detail": "webhook rejects with actionable messages (non-explicit namespace, hmac example case, protected targets)"}
+  ],
+  "load": {
+    "objects": 3000,
+    "deleted": 3000,
+    "duplicate_deletes": 0,
+    "budget": "maxDeletionsPerSecond=10, batch=50; observed ~5/s sustained (cycle+budget bound)",
+    "goroutines": "flat 68 across all samples",
+    "rss_bytes": "~60-73MB steady (limit 512Mi)",
+    "pod_restarts": 0,
+    "stuck_finalizers": 0
+  },
+  "generated_at_utc": "2026-09-23T19:45:00Z"
+}
