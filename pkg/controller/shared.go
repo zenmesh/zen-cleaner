@@ -232,7 +232,14 @@ func deleteBatchShared(
 		// Logger creation here is acceptable as deletion logging is infrequent
 		// Future optimization: pass logger as parameter to avoid allocations
 		logger := sdklog.NewLogger("zen-cleaner")
-		logger.Info("Deleted resource", sdklog.Operation("delete_batch"), sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())), sdklog.String("reason", reason))
+		// SUPPORT2-041 audit law: every deletion log must identify the acting
+		// policy (name + UID) so operators can attribute destructive effects.
+		logger.Info("Deleted resource",
+			sdklog.Operation("delete_batch"),
+			sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())),
+			sdklog.String("reason", reason),
+			sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+			sdklog.String("policyUID", string(policy.UID)))
 	}
 
 	return deletedCount, errs
