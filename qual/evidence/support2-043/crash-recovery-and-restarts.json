@@ -1,0 +1,47 @@
+{
+  "schema": "zen-mgmt/operability-evidence/v1",
+  "run": "SUPPORT2-043 Cleaner crash/restart/recovery qualification",
+  "cluster": "disposable k3d s041-cleaner-qual (state persisted across a full cluster stop/start)",
+  "build": {"image": "s041/zen-cleaner:5dd89541f858", "source_sha": "5dd89541f858"},
+  "mid_batch_crash": {
+    "objects_created": 600,
+    "policy": "ttl 5s, maxDeletionsPerSecond 10, batch 50",
+    "leader_terminated": "SIGKILL (--force --grace-period=0) at mechanically confirmed mid-batch point",
+    "remaining_at_crash": 319,
+    "deleted_before_crash_approx": 281,
+    "election_pause_seconds": 12,
+    "remaining_after_recovery": 0,
+    "duplicate_deletions": 0,
+    "stuck_finalizers": 0,
+    "permanent_wedge": false,
+    "counter_semantics": "resources_deleted_total is per-process: pre-crash count lost with the killed pod; post-crash leader counted only its own deletions (documented per-process semantics)"
+  },
+  "replacement_object_safety": {
+    "live": "30 eligible objects draining at 2/s; 5 replaced mid-drain with same-name objects carrying an ineligible label (new UIDs). Result: 30/30 originals deleted, 5/5 replacements SURVIVED (stale-UID delete refused; replacements never eligible for a legitimate delete).",
+    "unit_guards": ["TestPerformResourceDeletion_StaleUIDRefused", "TestPerformResourceDeletion_AlreadyAbsent", "TestPerformResourceDeletion_MatchingUIDDeletes"]
+  },
+  "all_replica_restart": {
+    "method": "delete both pods simultaneously (force, grace 0)",
+    "zero_controller_interval": "replica-set recreated pods immediately; measured recovery wall time 12s to rollout-complete",
+    "post_restart": "leader elected (exactly one zen_cleaner_leadership_state=1), policy state rediscovered from CRDs, cleanup resumed (seeded objects deleted), metrics scrapeable on both replicas"
+  },
+  "webhook_cert_recovery": {
+    "secret_deleted": "pods block in ContainerCreating; admission FAILS CLOSED (policy create rejected: no endpoints); no fail-open",
+    "rotated_ca_without_config_update": "admission fails closed with typed x509 'certificate signed by unknown authority' (observed during cert rotation); existing deploy unaffected behavior unchanged",
+    "restored": "cert regenerated via deploy/gen-webhook-cert.sh + webhook configs re-applied + pods restarted -> admission works (policy created)"
+  },
+  "bounded_survival": {
+    "duration_minutes": 35,
+    "iterations": 30,
+    "churn_per_iteration": "5 eligible objects + 3 dry-run-target objects",
+    "leader_transitions_forced": 5,
+    "eligible_drain": "steady-state eligible remaining 0 at every sample after the first cycle (final 0)",
+    "dryrun_targets_deleted": 0,
+    "dryrun_targets_accumulated": 90,
+    "goroutines_range": "59-84",
+    "rss_range_bytes": "20.7e6-35.4e6",
+    "pod_restarts_during_run": "only the 5 forced leader replacements; no crash restarts",
+    "label": "35-minute bounded survival run; 24h NOT observed and remains MISSING"
+  },
+  "generated_at_utc": "2026-09-24T00:00:00Z"
+}

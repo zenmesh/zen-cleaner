@@ -1,0 +1,37 @@
+{"event":"survival_start","ts":"2026-09-23T18:14:34-04:00","planned_minutes":32}
+{"iter":1,"leader":"10.42.0.47","deleted_total":0,"dryrun_present":3,"metrics":"go_goroutines 83;process_resident_memory_bytes 2.072576e+07;"}
+{"iter":2,"leader":"10.42.0.47","deleted_total":0,"dryrun_present":6,"metrics":"go_goroutines 83;process_resident_memory_bytes 2.336768e+07;"}
+{"iter":3,"leader":"10.42.0.47","deleted_total":0,"dryrun_present":9,"metrics":"go_goroutines 83;process_resident_memory_bytes 2.47808e+07;"}
+{"iter":4,"leader":"10.42.0.47","deleted_total":0,"dryrun_present":12,"metrics":"go_goroutines 83;process_resident_memory_bytes 2.59072e+07;"}
+{"iter":5,"leader":"10.42.0.47","deleted_total":0,"dryrun_present":15,"metrics":"go_goroutines 83;process_resident_memory_bytes 2.6361856e+07;"}
+{"iter":6,"leader":"10.42.0.47","deleted_total":0,"dryrun_present":18,"metrics":"go_goroutines 83;process_resident_memory_bytes 2.6689536e+07;"}
+{"event":"leader_transition","iter":6}
+{"iter":7,"leader":"10.42.0.50","deleted_total":0,"dryrun_present":21,"metrics":"go_goroutines 83;process_resident_memory_bytes 2.5972736e+07;"}
+{"iter":8,"leader":"10.42.0.50","deleted_total":0,"dryrun_present":24,"metrics":"go_goroutines 83;process_resident_memory_bytes 2.7328512e+07;"}
+{"iter":9,"leader":"10.42.0.50","deleted_total":0,"dryrun_present":27,"metrics":"go_goroutines 83;process_resident_memory_bytes 2.9085696e+07;"}
+{"iter":10,"leader":"10.42.0.50","deleted_total":0,"dryrun_present":30,"metrics":"go_goroutines 83;process_resident_memory_bytes 2.932736e+07;"}
+{"iter":11,"leader":"10.42.0.50","deleted_total":0,"dryrun_present":33,"metrics":"go_goroutines 83;process_resident_memory_bytes 2.5608192e+07;"}
+{"iter":12,"leader":"10.42.0.50","deleted_total":0,"dryrun_present":36,"metrics":"go_goroutines 83;process_resident_memory_bytes 2.6755072e+07;"}
+{"event":"leader_transition","iter":12}
+{"iter":13,"leader":"10.42.0.51","deleted_total":0,"dryrun_present":39,"metrics":"go_goroutines 76;process_resident_memory_bytes 3.14368e+07;"}
+{"iter":14,"leader":"10.42.0.51","deleted_total":0,"dryrun_present":42,"metrics":"go_goroutines 75;process_resident_memory_bytes 3.35872e+07;"}
+{"iter":15,"leader":"10.42.0.51","deleted_total":0,"dryrun_present":45,"metrics":"go_goroutines 76;process_resident_memory_bytes 3.2702464e+07;"}
+{"iter":16,"leader":"10.42.0.51","deleted_total":0,"dryrun_present":48,"metrics":"go_goroutines 75;process_resident_memory_bytes 3.2813056e+07;"}
+{"iter":17,"leader":"10.42.0.51","deleted_total":0,"dryrun_present":51,"metrics":"go_goroutines 75;process_resident_memory_bytes 3.3128448e+07;"}
+{"iter":18,"leader":"10.42.0.51","deleted_total":0,"dryrun_present":54,"metrics":"go_goroutines 75;process_resident_memory_bytes 3.330048e+07;"}
+{"event":"leader_transition","iter":18}
+{"iter":19,"leader":"10.42.0.52","deleted_total":0,"dryrun_present":57,"metrics":"go_goroutines 75;process_resident_memory_bytes 3.3370112e+07;"}
+{"iter":20,"leader":"10.42.0.52","deleted_total":0,"dryrun_present":60,"metrics":"go_goroutines 75;process_resident_memory_bytes 3.536896e+07;"}
+{"iter":21,"leader":"10.42.0.52","deleted_total":0,"dryrun_present":63,"metrics":"go_goroutines 75;process_resident_memory_bytes 2.760704e+07;"}
+{"iter":22,"leader":"10.42.0.52","deleted_total":0,"dryrun_present":66,"metrics":"go_goroutines 75;process_resident_memory_bytes 2.7713536e+07;"}
+{"iter":23,"leader":"10.42.0.52","deleted_total":0,"dryrun_present":69,"metrics":"go_goroutines 75;process_resident_memory_bytes 2.6656768e+07;"}
+{"iter":24,"leader":"10.42.0.52","deleted_total":0,"dryrun_present":72,"metrics":"go_goroutines 76;process_resident_memory_bytes 2.8192768e+07;"}
+{"event":"leader_transition","iter":24}
+{"iter":25,"leader":"10.42.0.53","deleted_total":0,"dryrun_present":75,"metrics":"go_goroutines 60;process_resident_memory_bytes 2.6845184e+07;"}
+{"iter":26,"leader":"10.42.0.53","deleted_total":0,"dryrun_present":78,"metrics":"go_goroutines 59;process_resident_memory_bytes 2.4092672e+07;"}
+{"iter":27,"leader":"10.42.0.53","deleted_total":0,"dryrun_present":81,"metrics":"go_goroutines 59;process_resident_memory_bytes 2.37568e+07;"}
+{"iter":28,"leader":"10.42.0.53","deleted_total":0,"dryrun_present":84,"metrics":"go_goroutines 60;process_resident_memory_bytes 2.4690688e+07;"}
+{"iter":29,"leader":"10.42.0.53","deleted_total":0,"dryrun_present":87,"metrics":"go_goroutines 59;process_resident_memory_bytes 2.4559616e+07;"}
+{"iter":30,"leader":"10.42.0.53","deleted_total":0,"dryrun_present":90,"metrics":"go_goroutines 59;process_resident_memory_bytes 2.6198016e+07;"}
+{"event":"leader_transition","iter":30}
+{"event":"survival_end","ts":"2026-09-23T18:43:22-04:00"}
