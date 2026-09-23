@@ -116,8 +116,12 @@ deploy_controller() {
     # WEBHOOK_NAMESPACE placeholders; expand them (default
     # zen-cleaner-system, same as deploy/install.sh) before apply -- the
     # raw file is not a valid kube manifest.
-    sed -e 's/${WEBHOOK_NAMESPACE}/zen-cleaner-system/g' \
-        ../../deploy/manifests/rbac.yaml | kubectl apply -f -
+    # DAEDALUS-032: ALL manifest placeholders expand here (rbac, deployment,
+    # service, pdb) -- one expansion law, no per-file special cases.
+    for manifest in rbac deployment service pdb; do
+        sed -e 's/${WEBHOOK_NAMESPACE}/zen-cleaner-system/g' \
+            ../../deploy/manifests/$manifest.yaml | kubectl apply -f -
+    done
     
     # Build and load image
     log_info "Building controller image..."
