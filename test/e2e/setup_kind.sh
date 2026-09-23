@@ -112,8 +112,12 @@ deploy_controller() {
     # Create namespace
     kubectl create namespace zen-cleaner-system --dry-run=client -o yaml | kubectl apply -f -
     
-    # Apply RBAC
-    kubectl apply -f ../../deploy/manifests/rbac.yaml
+    # Apply RBAC. DAEDALUS-032 e2e fix: the manifest carries
+    # WEBHOOK_NAMESPACE placeholders; expand them (default
+    # zen-cleaner-system, same as deploy/install.sh) before apply -- the
+    # raw file is not a valid kube manifest.
+    sed -e 's/${WEBHOOK_NAMESPACE}/zen-cleaner-system/g' \
+        ../../deploy/manifests/rbac.yaml | kubectl apply -f -
     
     # Build and load image
     log_info "Building controller image..."
