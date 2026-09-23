@@ -18,6 +18,7 @@ metadata:
   namespace: ${WEBHOOK_NAMESPACE}
   labels:
     app: zen-cleaner
+    app.kubernetes.io/name: zen-cleaner  # SUPPORT2-043: webhook-service selects this label
 spec:
   replicas: 2  # Enable HA with leader election
   selector:
@@ -27,6 +28,7 @@ spec:
     metadata:
       labels:
         app: zen-cleaner
+        app.kubernetes.io/name: zen-cleaner  # SUPPORT2-043: webhook-service selects this label
     spec:
       serviceAccountName: zen-cleaner
       securityContext:
