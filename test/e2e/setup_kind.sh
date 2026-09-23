@@ -129,7 +129,10 @@ deploy_controller() {
     kind load docker-image zenmesh/zen-cleaner:test --name "$CLUSTER_NAME"
     
     # Apply deployment (modify image tag)
-    kubectl apply -f ../../deploy/manifests/deployment.yaml
+    # DAEDALUS-032: the raw deployment.yaml carries the WEBHOOK_NAMESPACE
+    # placeholder too -- apply through the same expansion (sed) as above.
+    sed -e 's/${WEBHOOK_NAMESPACE}/zen-cleaner-system/g' \
+        ../../deploy/manifests/deployment.yaml | kubectl apply -f -
     kubectl set image deployment/zen-cleaner zen-cleaner=zenmesh/zen-cleaner:test -n zen-cleaner-system
     
     log_info "Waiting for controller to be ready..."
