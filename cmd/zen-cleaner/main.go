@@ -172,8 +172,13 @@ func runMain() int {
 	// Setup controller-runtime manager
 	baseOpts := ctrl.Options{
 		Scheme: scheme,
+		// SUPPORT2-042 observability law: the manager's metrics server is
+		// disabled because it starts only on the leader, which left standby
+		// replicas unscrapable. The always-on standalone server binds
+		// *metricsAddr on EVERY replica instead, gathering from the default
+		// and controller-runtime registries (see ServeMetricsAlwaysOn).
 		Metrics: metricsserver.Options{
-			BindAddress: *metricsAddr,
+			BindAddress: "0",
 		},
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    9443,
@@ -275,9 +280,22 @@ func runMain() int {
 	}
 	defer stopHealth()
 
+	// SUPPORT2-042 observability law: every replica serves /metrics on the
+	// canonical metrics port (the manager's own bind is disabled above).
+	stopMetrics, err := controller.ServeMetricsAlwaysOn(ctx, *metricsAddr)
+	if err != nil {
+		setupLog.Error(err, "Error starting always-on metrics server", sdklog.ErrorCode("METRICS_SERVER_ERROR"))
+		return 1
+	}
+	defer stopMetrics()
+
 	// Leadership transitions feed the health semantics (leader readiness is
-	// the full law; standby readiness is process-level, per §11-§12).
-	leConfig.OnLeadingChange = leaderState.SetLeading
+	// the full law; standby readiness is process-level, per §11-§12) and the
+	// per-replica leadership gauge exposed on /metrics.
+	leConfig.OnLeadingChange = func(leading bool) {
+		leaderState.SetLeading(leading)
+		controller.SetLeadershipGauge(leading)
+	}
 
 	// SUPPORT2-032R: admission is stateless and the webhook Service routes
 	// to every ready replica, so every replica serves the webhook — not
