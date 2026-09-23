@@ -13,10 +13,11 @@
 # limitations under the License.
 
 # Build stage
-# Builder toolchain is pinned to the exact go.mod / CI version: the module
-# declares `go 1.26.6`, CI builds with 1.26.6, and the release contract
-# (project.yaml goVersion, README) declares Go 1.26 images.
-FROM golang:1.26.6-alpine AS builder
+# Builder toolchain pinned by digest (golang:1.27.1-alpine). The module
+# declares `go 1.27.0`; the release contract (project.yaml goVersion, README)
+# declares Go 1.27 images. NOTE: .github workflow go-version pins remain 1.26.6
+# pending CI ownership (SCOUT-019: .github is out of scope by law).
+FROM golang@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS builder
 
 WORKDIR /build
 

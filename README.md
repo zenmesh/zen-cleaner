@@ -1,7 +1,7 @@
 # Zen Cleaner
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)](https://go.dev/)
 [![CI](https://github.com/zenmesh/zen-cleaner/workflows/CI/badge.svg)](https://github.com/zenmesh/zen-cleaner/actions)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.26+-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 
@@ -17,7 +17,7 @@ Kubernetes controller for **declarative resource cleanup**: define **`ZenCleaner
 
 **Security:** report vulnerabilities to **[security@zen-mesh.io](mailto:security@zen-mesh.io)** or via [GitHub Security Advisories](https://github.com/zenmesh/zen-cleaner/security) — see [SECURITY.md](SECURITY.md).
 
-Builds require **Go 1.26+** (see `go.mod`). Published container images are built with Go **1.26**.
+Builds require **Go 1.27+** (see `go.mod`). Published container images are built with Go **1.27**.
 
 ## Quick start
 
