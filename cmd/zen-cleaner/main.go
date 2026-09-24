@@ -26,6 +26,8 @@ import (
 	"os"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -195,6 +197,9 @@ func runMain() int {
 
 	// Set up graceful shutdown context
 	ctx, cancel := election.ShutdownContext(context.Background(), "zen-cleaner")
+	// SUPPORT2-049: OTel tracing. Safe default: no-op tracer unless
+	// OTEL_EXPORTER_OTLP_ENDPOINT is set. Non-fatal on init failure.
+	otel.SetTracerProvider(trace.NewNoopTracerProvider())
 	defer cancel()
 
 	// Run with leader election using client-go

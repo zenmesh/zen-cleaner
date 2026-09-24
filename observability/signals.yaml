@@ -12,3 +12,5 @@ signals:
   - {id: zen.cleaner.leader.transition, type: LOG_EVENT, owner_repo: zen-cleaner, component: zen-cleaner, severity: INFO, coverage: {declared: true, registered: false, wired: true, observed: true}, evidence: ["qual/evidence/support2-043"]}
   - {id: zen.cleaner.delete.batch, type: LOG_EVENT, owner_repo: zen-cleaner, component: zen-cleaner, severity: INFO, coverage: {declared: true, registered: false, wired: true, observed: true}, evidence: ["qual/evidence/support2-043"]}
   - {id: zen.cleaner.admission.denied, type: LOG_EVENT, owner_repo: zen-cleaner, component: zen-cleaner, severity: WARN, reason_codes: [PROTECTED_NAMESPACE, PROTECTED_KIND, NAMESPACE_NOT_EXPLICIT], coverage: {declared: true, registered: false, wired: true, observed: true}, evidence: ["qual/evidence/support2-041"]}
+  - {id: zen.cleaner.deletion.span, type: SPAN, owner_repo: zen-cleaner, component: zen-cleaner, coverage: {declared: true, registered: false, wired: false}, evidence: []}
+  - {id: zen.cleaner.reconcile.span, type: SPAN, owner_repo: zen-cleaner, component: zen-cleaner, coverage: {declared: true, registered: false, wired: false}, evidence: []}
