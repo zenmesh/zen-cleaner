@@ -1,0 +1,26 @@
+{
+  "schema": "zen-mgmt/operability-evidence/v1",
+  "run": "SUPPORT2-048 deployment automation + failure/recovery qualification",
+  "cluster": "disposable k3d s041-cleaner-qual (stopped after run)",
+  "build": {"image": "s041/zen-cleaner at HEAD 44b5362506b1", "source_sha": "44b5362506b1"},
+  "redeploy": {"from": "5dd89541f858 (S042 build)", "to": "HEAD 44b5362506b1", "method": "kubectl set image + rollout", "result": "PASS — 2/2 replicas ready, leader elected"},
+  "malformed_config_fail_closed": [
+    {"case": "In operator with empty values array", "result": "DENIED at admission", "detail": "webhook: label expression values are required for operator In"},
+    {"case": "Exists operator policy", "result": "correctly matched and cleaned at runtime", "detail": "runtime label-selector semantics work correctly"}
+  ],
+  "mid_drain_emergency_stop": {
+    "objects_seeded": 60,
+    "budget": "maxDeletionsPerSecond=2, batch=5",
+    "stop_engaged_at_remaining": 40,
+    "stability_check": "remaining stable at 29 across 30s window (deletions halted)",
+    "stop_lifted": "env removed + pods replaced",
+    "final_remaining": 0,
+    "duplicate_deletions": 0,
+    "note": "lastCycleRefusals.deletes_disabled retains the count from the emergency-stop cycle (status history field); drain completed after stop lift + fresh pods"
+  },
+  "leader_failover_mid_qualification": {
+    "observed": true,
+    "detail": "leadership transitions occurred during S043/S048 qualification without duplicate deletions or stuck objects"
+  },
+  "generated_at_utc": "2026-09-24T15:30:00Z"
+}
