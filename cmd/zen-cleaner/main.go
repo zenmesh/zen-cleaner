@@ -41,6 +41,7 @@ import (
 
 	"github.com/zenmesh/zen-cleaner/internal/election"
 	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	"github.com/zenmesh/zen-cleaner/observability"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/config"
 	"github.com/zenmesh/zen-cleaner/pkg/controller"
@@ -287,6 +288,18 @@ func runMain() int {
 
 	// SUPPORT2-042 observability law: every replica serves /metrics on the
 	// canonical metrics port (the manager's own bind is disabled above).
+	// SUPPORT2-050: OTel tracing init (safe no-op default).
+	traceShutdown, traceErr := observability.InitTracing(ctx)
+	if traceErr != nil {
+		setupLog.Warn("Tracing init failed (non-fatal)", sdklog.Error(traceErr))
+	} else {
+		defer func() {
+			if sdErr := traceShutdown(context.Background()); sdErr != nil {
+				setupLog.Warn("Tracing shutdown error", sdklog.Error(sdErr))
+			}
+		}()
+	}
+
 	stopMetrics, err := controller.ServeMetricsAlwaysOn(ctx, *metricsAddr)
 	if err != nil {
 		setupLog.Error(err, "Error starting always-on metrics server", sdklog.ErrorCode("METRICS_SERVER_ERROR"))
