@@ -1,0 +1,73 @@
+# SUPPORT2-047 runbooks: zen-cleaner operational conditions.
+# Schema mirrors zen-mgmt registries/operations/runbooks.yaml entry shape.
+runbooks:
+  - id: rb-cleaner-operations
+    title: "Cleanup controller operational conditions"
+    product: zen-cleaner
+    component: zen-cleaner
+    severity: ERROR
+    trigger_alerts:
+      - CleanerControllerDown
+      - CleanerControllerHighErrorRate
+      - CleanerControllerDeletionFailures
+      - CleanerControllerPolicyErrors
+      - CleanerControllerSlowDeletions
+      - CleanerControllerSlowEvaluation
+      - CleanerControllerNoActivePolicies
+      - CleanerControllerHighDeletionRate
+    condition: |
+      CleanerControllerDown: up{job="zen-cleaner"} == 0 or all replicas not ready
+      (leader-only controller work pauses; standby metrics/health remain).
+      DeletionFailures: rate of failed deletions (non-404) above budget.
+      PolicyErrors: policy validation/reconcile errors above threshold.
+      HighDeletionRate: deletion rate materially above the configured
+      maxDeletionsPerSecond budget (possible runaway/over-broad selector).
+      SlowDeletions/SlowEvaluation: p99 latency above objectives.
+      NoActivePolicies: zero Active policies while eligible stale objects exist.
+    symptoms:
+      - stale objects accumulate past their TTL
+      - deletion failure counters grow (deletion_failed reason class)
+      - safety refusals spike unexpectedly (protected_namespace / workload_managed / excluded_label / deletes_disabled)
+      - leadership gauge absent or two leaders
+    impact: "stale resources accumulate (cost/noise), or — worst case — deletion set broader than intended (treat as P0, engage emergency stop)"
+    diagnostic_steps:
+      - check leadership: zen_cleaner_leadership_state across replicas (exactly one 1)
+      - deletion failures: zen_cleaner_resources_deleted_total vs failure counters; classify reason (permissions? API errors? finalizers?)
+      - refusal spike: zen_cleaner_safety_refusals_total by reason — expected refusals are protective; an unexpected class means a policy change landed
+      - HighDeletionRate: confirm the policy label selector and budget; use ZEN_CLEANER_DELETE_ENABLED=false (emergency stop) if the deletion set looks wrong
+      - NoActivePolicies: policies may all be failing admission (webhook down/cert issue) — check webhook endpoints and cert validity
+    decision_points:
+      - "deletion set looks wrong -> engage emergency stop FIRST (env ZEN_CLEANER_DELETE_ENABLED=false + rollout), then diagnose"
+      - "policy admission failing -> check webhook service endpoints + cert Secret (S043: selector/cert recovery)"
+      - "budget too low (slow deletions) -> raise maxDeletionsPerSecond deliberately via policy behavior"
+    safe_actions:
+      - engage the emergency stop (fail-safe direction)
+      - correct policy selectors/behavior via normal apply (webhook validates)
+      - restart pods after cert/RBAC fixes
+    restricted_actions:
+      - widen a label selector to 'fix' zero deletions (never broaden the deletion set to make metrics move)
+    forbidden_actions:
+      - disable the safety gate
+      - delete objects manually to mask a broken controller
+      - remove protected-namespace/kind denials
+    remediation_steps:
+      - fix the root cause (admission, RBAC, budget, selector)
+      - re-enable deletions after verification
+      - confirm drain: remaining eligible objects deleted within one budget window
+    rollback: "revert the last policy/deployment change; emergency stop remains available"
+    verification:
+      - zen_cleaner_resources_deleted_total advances by exactly the eligible count
+      - zero duplicate deletions for the same UID
+      - leadership gauge exactly one 1 across replicas
+      - safety refusal counters stable at expected baselines
+    recovery_criteria: ["eligible backlog drained", "no deletion failures over one full cycle", "single leader"]
+    escalation: cleaner lane owner; production incidents escalate to Leonardo
+    evidence_required: ["deletion counters before/after", "policy revisions", "refusal reason series"]
+    related_objects: [zencleanerpolicy, observations]
+    related_operations: [cleanup]
+    risk_class: HIGH
+    human_approval_class: NONE
+    automation_class: AUTOMATION_SAFE
+    last_verified: "2026-09-24"
+    verification_evidence: "SUPPORT2-041/043 (600-object crash recovery, emergency stop, refusal metrics, dry-run accounting)"
+    references: ["deploy/prometheus/prometheus-rules.yaml", "pkg/safety/safety.go", "docs/runbooks/cleaner-operations.yaml"]

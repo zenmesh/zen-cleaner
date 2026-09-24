@@ -1,0 +1,24 @@
+{
+  "schema": "zen-mgmt/cerc-product-receipt/v1",
+  "receipt_kind": "DELTA_ROWS",
+  "product": "Zen Cleaner",
+  "repo": "zen-cleaner",
+  "campaign": "SUPPORT2-043",
+  "source_sha": "d1afa00e8121",
+  "env_class": "DISPOSABLE_CLUSTER",
+  "rows": [
+    {"name": "mid_batch_crash_recovery", "result": "PASS", "class": "resilience", "detail": "600 objects, leader SIGKILL at remaining=319, 12s election pause, drained to 0, zero duplicates/stuck finalizers"},
+    {"name": "uid_replacement_safety", "result": "PASS", "class": "security", "detail": "5 same-name replacements (new UIDs) survived mid-drain; 30/30 originals deleted"},
+    {"name": "all_replica_restart", "result": "PASS", "class": "resilience", "detail": "12s to rollout-complete; exactly one leader; cleanup resumed"},
+    {"name": "webhook_cert_recovery", "result": "PASS", "class": "security", "detail": "fail-closed on missing/rotated cert; recovered on restore"},
+    {"name": "bounded_survival", "result": "PASS", "class": "resilience", "detail": "28.8-minute churn (150 eligible + 90 dry-run objects, 5 leader transitions, 0 dry-run deletions, goroutines 59-84, RSS 20.7-35.4MB)"},
+    {"name": "upgrade_rollback", "result": "NOT_APPLICABLE", "class": "deployment", "detail": "no tagged predecessor exists"}
+  ],
+  "evidence_files": [
+    "qual/evidence/support2-043/crash-recovery-and-restarts.json",
+    "qual/evidence/support2-043/survival-churn.jsonl",
+    "qual/evidence/support2-043/govulncheck.log",
+    "qual/evidence/support2-043/unit-sweep.log"
+  ],
+  "generated_at": "2026-09-24T00:30:00Z"
+}

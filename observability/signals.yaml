@@ -1,0 +1,14 @@
+# SUPPORT2-047: zen-cleaner signal manifest in the D027 normalized schema.
+# METRIC ids verified against pkg/controller/metrics.go registrations;
+# LOG_EVENT ids verified against emitted log messages; live-observed entries
+# carry S041/S042/S043 qualification evidence (qual/evidence/).
+schema: zen-mgmt/observability-signals/v1
+product: zen-cleaner
+signals:
+  - {id: zen.cleaner.resources.deleted.total, type: METRIC, owner_repo: zen-cleaner, component: zen-cleaner, kind: counter, unit: "1", labels_allowed: [policy_name, policy_namespace, reason, resource_api_version, resource_kind], coverage: {declared: true, registered: false, wired: true, observed: true}, evidence: ["qual/evidence/support2-043"]}
+  - {id: zen.cleaner.safety.refusals.total, type: METRIC, owner_repo: zen-cleaner, component: zen-cleaner, kind: counter, unit: "1", labels_allowed: [reason], coverage: {declared: true, registered: false, wired: true, observed: true}, evidence: ["qual/evidence/support2-043"]}
+  - {id: zen.cleaner.dry_run.candidates.total, type: METRIC, owner_repo: zen-cleaner, component: zen-cleaner, kind: counter, unit: "1", coverage: {declared: true, registered: false, wired: true, observed: true}, evidence: ["qual/evidence/support2-043"]}
+  - {id: zen.cleaner.leadership.state, type: METRIC, owner_repo: zen-cleaner, component: zen-cleaner, kind: gauge, unit: "1", coverage: {declared: true, registered: false, wired: true, observed: true}, evidence: ["qual/evidence/support2-042"]}
+  - {id: zen.cleaner.leader.transition, type: LOG_EVENT, owner_repo: zen-cleaner, component: zen-cleaner, severity: INFO, coverage: {declared: true, registered: false, wired: true, observed: true}, evidence: ["qual/evidence/support2-043"]}
+  - {id: zen.cleaner.delete.batch, type: LOG_EVENT, owner_repo: zen-cleaner, component: zen-cleaner, severity: INFO, coverage: {declared: true, registered: false, wired: true, observed: true}, evidence: ["qual/evidence/support2-043"]}
+  - {id: zen.cleaner.admission.denied, type: LOG_EVENT, owner_repo: zen-cleaner, component: zen-cleaner, severity: WARN, reason_codes: [PROTECTED_NAMESPACE, PROTECTED_KIND, NAMESPACE_NOT_EXPLICIT], coverage: {declared: true, registered: false, wired: true, observed: true}, evidence: ["qual/evidence/support2-041"]}

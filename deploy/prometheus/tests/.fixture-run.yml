@@ -1,0 +1,33 @@
+# SUPPORT2-047 firing fixture: CleanerControllerDown fires when the scrape
+# target disappears (down for the 5m `for` duration); negative case keeps it
+# silent while healthy. Positive at t=10m (well past `for: 5m`), negative at 4m.
+evaluation_interval: 1m
+rule_files:
+  - /home/neves/zenmesh/zen-cleaner/deploy/prometheus/tests/.fixture-rules.yml
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'up{job="zen-cleaner"}'
+        values: "1 1 1 1 0 0 0 0 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CleanerControllerDown
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: CleanerControllerDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              component: zen-cleaner
+              job: zen-cleaner
+            exp_annotations:
+              summary: "Zen Cleaner Controller is down"
+              description: "Zen Cleaner Controller has been down for more than 5 minutes."
+  - interval: 1m
+    input_series:
+      - series: 'up{job="zen-cleaner"}'
+        values: "1+0x10"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: CleanerControllerDown
+        exp_alerts: []

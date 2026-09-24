@@ -1,0 +1,104 @@
+# GENERATED from ../prometheus-rules.yaml (PrometheusRule CRD wrapper stripped for promtool).
+# Regenerate: python3 -c "import yaml;d=yaml.safe_load(open('../prometheus-rules.yaml'));yaml.safe_dump({'groups':d['spec']['groups']},open('cleaner-rules-bare.yml','w'))"
+groups:
+- interval: 30s
+  name: zen-cleaner.rules
+  rules:
+  - alert: CleanerControllerDown
+    annotations:
+      description: Zen Cleaner Controller has been down for more than 5 minutes.
+      summary: Zen Cleaner Controller is down
+    expr: up{job="zen-cleaner"} == 0
+    for: 5m
+    labels:
+      component: zen-cleaner
+      severity: critical
+  - alert: CleanerControllerHighErrorRate
+    annotations:
+      description: 'Zen Cleaner Controller is experiencing {{ $value }} errors per
+        second for policy {{ $labels.policy_name }}.
+
+        '
+      summary: High cleanup error rate detected
+    expr: rate(zen_cleaner_errors_total[5m]) > 10
+    for: 5m
+    labels:
+      component: zen-cleaner
+      severity: warning
+  - alert: CleanerControllerDeletionFailures
+    annotations:
+      description: 'Zen Cleaner Controller is failing to delete resources for policy
+        {{ $labels.policy_name }}.
+
+        '
+      summary: High deletion failure rate
+    expr: rate(zen_cleaner_errors_total{error_type="deletion_failed"}[5m]) > 5
+    for: 10m
+    labels:
+      component: zen-cleaner
+      severity: warning
+  - alert: CleanerControllerPolicyErrors
+    annotations:
+      description: 'Cleanup policy {{ $labels.policy_name }} is in error state.
+
+        '
+      summary: Cleanup policy in error state
+    expr: zen_cleaner_policies_total{phase="Error"} > 0
+    for: 5m
+    labels:
+      component: zen-cleaner
+      severity: warning
+  - alert: CleanerControllerSlowDeletions
+    annotations:
+      description: '95th percentile deletion duration is high for policy {{ $labels.policy_name
+        }}.
+
+        '
+      summary: Slow cleanup deletions detected
+    expr: 'histogram_quantile(0.95, rate(zen_cleaner_deletion_duration_seconds_bucket[5m]))
+      > 10
+
+      '
+    for: 10m
+    labels:
+      component: zen-cleaner
+      severity: warning
+  - alert: CleanerControllerSlowEvaluation
+    annotations:
+      description: '95th percentile evaluation duration is high for policy {{ $labels.policy_name
+        }}.
+
+        '
+      summary: Slow cleanup policy evaluation
+    expr: 'histogram_quantile(0.95, rate(zen_cleaner_evaluation_duration_seconds_bucket[5m]))
+      > 5
+
+      '
+    for: 10m
+    labels:
+      component: zen-cleaner
+      severity: warning
+  - alert: CleanerControllerNoActivePolicies
+    annotations:
+      description: 'No active cleanup policies are configured. This may be expected
+        if cleanup is not needed.
+
+        '
+      summary: No active cleanup policies
+    expr: zen_cleaner_policies_total{phase="Active"} == 0
+    for: 1h
+    labels:
+      component: zen-cleaner
+      severity: info
+  - alert: CleanerControllerHighDeletionRate
+    annotations:
+      description: 'Zen Cleaner Controller is deleting resources at a high rate. This
+        may indicate a configuration issue.
+
+        '
+      summary: High cleanup deletion rate
+    expr: rate(zen_cleaner_resources_deleted_total[5m]) > 100
+    for: 5m
+    labels:
+      component: zen-cleaner
+      severity: warning

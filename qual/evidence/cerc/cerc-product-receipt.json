@@ -1,0 +1,51 @@
+{
+  "schema": "zen-mgmt/cerc-product-receipt/v1",
+  "product": "Zen Cleaner",
+  "repo": "zen-cleaner",
+  "campaign": "SUPPORT2-041",
+  "source_sha": "47603f3bca0f",
+  "environment": "fresh disposable k3d cluster s041-cleaner-qual (k8s v1.35.5+k3s1), host go1.27.0 build, scratch final image stage identical to repo Dockerfile",
+  "env_class": "DISPOSABLE_CLUSTER",
+  "generated_at": "2026-09-23T19:55:00Z",
+  "state_claim": "qualification",
+  "image": {
+    "tag": "s041/zen-cleaner:180187bb5195 (source-bound local build; k3d import, no registry push in this tranche)",
+    "digest": "sha256:c55ed2693f085d0ce09f4bdf254a71af9d5f238daabdd0bab811394b22356b83"
+  },
+  "rows": [
+    {"name": "from_zero_install", "result": "PASS", "class": "deployment", "detail": "CRD + canonical manifests + webhook cert generator + helm-equivalent path; 2 replicas Ready"},
+    {"name": "leader_election_ha", "result": "PASS", "class": "lifecycle", "detail": "/leaderz leader+standby verified live; leader pod deletion -> standby promotion -> cleanup continued"},
+    {"name": "real_cleanup_behavior", "result": "PASS", "class": "integration", "detail": "policy-driven deletion of stale ConfigMaps observed; non-matching and excluded objects survived; policy status Active with GC cycles"},
+    {"name": "deletion_safety_battery", "result": "PASS", "class": "security", "detail": "admission denies protected namespace/kind; workload opt-in enforced (workload_managed refusals); exclusion label honored; emergency stop ZEN_CLEANER_DELETE_ENABLED=false honored live; dry-run matched=1 deleted=0; UID precondition unit-proven"},
+    {"name": "admission_webhooks", "result": "PASS", "class": "security", "detail": "validating webhook typed rejections live; mutating webhook defaults applied; TLS via gen-webhook-cert.sh"},
+    {"name": "load_3000_rate_limited", "result": "PASS", "class": "load", "detail": "3000/3000 deleted, deleted counter exactly 3000 (zero duplicates), no stuck finalizers, budget respected"},
+    {"name": "resource_no_leak", "result": "PASS", "class": "resource", "detail": "goroutines flat 68 across all samples; RSS 60-73MB (limit 512Mi); 0 restarts"},
+    {"name": "uninstall_cleanup", "result": "PASS", "class": "deployment", "detail": "CRD/webhooks/workload/rbac removed, zero residue"},
+    {"name": "supply_chain", "result": "PASS", "class": "security", "detail": "trivy 0 HIGH/CRITICAL (gobinary; scratch base); govulncheck 0; go mod verify clean; builder toolchain pinned by digest (golang:1.27.1-alpine) matching go 1.27.0 directive; SBOM (CycloneDX) generated"},
+    {"name": "unit_and_race", "result": "PASS", "class": "verification", "detail": "17/17 packages ok (twice: baseline and post-change); race green on pkg/safety, pkg/webhook, internal/ratelimiter, internal/election"},
+    {"name": "standby_metrics_server", "result": "FAIL", "class": "observability", "detail": "standby replica serves no :8080 metrics (manager starts on leader only); Prometheus scrapes of the metrics Service will fail against standbys; health/webhook unaffected — flagged for owner follow-up, not a deletion-safety issue"},
+    {"name": "restart_during_cleanup", "result": "SKIP", "class": "resilience", "detail": "leader-failover delete+promote covered; a kill -9 style mid-batch crash-replay was not separately executed"},
+    {"name": "upgrade_rollback", "result": "SKIP", "class": "deployment", "detail": "no prior deployed generation in the disposable environment to roll back from; helm rollback path not exercised"},
+    {"name": "long_term_survival_trace", "result": "SKIP", "class": "resilience", "detail": "no 24h burn-in in this tranche; not claimed"}
+  ],
+  "assertions": [
+    {"name": "no_hardcoded_credentials", "result": "PASS", "class": "security", "detail": "audit: only redaction helpers reference passwords; no secrets in manifests"},
+    {"name": "no_insecure_tls", "result": "PASS", "class": "security", "detail": "no InsecureSkipVerify; webhook TLS required unless explicit testing-only flag"},
+    {"name": "no_pprof_debug_surface", "result": "PASS", "class": "security", "detail": "no pprof endpoints in product code"},
+    {"name": "container_hardening", "result": "PASS", "class": "security", "detail": "nonroot 65532/65534, readOnlyRootFilesystem, all caps dropped, seccomp RuntimeDefault; scratch/distroless-style image"},
+    {"name": "rbac_least_privilege", "result": "PASS", "class": "security", "detail": "wildcard apiGroups/resources is the documented product contract with verbs restricted to get/list/watch/delete; no write verbs on targets"},
+    {"name": "no_floating_image_tags_in_canonical_path", "result": "PASS", "class": "security", "detail": "helm values pinned with explicit law comment; canonical manifests envsubst-driven; deployment-test.yaml :latest is a non-canonical local fixture (flagged)"}
+  ],
+  "evidence_files": [
+    "qual/evidence/support2-041/from-zero-deletion-safety.json",
+    "qual/evidence/support2-041/trivy-image-180187bb5195.log",
+    "qual/evidence/support2-041/govulncheck.log",
+    "qual/evidence/support2-041/unit-sweep.log"
+  ],
+  "lineage_predecessor": "Zen GC",
+  "notes": [
+    "Product identity per zen-mgmt registries/completeness/ZEN-CERC-001/product-attribution.yaml: Zen Cleaner -> zen-cleaner.",
+    "Executor: Support2 (SUPPORT2-041). Single mechanical run set 2026-09-23.",
+    "Fix commits this tranche: 180187b (deletion log policy identity + dry-run batch contract guard)."
+  ]
+}
