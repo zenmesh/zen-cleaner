@@ -6,6 +6,7 @@ spec:
   targetResource:
     apiVersion: v1
     kind: Pod
+    namespace: "*"  # test-pod cleanup applies across namespaces; labelSelector scopes it
     labelSelector:
       matchLabels:
         test: "true"

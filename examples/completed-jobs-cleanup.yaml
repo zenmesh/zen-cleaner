@@ -20,6 +20,7 @@ spec:
   targetResource:
     apiVersion: batch/v1
     kind: Job
+    namespace: default  # explicit namespace required by policy schema
   ttl:
     secondsAfterCreation: 86400  # 24 hours
   conditions:

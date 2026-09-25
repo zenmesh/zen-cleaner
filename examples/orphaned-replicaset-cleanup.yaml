@@ -20,6 +20,7 @@ spec:
   targetResource:
     apiVersion: apps/v1
     kind: ReplicaSet
+    namespace: default  # explicit namespace required by policy schema
   ttl:
     secondsAfterCreation: 86400  # 24 hours
   conditions:

@@ -6,6 +6,7 @@ spec:
   targetResource:
     apiVersion: v1
     kind: ConfigMap
+    namespace: default  # explicit namespace required by policy schema
     labelSelector:
       matchLabels:
         temp: "true"

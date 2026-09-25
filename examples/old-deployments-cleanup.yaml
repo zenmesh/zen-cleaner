@@ -20,6 +20,7 @@ spec:
   targetResource:
     apiVersion: apps/v1
     kind: Deployment
+    namespace: default  # explicit namespace required by policy schema
     labelSelector:
       matchLabels:
         environment: "staging"

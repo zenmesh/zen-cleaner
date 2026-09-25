@@ -20,6 +20,7 @@ spec:
   targetResource:
     apiVersion: v1
     kind: Pod
+    namespace: default  # explicit namespace required by policy schema
   ttl:
     secondsAfterCreation: 7200  # 2 hours
   conditions:
