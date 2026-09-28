@@ -17,7 +17,7 @@
 # declares `go 1.27.0`; the release contract (project.yaml goVersion, README)
 # declares Go 1.27 images. NOTE: .github workflow go-version pins remain 1.26.6
 # pending CI ownership (SCOUT-019: .github is out of scope by law).
-FROM golang@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS builder
+FROM golang@sha256:3680233e3204827fbdc66088528ae6d4b3d034f51d03a99d454f6de034888244 AS builder
 
 WORKDIR /build
 
