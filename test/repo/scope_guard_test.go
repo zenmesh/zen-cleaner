@@ -83,6 +83,9 @@ var allowedFirstPartyPackages = map[string]bool{
 	"pkg/webhook":            true,
 	"test/integration":       true,
 	"test/repo":              true,
+	"test/e2e":               true,
+	"deploy":                 true, // deploy-time Go helpers (smoke/parity checks)
+	"deploy/manifests":       true,
 }
 
 func TestPublicScopePackageAllowlist(t *testing.T) {
