@@ -667,7 +667,9 @@ func (r *PolicyReconciler) getBatchSize(policy *v1alpha1.ZenCleanerPolicy) int {
 	return resolveBatchSize(policy, r.config)
 }
 
-// deleteBatch deletes a batch of resources.
+// deleteBatch deletes a batch of resources and emits an execution receipt
+// bound to the governing policy and plan digest (HELPER-H258+ H2). Dry-run
+// emits no receipt (no fake successful effect receipt).
 // Returns the number of successfully deleted resources and any errors encountered.
 func (r *PolicyReconciler) deleteBatch(
 	ctx context.Context,
@@ -676,7 +678,13 @@ func (r *PolicyReconciler) deleteBatch(
 	rateLimiter *ratelimiter.RateLimiter,
 	reasons map[string]string,
 ) (int64, []error) {
-	return deleteBatchShared(ctx, batch, policy, rateLimiter, reasons, r)
+	n, errs, receipt := r.ExecuteWithReceipt(ctx, batch, policy, rateLimiter, reasons)
+	if receipt != nil && r.eventRecorder != nil && r.Client != nil {
+		ref := policy.DeepCopy()
+		r.GetEventRecorder().Recorder.Eventf(ref, "Normal", "PolicyExecutionReceipt",
+			"plan=%s overall=%s effects=%d", receipt.PlanDigest, receipt.OverallStatus, len(receipt.Results))
+	}
+	return n, errs
 }
 
 // DeleteResourceWithBackoff deletes a resource with exponential backoff (implements BatchDeleter).
