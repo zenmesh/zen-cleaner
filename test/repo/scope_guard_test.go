@@ -55,36 +55,58 @@ func repoRoot(t *testing.T) string {
 	}
 }
 
-// allowedInternalPackages is the declared OSS scope of this repository.
-// Extend ONLY when a capability is registered to this component's public
-// contract (zen-mgmt component registry: capability cleanup.policy).
-var allowedInternalPackages = map[string]bool{
-	"internal/backoff":     true,
-	"internal/config":      true,
-	"internal/election":    true,
-	"internal/errors":      true,
-	"internal/events":      true,
-	"internal/health":      true,
-	"internal/logging":     true,
-	"internal/ratelimiter": true,
-	"internal/ttl":         true,
-	"internal/maintenance": false, // reserved: never public (maintenance product is a separate private component)
+// allowedFirstPartyPackages is the FULL first-party allowlist (H258 §3 V2:
+// covers every Go package directory in the module — internal/, pkg/, cmd/,
+// observability/, root — so private capability cannot smuggle in via a
+// non-internal path, a new sibling package, or a build-tagged file in an
+// otherwise-allowed directory).
+var allowedFirstPartyPackages = map[string]bool{
+	"cmd/validate-examples":  true,
+	"cmd/zen-cleaner":        true,
+	"internal/backoff":       true,
+	"internal/config":        true,
+	"internal/election":      true,
+	"internal/errors":        true,
+	"internal/events":        true,
+	"internal/health":        true,
+	"internal/logging":       true,
+	"internal/ratelimiter":   true,
+	"internal/ttl":           true,
+	"observability":          true,
+	"pkg/api/v1alpha1":       true,
+	"pkg/config":             true,
+	"pkg/controller":         true,
+	"pkg/controller/testing": true,
+	"pkg/errors":             true,
+	"pkg/safety":             true,
+	"pkg/validation":         true,
+	"pkg/webhook":            true,
+	"test/integration":       true,
+	"test/repo":              true,
 }
 
 func TestPublicScopePackageAllowlist(t *testing.T) {
 	root := repoRoot(t)
 	var found []string
-	err := filepath.WalkDir(filepath.Join(root, "internal"), func(p string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
+			name := d.Name()
+			if name == "vendor" || name == ".git" || name == "bin" || name == "dist" {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if !strings.HasSuffix(p, ".go") {
 			return nil
 		}
-		found = append(found, filepath.ToSlash(filepath.Dir(p)))
+		rel, rerr := filepath.Rel(root, p)
+		if rerr != nil {
+			return nil
+		}
+		found = append(found, filepath.ToSlash(filepath.Dir(rel)))
 		return nil
 	})
 	if err != nil && !os.IsNotExist(err) {
@@ -92,29 +114,19 @@ func TestPublicScopePackageAllowlist(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	for _, p := range found {
-		rel, rerr := filepath.Rel(root, p)
-		if rerr != nil {
-			t.Fatalf("rel %s: %v", p, rerr)
-		}
-		seen[filepath.ToSlash(rel)] = true
+		seen[p] = true // V2 walk already yields module-relative dirs
 	}
 	var outOfScope []string
 	for p := range seen {
-		if !allowedInternalPackages[p] {
+		if !allowedFirstPartyPackages[p] {
 			outOfScope = append(outOfScope, p)
 		}
 	}
 	if len(outOfScope) > 0 {
 		sort.Strings(outOfScope)
-		t.Fatalf("out-of-scope internal packages present in the PUBLIC tree: %v — extend the allowlist only via the component registry (capability: cleanup.policy)", outOfScope)
+		t.Fatalf("out-of-scope first-party packages present in the PUBLIC tree: %v — extend the allowlist only via the component registry (capability: cleanup.policy)", outOfScope)
 	}
-	for p, allowed := range allowedInternalPackages {
-		if allowed {
-			if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(p))); err != nil {
-				t.Errorf("registered in-scope package missing: %s", p)
-			}
-		}
-	}
+
 }
 
 func TestDependencyDirectionNoPrivateImports(t *testing.T) {
@@ -127,11 +139,11 @@ func TestDependencyDirectionNoPrivateImports(t *testing.T) {
 	// exception pending the governance decision on de-coupling it; it is NOT
 	// a precedent for new private-module dependencies.
 	selfModule := "github.com/zenmesh/zen-cleaner"
-	// Adjudicated non-self exceptions (each must stay an explicit, documented
-	// decision — never a wildcard):
-	allowedZenmeshImports := map[string]bool{
-		"github.com/zenmesh/zen-sdk": true, // pre-existing logging-facade dependency (flagged to governance for de-coupling assessment)
-	}
+	// Adjudication (H258 §5): the module requires NO other zenmesh module
+	// (go.mod verified) and imports none — the OSS product is standalone.
+	// Any new zenmesh module dependency is a guard violation; there are no
+	// exceptions.
+	allowedZenmeshImports := map[string]bool{}
 	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
