@@ -19,16 +19,23 @@ package repo
 // Public-scope governance guard: zen-cleaner is the portfolio's single
 // intentional OSS exception, registered as a declarative Kubernetes cleanup
 // controller. This test makes it mechanically hard for out-of-scope
-// capability packages to re-enter the public tree: the set of first-party
-// internal packages must equal the declared allowlist, and first-party
-// packages must not import anything outside the module plus its declared
-// public dependencies (dependency direction: public OSS imports nothing
-// portfolio-private).
+// capability packages to re-enter the public tree:
+//
+//	V2 — the set of first-party Go packages must equal the declared
+//	allowlist (package-level, tied to the registered component scope).
+//	V3 — first-party packages must not import (or go.mod-require) any
+//	portfolio-private module, and no symbol from the preserved
+//	out-of-scope extraction may appear in ANY file of the tree (any
+//	file type, including generated, build-tagged, test-only, docs,
+//	embedded YAML and CRD field names).
 //
 // The allowlist is deliberately a PACKAGE-LEVEL allowlist tied to the
-// registered component scope — not a keyword blacklist.
+// registered component scope — not a keyword blacklist. The V3 content
+// layer covers what a package allowlist cannot see: capability smuggled
+// INSIDE an already-allowed package or inside non-Go artifacts.
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -137,15 +144,11 @@ func TestDependencyDirectionNoPrivateImports(t *testing.T) {
 	// First-party packages must not import any portfolio-private module.
 	// The OSS module builds standalone; any zenmesh module dependency other
 	// than this one is a dependency-direction violation.
-	// Self is fine. github.com/zenmesh/zen-sdk is a PRE-EXISTING dependency
-	// of the OSS logging facade — recorded here as an explicit, adjudicated
-	// exception pending the governance decision on de-coupling it; it is NOT
-	// a precedent for new private-module dependencies.
+	// Self is fine. The former zen-sdk logging-facade exception was
+	// adjudicated (H258 §5) and REMOVED: go.mod carries zero zenmesh
+	// requires and no first-party file imports one — the OSS product is
+	// fully standalone. There are no exceptions.
 	selfModule := "github.com/zenmesh/zen-cleaner"
-	// Adjudication (H258 §5): the module requires NO other zenmesh module
-	// (go.mod verified) and imports none — the OSS product is standalone.
-	// Any new zenmesh module dependency is a guard violation; there are no
-	// exceptions.
 	allowedZenmeshImports := map[string]bool{}
 	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -170,23 +173,119 @@ func TestDependencyDirectionNoPrivateImports(t *testing.T) {
 		}
 		for _, line := range strings.Split(string(raw), "\n") {
 			line = strings.TrimSpace(line)
-			if !strings.HasPrefix(line, `"github.com/zenmesh/`) && !strings.Contains(line, `"github.com/zenmesh/`) {
+			// Attack-hardened (H258 §3 battery): extract every quoted
+			// zenmesh path wherever it appears on the line — bare import
+			// specs, `import _ "..."` / `import x "..."` single-line forms,
+			// and dot-imports all smuggled past a prefix-only check.
+			if !strings.Contains(line, `"github.com/zenmesh/`) {
 				continue
 			}
-			if !strings.HasPrefix(line, `"`) {
-				continue // not an import spec line
-			}
-			imp := strings.Trim(line, `"`)
-			if strings.HasPrefix(imp, selfModule+"/") || imp == selfModule {
-				continue // own module packages
-			}
-			if !allowedZenmeshImports[imp] {
-				t.Errorf("%s: imports portfolio-private module %s (public OSS must not depend on private Zen modules)", p, imp)
+			for _, seg := range strings.Split(line, `"`) {
+				if !strings.HasPrefix(seg, "github.com/zenmesh/") {
+					continue
+				}
+				if seg == selfModule || strings.HasPrefix(seg, selfModule+"/") {
+					continue // own module packages (exact-boundary: zen-cleaner-evil is NOT self)
+				}
+				if !allowedZenmeshImports[seg] {
+					t.Errorf("%s: imports portfolio-private module %s (public OSS must not depend on private Zen modules)", p, seg)
+				}
 			}
 		}
 		return nil
 	})
 	if err != nil {
 		t.Fatalf("walk: %v", err)
+	}
+
+	// V3: the import-line scan above sees only compiled references; a
+	// dormant `require github.com/zenmesh/<private-module>` in go.mod is
+	// the same dependency-direction violation one refactor away from
+	// activation. go.mod must carry zero non-self zenmesh requires.
+	modBytes, err := os.ReadFile(filepath.Join(root, "go.mod"))
+	if err != nil {
+		t.Fatalf("read go.mod: %v", err)
+	}
+	for _, line := range strings.Split(string(modBytes), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "github.com/zenmesh/") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		if fields[0] == selfModule {
+			continue
+		}
+		t.Errorf("go.mod requires portfolio-private module %s (public OSS must be standalone)", fields[0])
+	}
+}
+
+// TestNoPrivateExtractionMarkers is the V3 content layer: the package
+// allowlist cannot see capability smuggled INSIDE an already-allowed
+// package, inside generated/build-tagged/test-only files, or inside
+// non-Go artifacts (docs examples, embedded YAML, CRD field names). Every
+// marker in private_extraction_markers.txt is a distinctive symbol of the
+// preserved out-of-scope extraction, mechanically derived and pruned to
+// zero expected hits, so any hit is material scope drift.
+func TestNoPrivateExtractionMarkers(t *testing.T) {
+	root := repoRoot(t)
+	markerPath := filepath.Join(root, "test", "repo", "private_extraction_markers.txt")
+	raw, err := os.ReadFile(markerPath)
+	if err != nil {
+		t.Fatalf("read marker list: %v", err)
+	}
+	var markers []string
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		markers = append(markers, line)
+	}
+	if len(markers) < 50 {
+		t.Fatalf("marker list implausibly small (%d): refuse to run a toothless guard", len(markers))
+	}
+	var hits []string
+	walkErr := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			switch d.Name() {
+			case ".git", "bin", "dist", "testbin":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		rel, rerr := filepath.Rel(root, p)
+		if rerr != nil {
+			return nil
+		}
+		if filepath.ToSlash(rel) == "test/repo/private_extraction_markers.txt" {
+			return nil // the denylist itself is the one lawful occurrence
+		}
+		if d.IsDir() || !d.Type().IsRegular() {
+			return nil
+		}
+		content, rerr := os.ReadFile(p)
+		if rerr != nil {
+			return nil // unreadable (perm/socket) — not a content smuggle
+		}
+		s := string(content)
+		for _, m := range markers {
+			if strings.Contains(s, m) {
+				hits = append(hits, fmt.Sprintf("%s contains %q", filepath.ToSlash(rel), m))
+			}
+		}
+		return nil
+	})
+	if walkErr != nil {
+		t.Fatalf("walk: %v", walkErr)
+	}
+	if len(hits) > 0 {
+		sort.Strings(hits)
+		t.Fatalf("out-of-scope extraction symbols present in the PUBLIC tree (material scope drift — extend scope only via the component registry):\n%s", strings.Join(hits, "\n"))
 	}
 }
