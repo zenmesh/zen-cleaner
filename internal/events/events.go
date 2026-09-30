@@ -20,7 +20,6 @@ package events
 
 import (
 	"context"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,27 +32,35 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
-// eventSinkWrapper wraps EventInterface to implement record.EventSink.
+// eventSinkWrapper wraps the namespaced EventInterface to implement
+// record.EventSink. Create routes through the EVENT'S namespace: a fixed
+// cluster-scoped Events("") client posts to the /api/v1/events route,
+// which the API server rejects with "does not allow this method" — that
+// error used to be swallowed here with a misattributed comment, silently
+// discarding every event the controller emitted (live H258 §59 evidence:
+// zero events across full evaluate+delete cycles).
 type eventSinkWrapper struct {
-	events v1.EventInterface
+	client kubernetes.Interface
+}
+
+func (e *eventSinkWrapper) eventsFor(event *corev1.Event) v1.EventInterface {
+	ns := event.Namespace
+	if ns == "" {
+		ns = metav1.NamespaceDefault
+	}
+	return e.client.CoreV1().Events(ns)
 }
 
 func (e *eventSinkWrapper) Create(event *corev1.Event) (*corev1.Event, error) {
-	created, err := e.events.Create(context.Background(), event, metav1.CreateOptions{})
-	if err != nil && strings.Contains(err.Error(), "does not allow this method") {
-		// Some clusters (e.g., k3d) don't support Events for CRD objects.
-		// Swallow the error to avoid noisy log spam on every reconcile.
-		return event, nil
-	}
-	return created, err
+	return e.eventsFor(event).Create(context.Background(), event, metav1.CreateOptions{})
 }
 
 func (e *eventSinkWrapper) Update(event *corev1.Event) (*corev1.Event, error) {
-	return e.events.Update(context.Background(), event, metav1.UpdateOptions{})
+	return e.eventsFor(event).Update(context.Background(), event, metav1.UpdateOptions{})
 }
 
 func (e *eventSinkWrapper) Patch(oldEvent *corev1.Event, data []byte) (*corev1.Event, error) {
-	return e.events.Patch(context.Background(), oldEvent.Name, types.MergePatchType, data, metav1.PatchOptions{})
+	return e.eventsFor(oldEvent).Patch(context.Background(), oldEvent.Name, types.MergePatchType, data, metav1.PatchOptions{})
 }
 
 // Recorder wraps Kubernetes event recorder for controllers.
@@ -79,7 +86,7 @@ func NewRecorder(client kubernetes.Interface, component string) *Recorder {
 	var sinkWatch watch.Interface
 	if client != nil {
 		sinkWatch = eventBroadcaster.StartRecordingToSink(&eventSinkWrapper{
-			events: client.CoreV1().Events(""),
+			client: client,
 		})
 	}
 

@@ -10,9 +10,8 @@ import (
 
 func TestEventSinkWrapperCreate(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	events := client.CoreV1().Events("")
 
-	wrapper := &eventSinkWrapper{events: events}
+	wrapper := &eventSinkWrapper{client: client}
 
 	event := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
@@ -35,9 +34,8 @@ func TestEventSinkWrapperCreate(t *testing.T) {
 
 func TestEventSinkWrapperUpdate(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	events := client.CoreV1().Events("")
 
-	wrapper := &eventSinkWrapper{events: events}
+	wrapper := &eventSinkWrapper{client: client}
 
 	event := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
@@ -57,9 +55,8 @@ func TestEventSinkWrapperUpdate(t *testing.T) {
 
 func TestEventSinkWrapperPatch(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	events := client.CoreV1().Events("")
 
-	wrapper := &eventSinkWrapper{events: events}
+	wrapper := &eventSinkWrapper{client: client}
 
 	event := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
