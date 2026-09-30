@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -59,6 +60,13 @@ func (e *eventSinkWrapper) Patch(oldEvent *corev1.Event, data []byte) (*corev1.E
 // This provides a generic interface for recording Kubernetes events.
 type Recorder struct {
 	recorder record.EventRecorder
+	// sinkWatch retains the watcher returned by StartRecordingToSink.
+	// Discarding it made the recording watch garbage-collectible — the
+	// watcher's finalizer stops the sink loop, so events silently stopped
+	// reaching the API server while every Eventf call kept succeeding
+	// locally (live H258 §59 evidence: zero events across a full
+	// evaluate+delete cycle).
+	sinkWatch watch.Interface
 }
 
 // NewRecorder creates a new event recorder.
@@ -68,8 +76,9 @@ func NewRecorder(client kubernetes.Interface, component string) *Recorder {
 	eventBroadcaster := record.NewBroadcaster()
 	// StartStructuredLogging is removed as it requires klog-compatible logger.
 	// Event logging is handled via StartRecordingToSink and we use sdklog for application logging.
+	var sinkWatch watch.Interface
 	if client != nil {
-		eventBroadcaster.StartRecordingToSink(&eventSinkWrapper{
+		sinkWatch = eventBroadcaster.StartRecordingToSink(&eventSinkWrapper{
 			events: client.CoreV1().Events(""),
 		})
 	}
@@ -80,7 +89,8 @@ func NewRecorder(client kubernetes.Interface, component string) *Recorder {
 	})
 
 	return &Recorder{
-		recorder: eventRecorder,
+		recorder:  eventRecorder,
+		sinkWatch: sinkWatch,
 	}
 }
 
