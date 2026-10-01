@@ -1,0 +1,670 @@
+internal/backoff func DefaultConfig func()(Config)
+internal/backoff func NewBackoff func(Config)(*Backoff)
+internal/backoff method Backoff.IsExhausted func()(bool)
+internal/backoff method Backoff.Next func()(time.Duration)
+internal/backoff method Backoff.Reset func()()
+internal/backoff method Backoff.Step func()(int)
+internal/backoff type Backoff struct{}
+internal/backoff type Config struct{Cap:time.Duration,Duration:time.Duration,Factor:float64,Jitter:float64,Steps:int}
+internal/config func LoadIngesterRateLimitConfig func(string,CRDRateLimitConfig)(*IngesterRateLimitConfig)
+internal/config func NewServiceConfigValidator func(string)(*ServiceConfigValidator)
+internal/config func NewSourceConfigRateLimitAdapter func(int,int)(CRDRateLimitConfig)
+internal/config func NewValidator func()(*Validator)
+internal/config func RequireAtLeastOne func([]string)(error)
+internal/config func RequireEnv func(string)(string,error)
+internal/config func RequireEnvBool func(string)(bool,error)
+internal/config func RequireEnvBoolWithDefault func(string,bool)(bool)
+internal/config func RequireEnvCSV func(string)([]string,error)
+internal/config func RequireEnvCSVWithDefault func(string,[]string)([]string)
+internal/config func RequireEnvDuration func(string)(time.Duration,error)
+internal/config func RequireEnvDurationWithDefault func(string,time.Duration)(time.Duration)
+internal/config func RequireEnvInt func(string)(int,error)
+internal/config func RequireEnvIntWithDefault func(string,int)(int)
+internal/config func RequireEnvOneOf func(string,[]string)(string,error)
+internal/config func RequireEnvSecret func(string,int)(string,error)
+internal/config func RequireEnvURL func(string)(string,error)
+internal/config func RequireEnvURLWithDefault func(string,string)(string)
+internal/config func RequireEnvWithDefault func(string,string)(string)
+internal/config func ValidateProduction func()(error)
+internal/config method ServiceConfigValidator.Errors func()([]string)
+internal/config method ServiceConfigValidator.HasErrors func()(bool)
+internal/config method ServiceConfigValidator.Require func(string)(string)
+internal/config method ServiceConfigValidator.RequireAtLeastOne func([]string)()
+internal/config method ServiceConfigValidator.RequireInt func(string)(int)
+internal/config method ServiceConfigValidator.RequireIntWithDefault func(string,int)(int)
+internal/config method ServiceConfigValidator.RequireSecret func(string,int)(string)
+internal/config method ServiceConfigValidator.RequireURL func(string)(string)
+internal/config method ServiceConfigValidator.RequireWithDefault func(string,string)(string)
+internal/config method ServiceConfigValidator.Validate func()(error)
+internal/config method SourceConfigRateLimitAdapter.GetBurst func()(int)
+internal/config method SourceConfigRateLimitAdapter.GetRequestsPerMinute func()(int)
+internal/config method ValidationError.Error func()(string)
+internal/config method Validator.Errors func()([]ValidationError)
+internal/config method Validator.ForbidInProduction func(string)()
+internal/config method Validator.HasErrors func()(bool)
+internal/config method Validator.OptionalBool func(string,bool)(bool)
+internal/config method Validator.OptionalCSV func(string,[]string)([]string)
+internal/config method Validator.OptionalDuration func(string,string)(string)
+internal/config method Validator.OptionalInt func(string,int)(int)
+internal/config method Validator.OptionalString func(string,string)(string)
+internal/config method Validator.OptionalURL func(string,string)(string)
+internal/config method Validator.RequireBool func(string)(bool)
+internal/config method Validator.RequireCSV func(string)([]string)
+internal/config method Validator.RequireDuration func(string)(string)
+internal/config method Validator.RequireInt func(string)(int)
+internal/config method Validator.RequireOneOf func(string,[]string)(string)
+internal/config method Validator.RequireString func(string)(string)
+internal/config method Validator.RequireURL func(string)(string)
+internal/config method Validator.Validate func()(error)
+internal/config type CRDRateLimitConfig iface{GetBurst:func()(int),GetRequestsPerMinute:func()(int)}
+internal/config type IngesterRateLimitConfig struct{Burst:int,ConfigSource:string,RequestsPerMinute:int}
+internal/config type ServiceConfigValidator struct{}
+internal/config type SourceConfigRateLimitAdapter struct{Burst:int,ObservationsPerMinute:int}
+internal/config type ValidationError struct{Field:string,Message:string}
+internal/config type Validator struct{}
+internal/config var ErrConfigValidationFailed (ast: <nil>)
+internal/config var ErrEnvAtLeastOne (ast: <nil>)
+internal/config var ErrEnvCSVEmpty (ast: <nil>)
+internal/config var ErrEnvInvalidBool (ast: <nil>)
+internal/config var ErrEnvInvalidDuration (ast: <nil>)
+internal/config var ErrEnvInvalidInt (ast: <nil>)
+internal/config var ErrEnvInvalidURL (ast: <nil>)
+internal/config var ErrEnvRequired (ast: <nil>)
+internal/config var ErrEnvSecretTooShort (ast: <nil>)
+internal/config var ErrEnvSecretWeak (ast: <nil>)
+internal/config var ErrEnvValueNotAllowed (ast: <nil>)
+internal/config var ErrProductionDBSSL (ast: <nil>)
+internal/config var ErrProductionDebug (ast: <nil>)
+internal/config var ErrServiceConfigInvalid (ast: <nil>)
+internal/election const DefaultElectionID (ast: <nil>)
+internal/election func ApplyDefaults func(*Config)(*Config)
+internal/election func NewLeaderElector func(kubernetes.Interface,*Config)(LeaderElector,error)
+internal/election func NewRunner func(LeaderElector,func(context.Context),func(),func(string),string)(*Runner)
+internal/election func RunWithLeaderElection func(context.Context,*Config,kubernetes.Interface,func(context.Context))(error)
+internal/election func ShutdownContext func(context.Context,string)(context.Context,context.CancelFunc)
+internal/election method Runner.Run func(context.Context)(error)
+internal/election type Config struct{ElectionID:string,Enable:bool,GetIdentity:func() string,LeaseDuration:time.Duration,LeaseName:string,Namespace:string,OnLeadingChange:func(leading bool),RenewDeadline:time.Duration,RetryPeriod:time.Duration}
+internal/election type LeaderElector iface{Run:func(context.Context)(error)}
+internal/election type Runner struct{ElectionID:string,Elector:LeaderElector,OnNewLeader:func(identity string),OnStartedLeading:func(ctx context.Context),OnStoppedLeading:func()}
+internal/errors const Permanent (ast: <nil>)
+internal/errors const ResourceExhausted (ast: <nil>)
+internal/errors const Transient ErrorClass
+internal/errors func ClassifyError func(error)(*ClassifiedError)
+internal/errors func ClassifyErrorWithConfig func(error,ClassifyConfig)(*ClassifiedError)
+internal/errors func IsPermanent func(error)(bool)
+internal/errors func IsResourceExhausted func(error)(bool)
+internal/errors func IsTransient func(error)(bool)
+internal/errors func New func(string,string)(*ContextError)
+internal/errors func RetryableHTTPStatus func(int)(bool)
+internal/errors func WithContext func(error,string,string)(*ContextError)
+internal/errors func WithMultipleContext func(error,map[string]string)(*ContextError)
+internal/errors func Wrap func(error,string,string)(*ContextError)
+internal/errors func Wrapf func(error,string,string,...interface{})(*ContextError)
+internal/errors method ClassifiedError.Error func()(string)
+internal/errors method ClassifiedError.Unwrap func()(error)
+internal/errors method ContextError.Error func()(string)
+internal/errors method ContextError.GetContext func(string)(string)
+internal/errors method ContextError.Unwrap func()(error)
+internal/errors method ContextError.WithContext func(string,string)(*ContextError)
+internal/errors method ErrorClass.String func()(string)
+internal/errors type ClassifiedError struct{Class:ErrorClass,Err:error,StatusCode:int}
+internal/errors type ClassifyConfig struct{ExhaustionPatterns:[]string}
+internal/errors type ContextError struct{Context:map[string]string,Err:error,Message:string,Type:string}
+internal/errors type ErrorClass int
+internal/events func GetResourceName func(runtime.Object)(string)
+internal/events func NewRecorder func(kubernetes.Interface,string)(*Recorder)
+internal/events method Recorder.Event func(runtime.Object,string,string,string)()
+internal/events method Recorder.Eventf func(runtime.Object,string,string,string,...interface{})()
+internal/events type Recorder struct{}
+internal/health func NewActivityChecker func(func() time.Time,time.Duration)(*ActivityChecker)
+internal/health func NewCompositeChecker func(...Checker)(*CompositeChecker)
+internal/health func NewInformerSyncChecker func(func() map[string]func() bool)(*InformerSyncChecker)
+internal/health method ActivityChecker.LivenessCheck func(*http.Request)(error)
+internal/health method ActivityChecker.ReadinessCheck func(*http.Request)(error)
+internal/health method ActivityChecker.StartupCheck func(*http.Request)(error)
+internal/health method CompositeChecker.AddChecker func(Checker)()
+internal/health method CompositeChecker.LivenessCheck func(*http.Request)(error)
+internal/health method CompositeChecker.ReadinessCheck func(*http.Request)(error)
+internal/health method CompositeChecker.StartupCheck func(*http.Request)(error)
+internal/health method InformerSyncChecker.LivenessCheck func(*http.Request)(error)
+internal/health method InformerSyncChecker.ReadinessCheck func(*http.Request)(error)
+internal/health method InformerSyncChecker.StartupCheck func(*http.Request)(error)
+internal/health type ActivityChecker struct{GetLastActivityTime:func() time.Time,MaxTimeSinceActivity:time.Duration}
+internal/health type Checker iface{LivenessCheck:func(*http.Request)(error),ReadinessCheck:func(*http.Request)(error),StartupCheck:func(*http.Request)(error)}
+internal/health type CompositeChecker struct{}
+internal/health type InformerSyncChecker struct{GetInformers:func() map[string]func() bool}
+internal/health var ErrNotInitialized (ast: <nil>)
+internal/health var ErrNotReady (ast: <nil>)
+internal/logging const AuditActionAuthorize AuditAction
+internal/logging const AuditActionConfigChange AuditAction
+internal/logging const AuditActionCreate AuditAction
+internal/logging const AuditActionDataAccess AuditAction
+internal/logging const AuditActionDelete AuditAction
+internal/logging const AuditActionLogin AuditAction
+internal/logging const AuditActionLogout AuditAction
+internal/logging const AuditActionRead AuditAction
+internal/logging const AuditActionUpdate AuditAction
+internal/logging const AuditResultDenied AuditResult
+internal/logging const AuditResultFailure AuditResult
+internal/logging const AuditResultSuccess AuditResult
+internal/logging const ErrorCategoryAuthentication ErrorCategory
+internal/logging const ErrorCategoryAuthorization ErrorCategory
+internal/logging const ErrorCategoryConfig ErrorCategory
+internal/logging const ErrorCategoryConflict ErrorCategory
+internal/logging const ErrorCategoryDatabase ErrorCategory
+internal/logging const ErrorCategoryExternal ErrorCategory
+internal/logging const ErrorCategoryInternal ErrorCategory
+internal/logging const ErrorCategoryNetwork ErrorCategory
+internal/logging const ErrorCategoryNotFound ErrorCategory
+internal/logging const ErrorCategoryRateLimit ErrorCategory
+internal/logging const ErrorCategoryTemporary ErrorCategory
+internal/logging const ErrorCategoryTimeout ErrorCategory
+internal/logging const ErrorCategoryUnknown ErrorCategory
+internal/logging const ErrorCategoryValidation ErrorCategory
+internal/logging func AlertFlag func(bool)(zap.Field)
+internal/logging func AuditActionField func(AuditAction)(zap.Field)
+internal/logging func AuditResultField func(AuditResult)(zap.Field)
+internal/logging func AuditTypeField func(string)(zap.Field)
+internal/logging func Bool func(string,bool)(zap.Field)
+internal/logging func CacheHit func(bool)(zap.Field)
+internal/logging func CategorizeError func(error)(ErrorCategory)
+internal/logging func ClusterID func(string)(zap.Field)
+internal/logging func Component func(string)(zap.Field)
+internal/logging func ConcurrentOperations func(int)(zap.Field)
+internal/logging func ConfigKeyField func(string)(zap.Field)
+internal/logging func DBDurationMs func(int64)(zap.Field)
+internal/logging func DBQuery func(string)(zap.Field)
+internal/logging func DataTypeField func(string)(zap.Field)
+internal/logging func DefaultRateLimiterConfig func()(RateLimiterConfig)
+internal/logging func DefaultSamplerConfig func()(SamplerConfig)
+internal/logging func Duration func(string,time.Duration)(zap.Field)
+internal/logging func Error func(error)(zap.Field)
+internal/logging func ErrorCategoryField func(ErrorCategory)(zap.Field)
+internal/logging func ErrorCode func(string)(zap.Field)
+internal/logging func ErrorFields func(error,string)([]zap.Field)
+internal/logging func ErrorStackField func(string)(zap.Field)
+internal/logging func EventType func(string)(zap.Field)
+internal/logging func ExternalEndpoint func(string)(zap.Field)
+internal/logging func ExternalService func(string)(zap.Field)
+internal/logging func ExtractErrorCode func(error)(string)
+internal/logging func ExtractErrorContext func(error,int)(ErrorContext)
+internal/logging func ExtractTraceContext func(*http.Request)(context.Context)
+internal/logging func FilePath func(string)(zap.Field)
+internal/logging func FileSizeBytes func(int64)(zap.Field)
+internal/logging func Float64 func(string,float64)(zap.Field)
+internal/logging func GetClusterID func(context.Context)(string)
+internal/logging func GetRequestID func(context.Context)(string)
+internal/logging func GetResourceID func(context.Context)(string)
+internal/logging func GetSpanID func(context.Context)(string)
+internal/logging func GetStackTrace func(int)(string)
+internal/logging func GetTenantID func(context.Context)(string)
+internal/logging func GetTraceID func(context.Context)(string)
+internal/logging func GetUserID func(context.Context)(string)
+internal/logging func HTTPMethod func(string)(zap.Field)
+internal/logging func HTTPPath func(string)(zap.Field)
+internal/logging func HTTPStatus func(int)(zap.Field)
+internal/logging func HealthCheckHealthy func(bool)(zap.Field)
+internal/logging func HealthCheckName func(string)(zap.Field)
+internal/logging func Int func(string,int)(zap.Field)
+internal/logging func Int64 func(string,int64)(zap.Field)
+internal/logging func IsClientError func(error)(bool)
+internal/logging func IsRetryableError func(error)(bool)
+internal/logging func IsServerError func(error)(bool)
+internal/logging func Kind func(string)(zap.Field)
+internal/logging func Latency func(time.Duration)(zap.Field)
+internal/logging func LatencyMs func(int64)(zap.Field)
+internal/logging func MaskEmail func(string)(string)
+internal/logging func MaskIP func(string)(string)
+internal/logging func MaskToken func(string)(string)
+internal/logging func MaskUUID func(string)(string)
+internal/logging func MessageCount func(int)(zap.Field)
+internal/logging func MetricName func(string)(zap.Field)
+internal/logging func MetricUnit func(string)(zap.Field)
+internal/logging func MetricValue func(float64)(zap.Field)
+internal/logging func Name func(string)(zap.Field)
+internal/logging func Namespace func(string)(zap.Field)
+internal/logging func NewAuditLogger func(*Logger)(*AuditLogger)
+internal/logging func NewEnhancedErrorLogger func(*Logger)(*EnhancedErrorLogger)
+internal/logging func NewErrorWithCode func(string,string)(error)
+internal/logging func NewErrorWithCodeAndCause func(string,string,error)(error)
+internal/logging func NewLogger func(string)(*Logger)
+internal/logging func NewLoggerWithConfig func(LoggerConfig)(*Logger)
+internal/logging func NewMonitoringLogger func(*Logger)(*MonitoringLogger)
+internal/logging func NewPerformanceLogger func(*Logger)(*PerformanceLogger)
+internal/logging func NewRateLimiter func(RateLimiterConfig)(*RateLimiter)
+internal/logging func NewSampledLogger func(*Logger,SamplerConfig,RateLimiterConfig)(*SampledLogger)
+internal/logging func NewSampler func(SamplerConfig)(*Sampler)
+internal/logging func Node func(string)(zap.Field)
+internal/logging func Operation func(string)(zap.Field)
+internal/logging func PermissionField func(string)(zap.Field)
+internal/logging func Pod func(string)(zap.Field)
+internal/logging func PropagateTraceHeaders func(context.Context,*http.Request)()
+internal/logging func QueueName func(string)(zap.Field)
+internal/logging func RedactPassword func(string)(string)
+internal/logging func RedactSecret func(string)(string)
+internal/logging func RemoteAddr func(string)(zap.Field)
+internal/logging func RequestID func(string)(zap.Field)
+internal/logging func RequestSizeBytes func(int64)(zap.Field)
+internal/logging func ResourceID func(string)(zap.Field)
+internal/logging func ResourceType func(string)(zap.Field)
+internal/logging func ResponseSizeBytes func(int64)(zap.Field)
+internal/logging func RetryCount func(int)(zap.Field)
+internal/logging func RowsAffected func(int64)(zap.Field)
+internal/logging func SanitizeSQL func(string)(string)
+internal/logging func Severity func(string)(zap.Field)
+internal/logging func SpanID func(string)(zap.Field)
+internal/logging func String func(string,string)(zap.Field)
+internal/logging func Strings func(string,[]string)(zap.Field)
+internal/logging func TenantID func(string,bool)(zap.Field)
+internal/logging func ThroughputBytesPerSecond func(float64)(zap.Field)
+internal/logging func TraceID func(string)(zap.Field)
+internal/logging func UserAgent func(string)(zap.Field)
+internal/logging func UserID func(string,bool)(zap.Field)
+internal/logging func WithClusterID func(context.Context,string)(context.Context)
+internal/logging func WithRequestID func(context.Context,string)(context.Context)
+internal/logging func WithResourceID func(context.Context,string)(context.Context)
+internal/logging func WithSpanID func(context.Context,string)(context.Context)
+internal/logging func WithTenantID func(context.Context,string)(context.Context)
+internal/logging func WithTraceID func(context.Context,string)(context.Context)
+internal/logging func WithUserID func(context.Context,string)(context.Context)
+internal/logging func WrapError func(error,string)(error)
+internal/logging func WrapErrorf func(error,string,...interface{})(error)
+internal/logging method AuditLogger.LogAuthorization func(context.Context,string,string,string,AuditResult,...zap.Field)()
+internal/logging method AuditLogger.LogConfigChange func(context.Context,string,interface{},interface{},...zap.Field)()
+internal/logging method AuditLogger.LogDataAccess func(context.Context,string,string,...zap.Field)()
+internal/logging method AuditLogger.LogLogin func(context.Context,AuditResult,string,string,...zap.Field)()
+internal/logging method AuditLogger.LogResourceOperation func(context.Context,AuditAction,string,string,AuditResult,...zap.Field)()
+internal/logging method AuditLogger.LogUserAction func(context.Context,AuditAction,string,string,AuditResult,...zap.Field)()
+internal/logging method EnhancedErrorLogger.LogError func(error,string,string,...zap.Field)()
+internal/logging method ErrorContext.WithZapFields func(...zap.Field)(*ErrorContext)
+internal/logging method ErrorWithCode.Error func()(string)
+internal/logging method ErrorWithCode.Unwrap func()(error)
+internal/logging method Logger.Debug func(string,...zap.Field)()
+internal/logging method Logger.DebugC func(context.Context,string,...zap.Field)()
+internal/logging method Logger.Error func(error,string,...zap.Field)()
+internal/logging method Logger.ErrorC func(context.Context,error,string,...zap.Field)()
+internal/logging method Logger.Info func(string,...zap.Field)()
+internal/logging method Logger.InfoC func(context.Context,string,...zap.Field)()
+internal/logging method Logger.Warn func(string,...zap.Field)()
+internal/logging method Logger.WarnC func(context.Context,string,...zap.Field)()
+internal/logging method Logger.WithComponent func(string)(*Logger)
+internal/logging method Logger.WithContext func(context.Context)(*Logger)
+internal/logging method Logger.WithField func(string,interface{})(*Logger)
+internal/logging method Logger.WithFields func(map[string]interface{})(*Logger)
+internal/logging method MonitoringLogger.LogCounter func(context.Context,string,int64,...zap.Field)()
+internal/logging method MonitoringLogger.LogCriticalEvent func(context.Context,string,string,...zap.Field)()
+internal/logging method MonitoringLogger.LogGauge func(context.Context,string,float64,...zap.Field)()
+internal/logging method MonitoringLogger.LogHealthCheck func(context.Context,string,bool,time.Duration,error,...zap.Field)()
+internal/logging method MonitoringLogger.LogHistogram func(context.Context,string,float64,string,...zap.Field)()
+internal/logging method MonitoringLogger.LogMetric func(context.Context,string,float64,string,...zap.Field)()
+internal/logging method PerformanceLogger.LogCacheOperation func(context.Context,string,string,bool,time.Duration,error,...zap.Field)()
+internal/logging method PerformanceLogger.LogDBCall func(context.Context,string,string,time.Duration,int64,error,...zap.Field)()
+internal/logging method PerformanceLogger.LogExternalAPICall func(context.Context,string,string,string,int,time.Duration,int64,int64,error,...zap.Field)()
+internal/logging method PerformanceLogger.LogFileOperation func(context.Context,string,string,int64,time.Duration,error,...zap.Field)()
+internal/logging method PerformanceLogger.LogMessageQueueOperation func(context.Context,string,string,int,time.Duration,error,...zap.Field)()
+internal/logging method PerformanceLogger.LogRequestProcessed func(context.Context,string,time.Duration,int,int64,int64,...zap.Field)()
+internal/logging method PerformanceLogger.MeasureDuration func(context.Context,string,func() error)(error)
+internal/logging method PerformanceLogger.MeasureDurationWithFields func(context.Context,string,[]zap.Field,func() error)(error)
+internal/logging method RateLimiter.Allow func(string)(bool)
+internal/logging method SampledLogger.Debug func(string,string,...zap.Field)()
+internal/logging method SampledLogger.Error func(error,string,string,...zap.Field)()
+internal/logging method SampledLogger.Info func(string,bool,string,...zap.Field)()
+internal/logging method SampledLogger.Warn func(string,string,...zap.Field)()
+internal/logging method Sampler.ShouldLog func(zapcore.Level,bool)(bool)
+internal/logging type AuditAction string
+internal/logging type AuditLogger struct{}
+internal/logging type AuditResult string
+internal/logging type EnhancedErrorLogger struct{}
+internal/logging type ErrorCategory string
+internal/logging type ErrorContext struct{Category:ErrorCategory,Code:string,Fields:[]zap.Field,Message:string,Stack:string,WrappedErr:error}
+internal/logging type ErrorWithCode struct{Code:string,Err:error,Message:string}
+internal/logging type Field zap.Field
+internal/logging type Logger struct{*zap.Logger}
+internal/logging type LoggerConfig struct{ComponentName:string,Development:bool,EnableStackTraces:bool,LogLevel:string}
+internal/logging type MonitoringLogger struct{}
+internal/logging type PerformanceLogger struct{}
+internal/logging type RateLimiter struct{}
+internal/logging type RateLimiterConfig struct{CleanupInterval:time.Duration,MaxLogsPerSecond:int,WindowSize:time.Duration}
+internal/logging type SampledLogger struct{}
+internal/logging type Sampler struct{}
+internal/logging type SamplerConfig struct{DebugSamplingRate:float64,ErrorSamplingRate:float64,InfoSamplingRate:float64,SuccessSamplingRate:float64,WarnSamplingRate:float64}
+internal/ratelimiter const DefaultMaxPerSecond (ast: <nil>)
+internal/ratelimiter func NewRateLimiter func(int)(*RateLimiter)
+internal/ratelimiter method RateLimiter.Allow func()(bool)
+internal/ratelimiter method RateLimiter.GetRate func()(float64)
+internal/ratelimiter method RateLimiter.SetRate func(int)()
+internal/ratelimiter method RateLimiter.Wait func(context.Context)(error)
+internal/ratelimiter type RateLimiter struct{}
+internal/ttl func CalculateExpirationTime func(*unstructured.Unstructured,*Spec)(time.Time,error)
+internal/ttl func IsExpired func(*unstructured.Unstructured,*Spec)(bool,error)
+internal/ttl type Config Spec
+internal/ttl type Spec struct{Default:*int64,FieldPath:string,Mappings:map[string]int64,RelativeTo:string,SecondsAfter:*int64,SecondsAfterCreation:*int64}
+internal/ttl var ErrFieldPathNotFound (ast: <nil>)
+internal/ttl var ErrInvalidTimestampFormat (ast: <nil>)
+internal/ttl var ErrNoMappingForFieldValue (ast: <nil>)
+internal/ttl var ErrNoValidTTLConfiguration (ast: <nil>)
+internal/ttl var ErrRelativeTTLExpired (ast: <nil>)
+internal/ttl var ErrRelativeTimestampFieldNotFound (ast: <nil>)
+observability func EndDeleteBatchSpan func(trace.Span,int,error)()
+observability func EndReconcileSpan func(trace.Span,error)()
+observability func InitTracing func(context.Context)(func(context.Context) error,error)
+observability func StartDeleteBatchSpan func(context.Context,string,string,int)(context.Context,trace.Span)
+observability func StartReconcileSpan func(context.Context,string,string)(context.Context,trace.Span)
+pkg/api/v1alpha1 const GroupName (ast: <nil>)
+pkg/api/v1alpha1 func Kind func(string)(schema.GroupKind)
+pkg/api/v1alpha1 func Resource func(string)(schema.GroupResource)
+pkg/api/v1alpha1 method AnnotationCondition.DeepCopy func()(*AnnotationCondition)
+pkg/api/v1alpha1 method AnnotationCondition.DeepCopyInto func(*AnnotationCondition)()
+pkg/api/v1alpha1 method BehaviorSpec.DeepCopy func()(*BehaviorSpec)
+pkg/api/v1alpha1 method BehaviorSpec.DeepCopyInto func(*BehaviorSpec)()
+pkg/api/v1alpha1 method ConditionsSpec.DeepCopy func()(*ConditionsSpec)
+pkg/api/v1alpha1 method ConditionsSpec.DeepCopyInto func(*ConditionsSpec)()
+pkg/api/v1alpha1 method FieldCondition.DeepCopy func()(*FieldCondition)
+pkg/api/v1alpha1 method FieldCondition.DeepCopyInto func(*FieldCondition)()
+pkg/api/v1alpha1 method FieldSelectorSpec.DeepCopy func()(*FieldSelectorSpec)
+pkg/api/v1alpha1 method FieldSelectorSpec.DeepCopyInto func(*FieldSelectorSpec)()
+pkg/api/v1alpha1 method LabelCondition.DeepCopy func()(*LabelCondition)
+pkg/api/v1alpha1 method LabelCondition.DeepCopyInto func(*LabelCondition)()
+pkg/api/v1alpha1 method TTLSpec.DeepCopy func()(*TTLSpec)
+pkg/api/v1alpha1 method TTLSpec.DeepCopyInto func(*TTLSpec)()
+pkg/api/v1alpha1 method TargetResourceSpec.DeepCopy func()(*TargetResourceSpec)
+pkg/api/v1alpha1 method TargetResourceSpec.DeepCopyInto func(*TargetResourceSpec)()
+pkg/api/v1alpha1 method ZenCleanerPolicy.DeepCopy func()(*ZenCleanerPolicy)
+pkg/api/v1alpha1 method ZenCleanerPolicy.DeepCopyInto func(*ZenCleanerPolicy)()
+pkg/api/v1alpha1 method ZenCleanerPolicy.DeepCopyObject func()(runtime.Object)
+pkg/api/v1alpha1 method ZenCleanerPolicyList.DeepCopy func()(*ZenCleanerPolicyList)
+pkg/api/v1alpha1 method ZenCleanerPolicyList.DeepCopyInto func(*ZenCleanerPolicyList)()
+pkg/api/v1alpha1 method ZenCleanerPolicyList.DeepCopyObject func()(runtime.Object)
+pkg/api/v1alpha1 method ZenCleanerPolicySpec.DeepCopy func()(*ZenCleanerPolicySpec)
+pkg/api/v1alpha1 method ZenCleanerPolicySpec.DeepCopyInto func(*ZenCleanerPolicySpec)()
+pkg/api/v1alpha1 method ZenCleanerPolicyStatus.DeepCopy func()(*ZenCleanerPolicyStatus)
+pkg/api/v1alpha1 method ZenCleanerPolicyStatus.DeepCopyInto func(*ZenCleanerPolicyStatus)()
+pkg/api/v1alpha1 type AnnotationCondition struct{Key:string,Value:string}
+pkg/api/v1alpha1 type BehaviorSpec struct{AllowWorkloadDeletion:bool,BatchSize:int,DryRun:bool,Finalizer:string,GracePeriodSeconds:*int64,MaxDeletionsPerSecond:int,PropagationPolicy:string}
+pkg/api/v1alpha1 type ConditionsSpec struct{And:[]FieldCondition,HasAnnotations:[]AnnotationCondition,HasLabels:[]LabelCondition,Phase:[]string}
+pkg/api/v1alpha1 type FieldCondition struct{FieldPath:string,Operator:string,Value:string,Values:[]string}
+pkg/api/v1alpha1 type FieldSelectorSpec struct{MatchFields:map[string]string}
+pkg/api/v1alpha1 type LabelCondition struct{Key:string,Operator:string,Value:string}
+pkg/api/v1alpha1 type TTLSpec struct{Default:*int64,FieldPath:string,Mappings:map[string]int64,RelativeTo:string,SecondsAfter:*int64,SecondsAfterCreation:*int64}
+pkg/api/v1alpha1 type TargetResourceSpec struct{APIVersion:string,FieldSelector:*FieldSelectorSpec,Kind:string,LabelSelector:*metav1.LabelSelector,Namespace:string}
+pkg/api/v1alpha1 type ZenCleanerPolicy struct{Spec:ZenCleanerPolicySpec,Status:ZenCleanerPolicyStatus,metav1.ObjectMeta,metav1.TypeMeta}
+pkg/api/v1alpha1 type ZenCleanerPolicyList struct{Items:[]ZenCleanerPolicy,metav1.ListMeta,metav1.TypeMeta}
+pkg/api/v1alpha1 type ZenCleanerPolicySpec struct{Behavior:BehaviorSpec,Conditions:*ConditionsSpec,EvaluationInterval:*metav1.Duration,Paused:bool,TTL:TTLSpec,TargetResource:TargetResourceSpec}
+pkg/api/v1alpha1 type ZenCleanerPolicyStatus struct{Conditions:[]metav1.Condition,LastCycleRefusals:map[string]int64,LastGCRun:*metav1.Time,NextGCRun:*metav1.Time,Phase:string,ResourcesDeleted:int64,ResourcesMatched:int64,ResourcesPending:int64}
+pkg/api/v1alpha1 var AddToScheme (ast: <nil>)
+pkg/api/v1alpha1 var SchemeBuilder (ast: <nil>)
+pkg/api/v1alpha1 var SchemeGroupVersion (ast: <nil>)
+pkg/config const DefaultBatchSize (ast: <nil>)
+pkg/config const DefaultCleanupInterval (ast: <nil>)
+pkg/config const DefaultMaxConcurrentEvaluations (ast: <nil>)
+pkg/config const DefaultMaxDeletionsPerSecond (ast: <nil>)
+pkg/config func NewControllerConfig func()(*ControllerConfig)
+pkg/config method ControllerConfig.LoadFromEnv func()(error)
+pkg/config method ControllerConfig.WithBatchSize func(int)(*ControllerConfig)
+pkg/config method ControllerConfig.WithCleanupInterval func(time.Duration)(*ControllerConfig)
+pkg/config method ControllerConfig.WithMaxConcurrentEvaluations func(int)(*ControllerConfig)
+pkg/config method ControllerConfig.WithMaxDeletionsPerSecond func(int)(*ControllerConfig)
+pkg/config type ControllerConfig struct{BatchSize:int,CleanupInterval:time.Duration,DeleteEnabled:bool,MaxConcurrentEvaluations:int,MaxDeletionsPerSecond:int,OwnNamespace:string,ProtectedNamespaces:[]string}
+pkg/controller const DefaultBatchSize (ast: <nil>)
+pkg/controller const DefaultCacheSyncTimeout (ast: <nil>)
+pkg/controller const DefaultCleanupInterval (ast: <nil>)
+pkg/controller const DefaultMaxDeletionsPerSecond (ast: <nil>)
+pkg/controller const ErrorTypeEvaluationFailed (ast: <nil>)
+pkg/controller const ExecutionIsVerification (ast: <nil>)
+pkg/controller const OperatorNotIn (ast: <nil>)
+pkg/controller const PolicyPhaseActive (ast: <nil>)
+pkg/controller const PolicyPhaseError (ast: <nil>)
+pkg/controller const PolicyPhasePaused (ast: <nil>)
+pkg/controller const PropagationPolicyBackground (ast: <nil>)
+pkg/controller const PropagationPolicyForeground (ast: <nil>)
+pkg/controller const PropagationPolicyOrphan (ast: <nil>)
+pkg/controller const ReasonConditionNotMet (ast: <nil>)
+pkg/controller const ReasonNoTTL (ast: <nil>)
+pkg/controller const ReasonNotExpired (ast: <nil>)
+pkg/controller const ReasonTTLExpired (ast: <nil>)
+pkg/controller const ReceiptVersion (ast: <nil>)
+pkg/controller const ResultAlreadyAbsent ObjectResultClass
+pkg/controller const ResultFailed ObjectResultClass
+pkg/controller const ResultSkippedPreconditionMismatch ObjectResultClass
+pkg/controller const ResultSucceeded ObjectResultClass
+pkg/controller const TargetAPINotFound TargetErrorType
+pkg/controller const TargetAccessDenied TargetErrorType
+pkg/controller const TargetConfigurationInvalid TargetErrorType
+pkg/controller const TargetResourceNotDiscoverable TargetErrorType
+pkg/controller const TargetTemporarilyUnavailable TargetErrorType
+pkg/controller func DeleteResourceWithBackoff func(context.Context,*PolicyReconciler,*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter)(error)
+pkg/controller func DeleteWithReceipt func(context.Context,client.Client,[]unstructured.Unstructured)(ExecutionReceipt)
+pkg/controller func EffectiveEvaluationInterval func(*v1alpha1.ZenCleanerPolicy,time.Duration)(time.Duration)
+pkg/controller func LeaderzCheck func(*LeaderState)(http.HandlerFunc)
+pkg/controller func NewDefaultConditionMatcher func()(ConditionMatcher)
+pkg/controller func NewDefaultRateLimiterProvider func(*config.ControllerConfig)(RateLimiterProvider)
+pkg/controller func NewDefaultResourceInformer func(cache.SharedInformer)(ResourceInformer)
+pkg/controller func NewDefaultResourceInformerFactory func(dynamicinformer.DynamicSharedInformerFactory)(ResourceInformerFactory)
+pkg/controller func NewDefaultResourceLister func(dynamic.Interface)(ResourceLister)
+pkg/controller func NewDefaultSelectorMatcher func()(SelectorMatcher)
+pkg/controller func NewEventRecorder func(kubernetes.Interface)(*EventRecorder)
+pkg/controller func NewGVRResolver func(meta.RESTMapper)(*GVRResolver)
+pkg/controller func NewHealthChecker func(*PolicyReconciler)(*HealthChecker)
+pkg/controller func NewInformerStoreResourceLister func(cache.Store)(ResourceLister)
+pkg/controller func NewLeaderState func(time.Duration,*sdklog.Logger)(*LeaderState)
+pkg/controller func NewPolicyEvaluationService func(ResourceLister,SelectorMatcher,ConditionMatcher,TTLCalculator,RateLimiterProvider,BatchDeleterCore,*StatusUpdater,*EventRecorder,*config.ControllerConfig,*sdklog.Logger)(*PolicyEvaluationService)
+pkg/controller func NewPolicyReconciler func(client.Client,*runtime.Scheme,dynamic.Interface,*StatusUpdater,*EventRecorder,*config.ControllerConfig)(*PolicyReconciler)
+pkg/controller func NewPolicyReconcilerAdapter func(*PolicyReconciler)(*PolicyReconcilerAdapter)
+pkg/controller func NewPolicyReconcilerWithLeaderCheck func(client.Client,*runtime.Scheme,dynamic.Interface,*StatusUpdater,*EventRecorder,*config.ControllerConfig,func() bool)(*PolicyReconciler)
+pkg/controller func NewPolicyReconcilerWithRESTMapper func(client.Client,*runtime.Scheme,dynamic.Interface,meta.RESTMapper,*StatusUpdater,*EventRecorder,*config.ControllerConfig)(*PolicyReconciler)
+pkg/controller func NewStatusUpdater func(dynamic.Interface)(*StatusUpdater)
+pkg/controller func NewStatusUpdaterWithConfig func(dynamic.Interface,*config.ControllerConfig)(*StatusUpdater)
+pkg/controller func PlanDigest func([]unstructured.Unstructured)(string)
+pkg/controller func RecordAPIError func(error)()
+pkg/controller func RecordCandidateConsidered func()()
+pkg/controller func RecordDeletionAttempted func()()
+pkg/controller func RecordDeletionFailed func()()
+pkg/controller func RecordDryRunCandidate func()()
+pkg/controller func RecordReconcileOutcome func(string)()
+pkg/controller func RecordSafetyRefusal func(string)()
+pkg/controller func ServeMetricsAlwaysOn func(context.Context,string)(func(),error)
+pkg/controller func ServeStandalone func(context.Context,string,*http.ServeMux)(func(),error)
+pkg/controller func SetLeadershipGauge func(bool)()
+pkg/controller func TargetBackoffFor func(int)(time.Duration)
+pkg/controller method DefaultConditionMatcher.MeetsConditions func(*unstructured.Unstructured,*v1alpha1.ConditionsSpec)(bool)
+pkg/controller method DefaultRateLimiterProvider.GetOrCreateRateLimiter func(*v1alpha1.ZenCleanerPolicy)(*ratelimiter.RateLimiter)
+pkg/controller method DefaultResourceInformer.AddEventHandler func(cache.ResourceEventHandler)(cache.ResourceEventHandlerRegistration,error)
+pkg/controller method DefaultResourceInformer.GetStore func()(cache.Store)
+pkg/controller method DefaultResourceInformer.HasSynced func()(bool)
+pkg/controller method DefaultResourceInformerFactory.ForResource func(schema.GroupVersionResource)(ResourceInformer)
+pkg/controller method DefaultResourceInformerFactory.Start func(<-chan struct{})()
+pkg/controller method DefaultResourceLister.ListResources func(context.Context,schema.GroupVersionResource,string)([]*unstructured.Unstructured,error)
+pkg/controller method DefaultSelectorMatcher.MatchesSelectors func(*unstructured.Unstructured,*v1alpha1.TargetResourceSpec)(bool)
+pkg/controller method EventRecorder.RecordEvaluationFailed func(*v1alpha1.ZenCleanerPolicy,error)()
+pkg/controller method EventRecorder.RecordPolicyCreated func(*v1alpha1.ZenCleanerPolicy)()
+pkg/controller method EventRecorder.RecordPolicyDeleted func(*v1alpha1.ZenCleanerPolicy)()
+pkg/controller method EventRecorder.RecordPolicyEvaluated func(*v1alpha1.ZenCleanerPolicy,int64,int64,int64)()
+pkg/controller method EventRecorder.RecordPolicyUpdated func(*v1alpha1.ZenCleanerPolicy)()
+pkg/controller method EventRecorder.RecordResourceDeleted func(*v1alpha1.ZenCleanerPolicy,runtime.Object,string)()
+pkg/controller method EventRecorder.RecordStatusUpdateFailed func(*v1alpha1.ZenCleanerPolicy,error)()
+pkg/controller method GVRResolver.ResolveGVR func(*unstructured.Unstructured)(schema.GroupVersionResource,error)
+pkg/controller method HealthChecker.LeadershipAwareLivenessCheck func(*LeaderState)(func(req *http.Request) error)
+pkg/controller method HealthChecker.LeadershipAwareReadinessCheck func(*LeaderState)(func(req *http.Request) error)
+pkg/controller method HealthChecker.LivenessCheck func(*http.Request)(error)
+pkg/controller method HealthChecker.ReadinessCheck func(*http.Request)(error)
+pkg/controller method HealthChecker.SetLeaderState func(*LeaderState)()
+pkg/controller method HealthChecker.SetMaxTimeSinceLastEvaluation func(time.Duration)()
+pkg/controller method HealthChecker.StartupCheck func(*http.Request)(error)
+pkg/controller method HealthChecker.UpdateLastEvaluationTime func()()
+pkg/controller method InformerStoreResourceLister.ListResources func(context.Context,schema.GroupVersionResource,string)([]*unstructured.Unstructured,error)
+pkg/controller method LeaderState.InStartupGrace func()(bool)
+pkg/controller method LeaderState.IsLeading func()(bool)
+pkg/controller method LeaderState.SetLeading func(bool)()
+pkg/controller method PolicyEvaluationService.EvaluatePolicy func(context.Context,*v1alpha1.ZenCleanerPolicy)(error)
+pkg/controller method PolicyEvaluationService.SetSafetyGate func(*safety.Gate)()
+pkg/controller method PolicyReconciler.DeleteResourceWithBackoff func(context.Context,*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter)(error)
+pkg/controller method PolicyReconciler.DeleteResourceWithContext func(context.Context,*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter)(error)
+pkg/controller method PolicyReconciler.EvaluatePolicyForTesting func(context.Context,*v1alpha1.ZenCleanerPolicy,*PolicyEvaluationService)(error)
+pkg/controller method PolicyReconciler.ExecuteWithReceipt func(context.Context,[]*unstructured.Unstructured,*gcapi.ZenCleanerPolicy,*ratelimiter.RateLimiter,map[string]string)(int64,[]error,*ExecutionReceiptV2)
+pkg/controller method PolicyReconciler.GetEventRecorder func()(*EventRecorder)
+pkg/controller method PolicyReconciler.GetLogger func()(*sdklog.Logger)
+pkg/controller method PolicyReconciler.GetStatusUpdater func()(*StatusUpdater)
+pkg/controller method PolicyReconciler.Reconcile func(context.Context,ctrl.Request)(ctrl.Result,error)
+pkg/controller method PolicyReconciler.SetDiscoveryClient func(discovery.DiscoveryInterface)()
+pkg/controller method PolicyReconciler.SetupWithManager func(ctrl.Manager)(error)
+pkg/controller method PolicyReconciler.ValidateTargetCapability func(context.Context,*v1alpha1.ZenCleanerPolicy)(error)
+pkg/controller method PolicyReconcilerAdapter.GetBatchDeleter func()(BatchDeleterCore)
+pkg/controller method PolicyReconcilerAdapter.GetConditionMatcher func()(ConditionMatcher)
+pkg/controller method PolicyReconcilerAdapter.GetRateLimiterProvider func()(RateLimiterProvider)
+pkg/controller method PolicyReconcilerAdapter.GetResourceListerForPolicy func(context.Context,*v1alpha1.ZenCleanerPolicy)(ResourceLister,error)
+pkg/controller method PolicyReconcilerAdapter.GetSelectorMatcher func()(SelectorMatcher)
+pkg/controller method PolicyReconcilerBatchDeleter.DeleteBatch func(context.Context,[]*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter,map[string]string)(int64,[]error)
+pkg/controller method PolicyReconcilerConditionMatcher.MeetsConditions func(*unstructured.Unstructured,*v1alpha1.ConditionsSpec)(bool)
+pkg/controller method PolicyReconcilerRateLimiterProvider.GetOrCreateRateLimiter func(*v1alpha1.ZenCleanerPolicy)(*ratelimiter.RateLimiter)
+pkg/controller method PolicyReconcilerSelectorMatcher.MatchesSelectors func(*unstructured.Unstructured,*v1alpha1.TargetResourceSpec)(bool)
+pkg/controller method StatusUpdater.UpdateStatus func(context.Context,*v1alpha1.ZenCleanerPolicy,int64,int64,int64,map[string]int64)(error)
+pkg/controller method StatusUpdater.UpdateTargetCondition func(context.Context,*v1alpha1.ZenCleanerPolicy,string,string,string,bool)(error)
+pkg/controller method TargetCapabilityError.ConditionReason func()(string)
+pkg/controller method TargetCapabilityError.Error func()(string)
+pkg/controller method TargetCapabilityError.Retryable func()(bool)
+pkg/controller type BatchDeleter iface{DeleteResourceWithBackoff:func(context.Context,*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter)(error),GetEventRecorder:func()(*EventRecorder)}
+pkg/controller type BatchDeleterCore iface{DeleteBatch:func(context.Context,[]*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter,map[string]string)(int64,[]error)}
+pkg/controller type ConditionMatcher iface{MeetsConditions:func(*unstructured.Unstructured,*v1alpha1.ConditionsSpec)(bool)}
+pkg/controller type DefaultConditionMatcher struct{}
+pkg/controller type DefaultRateLimiterProvider struct{}
+pkg/controller type DefaultResourceInformer struct{}
+pkg/controller type DefaultResourceInformerFactory struct{}
+pkg/controller type DefaultResourceLister struct{}
+pkg/controller type DefaultSelectorMatcher struct{}
+pkg/controller type EventRecorder struct{*sdkevents.Recorder}
+pkg/controller type ExecutionReceipt struct{CompletedAt:time.Time,OverallStatus:string,PlanDigest:string,Results:[]ObjectResult,StartedAt:time.Time,Version:string}
+pkg/controller type ExecutionReceiptV2 struct{ExecutionReceipt,PolicyRef:policyRef}
+pkg/controller type GVRResolver struct{}
+pkg/controller type HealthChecker struct{}
+pkg/controller type InformerStoreResourceLister struct{}
+pkg/controller type LeaderState struct{}
+pkg/controller type ObjectResult struct{Class:ObjectResultClass,Detail:string,Kind:string,Name:string,Namespace:string,UID:types.UID}
+pkg/controller type ObjectResultClass string
+pkg/controller type PolicyEvaluationResult struct{DeletedCount:int64,MatchedCount:int64,PendingCount:int64,ResourcesToDelete:[]*unstructured.Unstructured,ResourcesToDeleteReasons:map[string]string}
+pkg/controller type PolicyEvaluationService struct{}
+pkg/controller type PolicyEvaluator iface{GetEventRecorder:func()(*EventRecorder),deleteBatch:func(context.Context,[]*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter,map[string]string)(int64,[]error),getBatchSize:func(*v1alpha1.ZenCleanerPolicy)(int),getOrCreateRateLimiter:func(*v1alpha1.ZenCleanerPolicy)(*ratelimiter.RateLimiter),getOrCreateResourceInformer:func(context.Context,*v1alpha1.ZenCleanerPolicy)(cache.SharedInformer,error),getStatusUpdater:func()(*StatusUpdater),matchesSelectors:func(*unstructured.Unstructured,*v1alpha1.TargetResourceSpec)(bool),shouldDelete:func(*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy)(bool,string)}
+pkg/controller type PolicyEvaluatorCore iface{BatchDeleterCore,ConditionMatcher,RateLimiterProvider,ResourceLister,SelectorMatcher}
+pkg/controller type PolicyReconciler struct{Scheme:*runtime.Scheme,client.Client}
+pkg/controller type PolicyReconcilerAdapter struct{}
+pkg/controller type PolicyReconcilerBatchDeleter struct{}
+pkg/controller type PolicyReconcilerConditionMatcher struct{}
+pkg/controller type PolicyReconcilerRateLimiterProvider struct{}
+pkg/controller type PolicyReconcilerSelectorMatcher struct{}
+pkg/controller type RateLimiterManager iface{getConfig:func()(*config.ControllerConfig),getRateLimiters:func()(map[types.UID]*ratelimiter.RateLimiter),getRateLimitersMu:func()(*sync.RWMutex)}
+pkg/controller type RateLimiterProvider iface{GetOrCreateRateLimiter:func(*v1alpha1.ZenCleanerPolicy)(*ratelimiter.RateLimiter)}
+pkg/controller type ResourceDeleterWithContext iface{DeleteResourceWithContext:func(context.Context,*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter)(error)}
+pkg/controller type ResourceDeleterWithoutContext iface{DeleteResourceWithoutContext:func(*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter)(error)}
+pkg/controller type ResourceInformer iface{AddEventHandler:func(cache.ResourceEventHandler)(cache.ResourceEventHandlerRegistration,error),GetStore:func()(cache.Store),HasSynced:func()(bool)}
+pkg/controller type ResourceInformerFactory iface{ForResource:func(schema.GroupVersionResource)(ResourceInformer),Start:func(<-chan struct{})()}
+pkg/controller type ResourceLister iface{ListResources:func(context.Context,schema.GroupVersionResource,string)([]*unstructured.Unstructured,error)}
+pkg/controller type SelectorMatcher iface{MatchesSelectors:func(*unstructured.Unstructured,*v1alpha1.TargetResourceSpec)(bool)}
+pkg/controller type StatusUpdater struct{}
+pkg/controller type TTLCalculator iface{}
+pkg/controller type TargetCapabilityError struct{Detail:string,GVK:string,Type:TargetErrorType}
+pkg/controller type TargetErrorType string
+pkg/controller var ErrNoDeleter (ast: <nil>)
+pkg/controller var ErrResourceInformerCacheSyncFailed (ast: <nil>)
+pkg/controller var ErrStaleUID (ast: <nil>)
+pkg/controller var PolicyGVR (ast: <nil>)
+pkg/controller/testing func NewMockBatchDeleterCore func()(*MockBatchDeleterCore)
+pkg/controller/testing func NewMockConditionMatcher func()(*MockConditionMatcher)
+pkg/controller/testing func NewMockRateLimiterProvider func()(*MockRateLimiterProvider)
+pkg/controller/testing func NewMockResourceInformer func([]*unstructured.Unstructured)(*MockResourceInformer)
+pkg/controller/testing func NewMockResourceInformerFactory func()(*MockResourceInformerFactory)
+pkg/controller/testing func NewMockResourceLister func()(*MockResourceLister)
+pkg/controller/testing func NewMockSelectorMatcher func()(*MockSelectorMatcher)
+pkg/controller/testing func NewMockStatusUpdater func()(*MockStatusUpdater)
+pkg/controller/testing method MockBatchDeleterCore.DeleteBatch func(context.Context,[]*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter,map[string]string)(int64,[]error)
+pkg/controller/testing method MockBatchDeleterCore.SetDeleteResult func(*unstructured.Unstructured,error)()
+pkg/controller/testing method MockConditionMatcher.MeetsConditions func(*unstructured.Unstructured,*v1alpha1.ConditionsSpec)(bool)
+pkg/controller/testing method MockConditionMatcher.SetMeetsConditions func(*unstructured.Unstructured,bool)()
+pkg/controller/testing method MockRateLimiterProvider.GetOrCreateRateLimiter func(*v1alpha1.ZenCleanerPolicy)(*ratelimiter.RateLimiter)
+pkg/controller/testing method MockResourceInformer.AddEventHandler func(cache.ResourceEventHandler)(cache.ResourceEventHandlerRegistration,error)
+pkg/controller/testing method MockResourceInformer.GetStore func()(cache.Store)
+pkg/controller/testing method MockResourceInformer.HasSynced func()(bool)
+pkg/controller/testing method MockResourceInformer.SetSynced func(bool)()
+pkg/controller/testing method MockResourceInformerFactory.ForResource func(schema.GroupVersionResource)(controller.ResourceInformer)
+pkg/controller/testing method MockResourceInformerFactory.SetInformer func(schema.GroupVersionResource,*MockResourceInformer)()
+pkg/controller/testing method MockResourceInformerFactory.Start func(<-chan struct{})()
+pkg/controller/testing method MockResourceLister.ListResources func(context.Context,schema.GroupVersionResource,string)([]*unstructured.Unstructured,error)
+pkg/controller/testing method MockResourceLister.SetError func(error)()
+pkg/controller/testing method MockResourceLister.SetResources func(schema.GroupVersionResource,string,[]*unstructured.Unstructured)()
+pkg/controller/testing method MockSelectorMatcher.MatchesSelectors func(*unstructured.Unstructured,*v1alpha1.TargetResourceSpec)(bool)
+pkg/controller/testing method MockSelectorMatcher.SetMatch func(*unstructured.Unstructured,bool)()
+pkg/controller/testing method MockStatusUpdater.SetError func(error)()
+pkg/controller/testing method MockStatusUpdater.UpdateStatus func(context.Context,*v1alpha1.ZenCleanerPolicy,int64,int64,int64)(error)
+pkg/controller/testing type MockBatchDeleterCore struct{}
+pkg/controller/testing type MockConditionMatcher struct{}
+pkg/controller/testing type MockRateLimiterProvider struct{}
+pkg/controller/testing type MockResourceInformer struct{}
+pkg/controller/testing type MockResourceInformerFactory struct{}
+pkg/controller/testing type MockResourceLister struct{}
+pkg/controller/testing type MockSelectorMatcher struct{}
+pkg/controller/testing type MockStatusUpdater struct{}
+pkg/errors func New func(string,string)(*CleanerError)
+pkg/errors func WithPolicy func(error,string,string)(*CleanerError)
+pkg/errors func WithResource func(error,string,string)(*CleanerError)
+pkg/errors func Wrap func(error,string,string)(*CleanerError)
+pkg/errors func Wrapf func(error,string,string,...interface{})(*CleanerError)
+pkg/errors type CleanerError sdkerrors.ContextError
+pkg/safety const ExclusionLabelKey (ast: <nil>)
+pkg/safety const ReasonActiveWorkload (ast: <nil>)
+pkg/safety const ReasonDeletesDisabled (ast: <nil>)
+pkg/safety const ReasonExcludedLabel (ast: <nil>)
+pkg/safety const ReasonPolicyInvalid (ast: <nil>)
+pkg/safety const ReasonProtectedKind (ast: <nil>)
+pkg/safety const ReasonProtectedNamespace (ast: <nil>)
+pkg/safety const ReasonStaleUID (ast: <nil>)
+pkg/safety const ReasonUnknown (ast: <nil>)
+pkg/safety const ReasonWorkloadManaged (ast: <nil>)
+pkg/safety func HasExclusion func(*unstructured.Unstructured)(bool)
+pkg/safety func NewGate func(Config)(*Gate)
+pkg/safety method Gate.EffectiveProtectedNamespaces func()([]string)
+pkg/safety method Gate.EvaluateObject func(*unstructured.Unstructured,gcapi.BehaviorSpec)(bool,string)
+pkg/safety method Gate.EvaluatePolicyTarget func(gcapi.TargetResourceSpec)(bool,string)
+pkg/safety method Gate.IsProtectedNamespace func(string)(bool)
+pkg/safety type Config struct{DeletesDisabled:bool,OwnNamespace:string,ProtectedNamespaces:[]string}
+pkg/safety type Gate struct{}
+pkg/validation func ParseGVR func(string,string)(schema.GroupVersionResource,error)
+pkg/validation func PluralizeKind func(string)(string)
+pkg/validation func ValidatePolicy func(*gcapi.ZenCleanerPolicy)(error)
+pkg/validation var ErrAPIVersionEmpty (ast: <nil>)
+pkg/validation var ErrAPIVersionGroupEmpty (ast: <nil>)
+pkg/validation var ErrAPIVersionMissingVersion (ast: <nil>)
+pkg/validation var ErrAPIVersionMultipleSeparators (ast: <nil>)
+pkg/validation var ErrAPIVersionRequired (ast: <nil>)
+pkg/validation var ErrAPIVersionVersionEmpty (ast: <nil>)
+pkg/validation var ErrBatchSizeNegative (ast: <nil>)
+pkg/validation var ErrFinalizerUnsupported (ast: <nil>)
+pkg/validation var ErrGracePeriodSecondsNegative (ast: <nil>)
+pkg/validation var ErrInvalidAPIVersion (ast: <nil>)
+pkg/validation var ErrInvalidAPIVersionFormat (ast: <nil>)
+pkg/validation var ErrInvalidKind (ast: <nil>)
+pkg/validation var ErrInvalidLabelExpressionKey (ast: <nil>)
+pkg/validation var ErrInvalidLabelExpressionOperator (ast: <nil>)
+pkg/validation var ErrInvalidLabelExpressionValue (ast: <nil>)
+pkg/validation var ErrInvalidLabelKey (ast: <nil>)
+pkg/validation var ErrInvalidLabelValue (ast: <nil>)
+pkg/validation var ErrInvalidNamespace (ast: <nil>)
+pkg/validation var ErrInvalidPropagationPolicy (ast: <nil>)
+pkg/validation var ErrInvalidTTLMapping (ast: <nil>)
+pkg/validation var ErrKindEmpty (ast: <nil>)
+pkg/validation var ErrKindRequired (ast: <nil>)
+pkg/validation var ErrLabelExpressionOperatorRequired (ast: <nil>)
+pkg/validation var ErrLabelExpressionValuesRequired (ast: <nil>)
+pkg/validation var ErrMaxDeletionsPerSecondNegative (ast: <nil>)
+pkg/validation var ErrNamespaceRequired (ast: <nil>)
+pkg/validation var ErrNoTTLOptionSpecified (ast: <nil>)
+pkg/validation var ErrProtectedKind (ast: <nil>)
+pkg/validation var ErrProtectedNamespace (ast: <nil>)
+pkg/validation var ErrUnsafeBroadScope (ast: <nil>)
+pkg/validation var ProtectedNamespaces (ast: <nil>)
+pkg/webhook func NewPolicyTargetGate func(*config.ControllerConfig)(TargetGate)
+pkg/webhook func NewWebhookServer func(string,string,string)(*WebhookServer,error)
+pkg/webhook method WebhookServer.SetTargetGate func(TargetGate)()
+pkg/webhook method WebhookServer.Start func(context.Context)(error)
+pkg/webhook method WebhookServer.StartTLS func(context.Context,string,string)(error)
+pkg/webhook type TargetGate iface{EvaluatePolicyTarget:func(v1alpha1.TargetResourceSpec)(bool,string)}
+pkg/webhook type WebhookServer struct{}
+pkg/webhook var Codecs (ast: <nil>)
+pkg/webhook var ErrUnexpectedObjectType (ast: <nil>)
