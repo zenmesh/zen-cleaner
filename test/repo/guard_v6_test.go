@@ -271,3 +271,114 @@ func TestV6NoGenericActionVocabulary(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// ── L14: CRD full-schema snapshot ──────────────────────────────────────
+
+// TestV6CRDFullSchemaSnapshot pins the ENTIRE committed CRD schema — every
+// field path (spec, status, nested), its OpenAPI type, and required lists —
+// into a deterministic baseline. L11 pins the contract vocabulary; L14 pins
+// the exact wire shape, so ANY schema change (type change, new nested field,
+// dropped required) is a reviewed, explicit event — never silent chart drift.
+// To accept intentional schema changes: ZEN_CLEANER_CRD_SCHEMA_BASELINE_UPDATE=1.
+func TestV6CRDFullSchemaSnapshot(t *testing.T) {
+	root := repoRootV4(t)
+	crdPath := filepath.Join(root, "deploy", "crds", "cleaner.zen-mesh.io_zencleanerpolicies.yaml")
+	raw, err := os.ReadFile(crdPath)
+	if err != nil {
+		t.Skipf("CRD file not found at expected path: %v", err)
+	}
+	var crd map[string]interface{}
+	if err := yaml.Unmarshal(raw, &crd); err != nil {
+		t.Fatalf("CRD YAML parse: %v", err)
+	}
+	versions, ok := crd["spec"].(map[string]interface{})["versions"].([]interface{})
+	if !ok || len(versions) == 0 {
+		t.Skip("CRD has no versions array")
+	}
+	v0, ok := versions[0].(map[string]interface{})
+	if !ok {
+		t.Skip("CRD version entry malformed")
+	}
+	sch, ok := v0["schema"].(map[string]interface{})["openAPIV3Schema"].(map[string]interface{})
+	if !ok {
+		t.Skip("CRD openAPIV3Schema not found")
+	}
+
+	var lines []string
+	var walk func(path string, node map[string]interface{})
+	walk = func(path string, node map[string]interface{}) {
+		if typeStr, ok := node["type"].(string); ok {
+			lines = append(lines, path+" type="+typeStr)
+		}
+		if req, ok := node["required"].([]interface{}); ok {
+			var names []string
+			for _, r := range req {
+				if s, ok := r.(string); ok {
+					names = append(names, s)
+				}
+			}
+			sort.Strings(names)
+			lines = append(lines, path+" required=["+strings.Join(names, ",")+"]")
+		}
+		props, _ := node["properties"].(map[string]interface{})
+		keys := make([]string, 0, len(props))
+		for k := range props {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			child, _ := props[k].(map[string]interface{})
+			if child == nil {
+				continue
+			}
+			walk(path+"."+k, child)
+		}
+	}
+	walk("", sch)
+	sort.Strings(lines)
+	got := strings.Join(lines, "\n")
+
+	baselinePath := filepath.Join(root, "test", "repo", "crd_schema_baseline.txt")
+	if os.Getenv("ZEN_CLEANER_CRD_SCHEMA_BASELINE_UPDATE") == "1" {
+		if err := os.WriteFile(baselinePath, []byte(got), 0o644); err != nil {
+			t.Fatalf("write CRD schema baseline: %v", err)
+		}
+		return
+	}
+	baselineRaw, err := os.ReadFile(baselinePath)
+	if err != nil {
+		// Bootstrap: write and pass once, so the diff law starts from truth.
+		if err := os.WriteFile(baselinePath, []byte(got), 0o644); err != nil {
+			t.Fatalf("bootstrap CRD schema baseline: %v", err)
+		}
+		t.Log("CRD schema baseline created (bootstrap)")
+		return
+	}
+	want := strings.TrimSpace(string(baselineRaw))
+	if strings.TrimSpace(got) != want {
+		wantSet, gotSet := map[string]bool{}, map[string]bool{}
+		for _, l := range strings.Split(want, "\n") {
+			wantSet[strings.TrimSpace(l)] = true
+		}
+		for _, l := range strings.Split(got, "\n") {
+			gotSet[strings.TrimSpace(l)] = true
+		}
+		var added, removed []string
+		for l := range gotSet {
+			if !wantSet[l] {
+				added = append(added, l)
+			}
+		}
+		for l := range wantSet {
+			if !gotSet[l] {
+				removed = append(removed, l)
+			}
+		}
+		sort.Strings(added)
+		sort.Strings(removed)
+		t.Errorf("GUARD-V6 L14: CRD schema drift — %d added, %d removed schema elements.\n"+
+			"ADDED:\n%v\nREMOVED:\n%v\n"+
+			"A CRD schema change is a WIRE-CONTRACT change: review it, then accept with ZEN_CLEANER_CRD_SCHEMA_BASELINE_UPDATE=1 and commit.",
+			len(added), len(removed), strings.Join(added, "\n"), strings.Join(removed, "\n"))
+	}
+}
