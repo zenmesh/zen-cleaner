@@ -309,11 +309,9 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
 
-// getRequeueInterval returns the requeue interval for a policy.
-// Uses policy-specific evaluation interval if configured, otherwise uses default.
+// getRequeueInterval returns the controller-level requeue interval (used
+// where no specific policy applies, e.g. paused-skip requeue).
 func (r *PolicyReconciler) getRequeueInterval() time.Duration {
-	// Use policy-specific evaluation interval if configured
-	// This allows per-policy control over evaluation frequency
 	interval := DefaultCleanupInterval
 	if r.config != nil {
 		interval = r.config.CleanupInterval
@@ -322,19 +320,14 @@ func (r *PolicyReconciler) getRequeueInterval() time.Duration {
 }
 
 // getRequeueIntervalForPolicy returns the requeue interval for a specific policy.
-// Uses policy-specific evaluation interval if configured, otherwise uses default.
+// Derives from the SHARED interval law (EffectiveEvaluationInterval) so the
+// requeue schedule and the status.nextGCRun promise can never diverge.
 func (r *PolicyReconciler) getRequeueIntervalForPolicy(policy *v1alpha1.ZenCleanerPolicy) time.Duration {
-	// Use policy-specific evaluation interval if configured
-	if policy.Spec.EvaluationInterval != nil && policy.Spec.EvaluationInterval.Duration > 0 {
-		return policy.Spec.EvaluationInterval.Duration
-	}
-
-	// Fall back to default cleanup interval from config
 	interval := DefaultCleanupInterval
 	if r.config != nil {
 		interval = r.config.CleanupInterval
 	}
-	return interval
+	return EffectiveEvaluationInterval(policy, interval)
 }
 
 // evaluationServiceKey builds a cache key for a policy's target resource.

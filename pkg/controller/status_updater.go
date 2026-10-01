@@ -18,6 +18,19 @@ import (
 // statusSubresourceKey is the unstructured object key for CRD status.
 const statusSubresourceKey = "status"
 
+// EffectiveEvaluationInterval is the SINGLE law for "how often does this
+// policy run": the policy's own evaluationInterval when set, else the
+// controller default. Status.nextGCRun reporting and reconcile requeue
+// scheduling MUST derive from this one function — two independent interval
+// calculations would eventually disagree, and a status promise that the
+// reconcile loop doesn't honor is a lie to operators.
+func EffectiveEvaluationInterval(policy *v1alpha1.ZenCleanerPolicy, controllerDefault time.Duration) time.Duration {
+	if policy != nil && policy.Spec.EvaluationInterval != nil && policy.Spec.EvaluationInterval.Duration > 0 {
+		return policy.Spec.EvaluationInterval.Duration
+	}
+	return controllerDefault
+}
+
 // PolicyGVR is the GroupVersionResource for ZenCleanerPolicy CRDs.
 var PolicyGVR = schema.GroupVersionResource{
 	Group:    "cleaner.zen-mesh.io",
@@ -74,14 +87,26 @@ func (s *StatusUpdater) UpdateStatus(
 	if s.config != nil {
 		interval = s.config.CleanupInterval
 	}
-	nextRun := metav1.NewTime(now.Add(interval))
-
 	statusObj := map[string]interface{}{
 		"resourcesMatched": matched,
 		"resourcesDeleted": deleted,
 		"resourcesPending": pending,
 		"lastGCRun":        now.Format(time.RFC3339),
-		"nextGCRun":        nextRun.Format(time.RFC3339),
+	}
+
+	// TRUTHFUL nextGCRun: the promise must match what the reconcile loop
+	// actually schedules. Paused policies never run — any nextGCRun value
+	// (including a stale one from before the pause) is a lie, so the key is
+	// REMOVED rather than refreshed. Active policies promise now + the
+	// policy's effective interval (its own evaluationInterval when set —
+	// not the controller default, which would misreport per-policy pacing).
+	if policy.Spec.Paused {
+		if existingStatus, ok := unstructuredPolicy.Object[statusSubresourceKey].(map[string]interface{}); ok {
+			delete(existingStatus, "nextGCRun")
+		}
+	} else {
+		nextRun := now.Add(EffectiveEvaluationInterval(policy, interval))
+		statusObj["nextGCRun"] = nextRun.Format(time.RFC3339)
 	}
 
 	// SUPPORT2-033 §8: surface why matching objects were not deleted,

@@ -303,6 +303,7 @@ pkg/controller const TargetResourceNotDiscoverable
 pkg/controller const TargetTemporarilyUnavailable
 pkg/controller func DeleteResourceWithBackoff
 pkg/controller func DeleteWithReceipt
+pkg/controller func EffectiveEvaluationInterval
 pkg/controller func LeaderzCheck
 pkg/controller func NewDefaultConditionMatcher
 pkg/controller func NewDefaultRateLimiterProvider
