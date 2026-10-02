@@ -70,7 +70,7 @@ func init() {
 		"internal/errors", "internal/events", "internal/health",
 		"internal/logging", "internal/ratelimiter", "internal/ttl",
 		"observability",
-		"pkg/api/v1alpha1", "pkg/config", "pkg/controller",
+		"pkg/api/v1alpha1", "pkg/attestation", "pkg/config", "pkg/controller",
 		"pkg/controller/testing", "pkg/errors", "pkg/safety",
 		"pkg/validation", "pkg/webhook",
 		"test/integration", "test/repo", "test/e2e",
