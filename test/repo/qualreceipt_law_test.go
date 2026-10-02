@@ -58,6 +58,11 @@ var compatSurfaces = []struct {
 	{"guard_v6_api_surface_baseline", filepath.Join("test", "repo", "api_surface_baseline.txt")},
 	{"guard_v7_api_compat_baseline", filepath.Join("test", "repo", "api_compat_baseline.txt")},
 	{"guard_v6_crd_schema_baseline", filepath.Join("test", "repo", "crd_schema_baseline.txt")},
+	// H265+ Program K: the receipt binds the GUARD V3 firewall source itself
+	// — attack battery + build-graph + binary semantic firewall — so a
+	// qualification claim can be checked against exactly the guard bytes
+	// that enforce it.
+	{"guard_v3_firewall_battery", filepath.Join("test", "repo", "guard_v3_test.go")},
 }
 
 // surfaceFacts computes the real digests and element counts of the
@@ -82,7 +87,29 @@ func surfaceFacts(t *testing.T, root string) (digests map[string]string, checks 
 		evidence[s.name] = s.rel
 		hasher.Write(raw)
 		lines := strings.Count(strings.TrimSpace(string(raw)), "\n") + 1
-		checks = append(checks, qualreceipt.Check{Name: s.name, Pass: len(raw) > 0, Detail: fmt.Sprintf("%d canonical elements", lines)})
+		detail := fmt.Sprintf("%d canonical elements", lines)
+		if s.name == "guard_v3_firewall_battery" {
+			// The battery must name every Support2 attack class it closes;
+			// a battery that silently loses an attack loses the receipt's
+			// firewall evidence.
+			classes := []string{"SymlinkDir", "BuildTagOnlySource", "PlainContentSmuggling",
+				"Vendor", "PrivateIndirectImport", "NestedModuleReplace", "GeneratedCode", "EmbedSmuggling"}
+			missing := 0
+			for _, c := range classes {
+				if !strings.Contains(string(raw), "Attack_"+c) {
+					missing++
+					detail += "; MISSING " + c
+				}
+			}
+			if missing > 0 {
+				checks = append(checks, qualreceipt.Check{Name: s.name, Pass: false, Detail: detail})
+				sum := sha256.Sum256(raw)
+				digests[s.name] = "sha256:" + hex.EncodeToString(sum[:])
+				continue
+			}
+			detail = fmt.Sprintf("%d canonical elements; all 8 attack classes present", lines)
+		}
+		checks = append(checks, qualreceipt.Check{Name: s.name, Pass: len(raw) > 0, Detail: detail})
 	}
 	combined = hex.EncodeToString(hasher.Sum(nil))
 	sort.Slice(checks, func(i, j int) bool { return checks[i].Name < checks[j].Name })

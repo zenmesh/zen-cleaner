@@ -32,6 +32,8 @@ package repo
 //                                /backup/cert/obs) in its Go source
 
 import (
+	"encoding/json"
+
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -50,12 +52,12 @@ import (
 // allowedCRDTopLevelFields: the committed cleanup.policy contract. Any new
 // top-level spec property requires an explicit allowlist extension.
 var allowedCRDTopLevelFields = map[string]bool{
-	"targetResource": true,
-	"ttl":            true,
-	"conditions":     true,
-	"behavior":       true,
-	"schedule":       true,
-	"paused":         true,
+	"targetResource":     true,
+	"ttl":                true,
+	"conditions":         true,
+	"behavior":           true,
+	"schedule":           true,
+	"paused":             true,
 	"evaluationInterval": true,
 }
 
@@ -304,37 +306,7 @@ func TestV6CRDFullSchemaSnapshot(t *testing.T) {
 		t.Skip("CRD openAPIV3Schema not found")
 	}
 
-	var lines []string
-	var walk func(path string, node map[string]interface{})
-	walk = func(path string, node map[string]interface{}) {
-		if typeStr, ok := node["type"].(string); ok {
-			lines = append(lines, path+" type="+typeStr)
-		}
-		if req, ok := node["required"].([]interface{}); ok {
-			var names []string
-			for _, r := range req {
-				if s, ok := r.(string); ok {
-					names = append(names, s)
-				}
-			}
-			sort.Strings(names)
-			lines = append(lines, path+" required=["+strings.Join(names, ",")+"]")
-		}
-		props, _ := node["properties"].(map[string]interface{})
-		keys := make([]string, 0, len(props))
-		for k := range props {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			child, _ := props[k].(map[string]interface{})
-			if child == nil {
-				continue
-			}
-			walk(path+"."+k, child)
-		}
-	}
-	walk("", sch)
+	lines := crdSchemaLines(sch)
 	sort.Strings(lines)
 	got := strings.Join(lines, "\n")
 
@@ -381,4 +353,193 @@ func TestV6CRDFullSchemaSnapshot(t *testing.T) {
 			"A CRD schema change is a WIRE-CONTRACT change: review it, then accept with ZEN_CLEANER_CRD_SCHEMA_BASELINE_UPDATE=1 and commit.",
 			len(added), len(removed), strings.Join(added, "\n"), strings.Join(removed, "\n"))
 	}
+}
+
+// crdSchemaLines flattens an OpenAPI v3 schema into canonical semantic
+// lines. H265+ Program I: beyond type/required/structure, the snapshot pins
+// the SEMANTIC attributes a silent schema drift would abuse — enum values,
+// formats, array items, additionalProperties (schema or boolean), nullable,
+// default values, and the Kubernetes list/map extensions — recursing into
+// items and additionalProperties subtrees, not just properties.
+func crdSchemaLines(node map[string]interface{}) []string {
+	var lines []string
+	var walk func(path string, node map[string]interface{})
+	walk = func(path string, node map[string]interface{}) {
+		if node == nil {
+			return
+		}
+		if typeStr, ok := node["type"].(string); ok {
+			lines = append(lines, path+" type="+typeStr)
+		}
+		if req, ok := node["required"].([]interface{}); ok {
+			var names []string
+			for _, r := range req {
+				if s, ok := r.(string); ok {
+					names = append(names, s)
+				}
+			}
+			sort.Strings(names)
+			lines = append(lines, path+" required=["+strings.Join(names, ",")+"]")
+		}
+		if en, ok := node["enum"].([]interface{}); ok {
+			var vals []string
+			for _, v := range en {
+				vals = append(vals, fmt.Sprint(v))
+			}
+			sort.Strings(vals)
+			lines = append(lines, path+" enum=["+strings.Join(vals, ",")+"]")
+		}
+		if f, ok := node["format"].(string); ok {
+			lines = append(lines, path+" format="+f)
+		}
+		if n, ok := node["nullable"].(bool); ok {
+			lines = append(lines, fmt.Sprintf("%s nullable=%t", path, n))
+		}
+		if d, ok := node["default"]; ok {
+			if dj, err := json.Marshal(d); err == nil {
+				lines = append(lines, path+" default="+string(dj))
+			}
+		}
+		for _, x := range []string{"x-kubernetes-list-type", "x-kubernetes-map-type"} {
+			if v, ok := node[x].(string); ok {
+				lines = append(lines, path+" "+x+"="+v)
+			}
+		}
+		if lm, ok := node["x-kubernetes-list-map-keys"].([]interface{}); ok {
+			var keys []string
+			for _, k := range lm {
+				if s, ok := k.(string); ok {
+					keys = append(keys, s)
+				}
+			}
+			sort.Strings(keys)
+			lines = append(lines, path+" x-kubernetes-list-map-keys=["+strings.Join(keys, ",")+"]")
+		}
+		if p, ok := node["x-kubernetes-preserve-unknown-fields"].(bool); ok {
+			lines = append(lines, fmt.Sprintf("%s x-kubernetes-preserve-unknown-fields=%t", path, p))
+		}
+		if ap, ok := node["additionalProperties"]; ok {
+			switch v := ap.(type) {
+			case bool:
+				lines = append(lines, fmt.Sprintf("%s additionalProperties=%t", path, v))
+			case map[string]interface{}:
+				lines = append(lines, path+" additionalProperties=schema")
+				walk(path+".<additionalProperties>", v)
+			}
+		}
+		if it, ok := node["items"].(map[string]interface{}); ok {
+			lines = append(lines, path+" items=schema")
+			walk(path+".<items>", it)
+		}
+		props, _ := node["properties"].(map[string]interface{})
+		keys := make([]string, 0, len(props))
+		for k := range props {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			child, _ := props[k].(map[string]interface{})
+			if child == nil {
+				continue
+			}
+			walk(path+"."+k, child)
+		}
+	}
+	walk("", node)
+	return lines
+}
+
+// TestV6CRDSemanticAttributesPinned (H265+ Program I, negative-proven): for
+// every semantic attribute class the CRD actually uses, mutating one
+// instance must change the derived line set — i.e. the baseline WOULD catch
+// a silent enum/default/format/items/additionalProperties/nullable or
+// x-kubernetes drift. Classes the schema does not use are reported, not
+// faked.
+func TestV6CRDSemanticAttributesPinned(t *testing.T) {
+	root := repoRootV4(t)
+	raw, err := os.ReadFile(filepath.Join(root, "deploy", "crds", "cleaner.zen-mesh.io_zencleanerpolicies.yaml"))
+	if err != nil {
+		t.Skipf("CRD not found: %v", err)
+	}
+	var crd map[string]interface{}
+	if err := yaml.Unmarshal(raw, &crd); err != nil {
+		t.Fatal(err)
+	}
+	sch := crd["spec"].(map[string]interface{})["versions"].([]interface{})[0].(map[string]interface{})["schema"].(map[string]interface{})["openAPIV3Schema"].(map[string]interface{})
+	base := map[string]bool{}
+	for _, l := range crdSchemaLines(sch) {
+		base[l] = true
+	}
+
+	// findFirstPath locates the first node carrying the key at any depth and
+	// returns a perturbation callback scoped to a deep copy.
+	mutations := map[string]func(n map[string]interface{}){
+		"enum":                   func(n map[string]interface{}) { n["enum"].([]interface{})[0] = "MUTATED" },
+		"format":                 func(n map[string]interface{}) { n["format"] = "mutated-format" },
+		"default":                func(n map[string]interface{}) { n["default"] = "mutated-default" },
+		"nullable":               func(n map[string]interface{}) { n["nullable"] = true },
+		"additionalProperties":   func(n map[string]interface{}) { n["additionalProperties"] = true },
+		"items":                  func(n map[string]interface{}) { n["items"] = map[string]interface{}{"type": "mutated"} },
+		"x-kubernetes-list-type": func(n map[string]interface{}) { n["x-kubernetes-list-type"] = "mutated" },
+		"x-kubernetes-map-type":  func(n map[string]interface{}) { n["x-kubernetes-map-type"] = "mutated" },
+	}
+	var used, skipped []string
+	for class, mutate := range mutations {
+		clone := deepCloneMap(sch)
+		if !mutateFirstNode(clone, class, mutate) {
+			skipped = append(skipped, class)
+			continue
+		}
+		used = append(used, class)
+		drifted := false
+		for _, l := range crdSchemaLines(clone) {
+			if !base[l] {
+				drifted = true
+				break
+			}
+		}
+		if !drifted {
+			t.Errorf("CRD semantic guard: mutating %s did NOT change the snapshot (class unpinned)", class)
+		}
+	}
+	sort.Strings(used)
+	sort.Strings(skipped)
+	t.Logf("pinned semantic classes: %v; classes absent from current schema: %v", used, skipped)
+	if len(used) == 0 {
+		t.Fatal("no semantic attribute class found to pin — schema walker broken")
+	}
+}
+
+// mutateFirstNode deep-searches for a node carrying key and applies mutate.
+func mutateFirstNode(node map[string]interface{}, key string, mutate func(map[string]interface{})) bool {
+	if _, ok := node[key]; ok {
+		mutate(node)
+		return true
+	}
+	if props, ok := node["properties"].(map[string]interface{}); ok {
+		keys := make([]string, 0, len(props))
+		for k := range props {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if child, ok := props[k].(map[string]interface{}); ok && mutateFirstNode(child, key, mutate) {
+				return true
+			}
+		}
+	}
+	if it, ok := node["items"].(map[string]interface{}); ok && mutateFirstNode(it, key, mutate) {
+		return true
+	}
+	if ap, ok := node["additionalProperties"].(map[string]interface{}); ok && mutateFirstNode(ap, key, mutate) {
+		return true
+	}
+	return false
+}
+
+func deepCloneMap(src map[string]interface{}) map[string]interface{} {
+	raw, _ := json.Marshal(src)
+	var out map[string]interface{}
+	_ = json.Unmarshal(raw, &out)
+	return out
 }
