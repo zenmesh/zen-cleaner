@@ -4,6 +4,7 @@ go 1.27.0
 
 require (
 	github.com/prometheus/client_golang v1.23.2
+	github.com/zenmesh/zen-sdk v0.7.4-c880b6b.0.20261001214805-84596beb0e36
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.46.0
 	go.opentelemetry.io/otel/sdk v1.46.0
