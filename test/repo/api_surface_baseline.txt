@@ -51,6 +51,9 @@ internal/election func ShutdownContext
 internal/election type Config
 internal/election type LeaderElector
 internal/election type Runner
+internal/entitlegate const EntitlementKey
+internal/entitlegate func New
+internal/entitlegate type CleanerGate
 internal/errors const Permanent
 internal/errors const ResourceExhausted
 internal/errors const Transient
