@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/zenmesh/zen-cleaner/internal/election"
+	"github.com/zenmesh/zen-cleaner/internal/mcpserver"
 	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/observability"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
@@ -73,6 +74,7 @@ var (
 
 var (
 	metricsAddr              = flag.String("metrics-addr", ":8080", "The address the metric endpoint binds to")
+	mcpStdio                 = flag.Bool("mcp-stdio", false, "Serve the MCP adapter over stdio (DEFAULT-DENY: requires ZEN_CLEANER_MCP_MODE=stdio + ZEN_CLEANER_MCP_ACTOR); exits after the stdio session closes")
 	healthProbeAddr          = flag.String("health-probe-addr", ":8081", "The address the standalone health server binds to (serves /healthz, /readyz, /startup, /leaderz on leader AND standby)")
 	webhookAddr              = flag.String("webhook-addr", ":9443", "The address the webhook endpoint binds to")
 	webhookCertFile          = flag.String("webhook-cert-file", "/etc/webhook/certs/tls.crt", "Path to TLS certificate file")
@@ -93,7 +95,30 @@ func main() {
 	os.Exit(runMain())
 }
 
+// runMCPStdio serves the MCP adapter's stdio transport and returns the
+// process exit code (the session IS the process: the stdio closes, the
+// process exits — the controller never starts).
+func runMCPStdio() int {
+	adapter := mcpserver.New()
+	if !adapter.Enabled() {
+		fmt.Fprintln(os.Stderr, "zen-cleaner: the MCP adapter is DEFAULT-DENIED (set ZEN_CLEANER_MCP_MODE=stdio and ZEN_CLEANER_MCP_ACTOR=<actor> to opt in)")
+		return 1
+	}
+	if err := adapter.RunStdio(os.Stdin, os.Stdout); err != nil {
+		fmt.Fprintln(os.Stderr, "zen-cleaner: the MCP stdio session failed:", err)
+		return 1
+	}
+	return 0
+}
+
 func runMain() int {
+	// The MCP stdio mode (R051 N3 continuation): the adapter's own
+	// transport, before ANY k8s client construction — the stdio session
+	// is the process (DEFAULT-DENY: the adapter types the refusal).
+	if *mcpStdio {
+		return runMCPStdio()
+	}
+
 	// Initialize the zen-cleaner logger (configures the controller-runtime logger automatically)
 	logger = sdklog.NewLogger("zen-cleaner")
 	setupLog = logger.WithComponent("setup")
