@@ -119,6 +119,12 @@ func runMain() int {
 		return runMCPStdio()
 	}
 
+	// The read-only status verbs (the R051 parity build-out): print and
+	// exit — the controller's run loop never starts for them.
+	if runStatusVerbs() {
+		return 0
+	}
+
 	// Initialize the zen-cleaner logger (configures the controller-runtime logger automatically)
 	logger = sdklog.NewLogger("zen-cleaner")
 	setupLog = logger.WithComponent("setup")

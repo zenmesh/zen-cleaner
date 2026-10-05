@@ -14,6 +14,13 @@ import (
 	"github.com/zenmesh/zen-sdk/pkg/entitlement/engine"
 )
 
+
+// StatusSnapshot exposes the verified policy snapshot's identity fields
+// (the ID, the revision, the window — never the signature material).
+func (g *CleanerGate) StatusSnapshot() (id string, revision int64, issuedAt, expiresAt string, inGrace bool) {
+	return g.res.Snapshot.SnapshotID, g.res.Snapshot.Revision, g.res.Snapshot.IssuedAt, g.res.Snapshot.ExpiresAt, g.res.InGrace
+}
+
 // EntitlementKey is the single capability zen-cleaner meters.
 const EntitlementKey = "cleaner.executions"
 

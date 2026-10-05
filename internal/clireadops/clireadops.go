@@ -23,20 +23,36 @@ import (
 type EntitlementStatus struct {
 	EntitlementKey string `json:"entitlement_key"`
 	MeteredUsage   int64  `json:"metered_usage"`
+	SnapshotID     string `json:"snapshot_id"`
+	Revision       int64  `json:"revision"`
+	IssuedAt       string `json:"issued_at"`
+	ExpiresAt      string `json:"expires_at"`
+	InGrace        bool   `json:"in_grace"`
 }
 
 // ReadEntitlementStatus builds the record from the gate's own public
-// accessor.
+// accessors (the identity fields, never the signature material).
 func ReadEntitlementStatus(g *entitlegate.CleanerGate) EntitlementStatus {
+	id, rev, issued, expires, inGrace := g.StatusSnapshot()
 	return EntitlementStatus{
 		EntitlementKey: entitlegate.EntitlementKey,
 		MeteredUsage:   g.Executed(),
+		SnapshotID:     id,
+		Revision:       rev,
+		IssuedAt:       issued,
+		ExpiresAt:      expires,
+		InGrace:        inGrace,
 	}
 }
 
 // Render renders the human form.
 func (s EntitlementStatus) Render() string {
-	return fmt.Sprintf("entitlement: %s\nmetered usage: %d\n", s.EntitlementKey, s.MeteredUsage)
+	base := fmt.Sprintf("entitlement: %s\nmetered usage: %d\n", s.EntitlementKey, s.MeteredUsage)
+	if s.SnapshotID == "" {
+		return base
+	}
+	return base + fmt.Sprintf("snapshot: %s (revision %d)\nwindow: %s .. %s\nin grace: %t\n",
+		s.SnapshotID, s.Revision, s.IssuedAt, s.ExpiresAt, s.InGrace)
 }
 
 // HealthSummary is the typed health-summary record (the process-local
@@ -62,4 +78,28 @@ func ReadHealthSummary(version, commit string) HealthSummary {
 // Render renders the human form.
 func (s HealthSummary) Render() string {
 	return fmt.Sprintf("version: %s\ncommit: %s\nprocess uptime: %s\n", s.Version, s.Commit, s.ProcessUptime)
+}
+
+// StatusFromSnapshot builds the entitlement-status record from a
+// VERIFIED snapshot (the caller runs the fail-closed verification; the
+// record carries the identity fields, never the signature material).
+func StatusFromSnapshot(snap EntitlementSnapshotView, inGrace bool) EntitlementStatus {
+	return EntitlementStatus{
+		EntitlementKey: entitlegate.EntitlementKey,
+		SnapshotID:     snap.ID,
+		Revision:       snap.Revision,
+		IssuedAt:       snap.IssuedAt,
+		ExpiresAt:      snap.ExpiresAt,
+		InGrace:        inGrace,
+	}
+}
+
+// entitlementSnapshotView is the narrow view this package reads from
+// the sdk's verified snapshot (the structural decoupling: the cleaner
+// does not import the snapshot type into its own API).
+type EntitlementSnapshotView struct {
+	ID        string
+	Revision  int64
+	IssuedAt  string
+	ExpiresAt string
 }
