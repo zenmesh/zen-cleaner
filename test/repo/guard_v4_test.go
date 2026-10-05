@@ -99,6 +99,14 @@ var privateScopeMarkers = []string{
 	"r3consequential", "r4securitycritical",
 	"costcloudmeasured", "costestlistprice",
 	"protcustomerdurable", "actionrequestrightsi ze",
+	// CB-2 (PI-SC-001 P0, 2026-10-05): the ADV-CLEANER finops engine's
+	// identifiers — the class the public-history scrub removed. The
+	// words below refuse re-landing in ANY tracked file or COMMIT
+	// MESSAGE.
+	"maintenanceopportunityengine", "maintenanceopportunity",
+	"pvcdetector", "finopsvocabulary",
+	"costclass", "rightsizing", "finops",
+	"storagerightsizing", "compute savings", "savingsclass",
 }
 
 // v4File is one scanned first-party Go file.
@@ -301,7 +309,13 @@ func v4Evaluate(t *testing.T, root string) []string {
 	}
 
 	// L4: private-scope markers in ANY tracked text file (normalized).
+	// The guard files themselves are exempt: they must NAME the law to
+	// enforce it (the same exception the authoritative scanner's own
+	// source takes).
 	for _, rel := range trackedTextFiles(t, root) {
+		if strings.HasPrefix(rel, "test/repo/") {
+			continue
+		}
 		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
 		if err != nil {
 			continue

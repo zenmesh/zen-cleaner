@@ -71,3 +71,5 @@ else
     exit 1
 fi
 
+
+$SCRIPT_DIR/check-finops-vocabulary.sh tree

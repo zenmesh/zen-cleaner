@@ -106,8 +106,8 @@ func TestV5(t *testing.T) {
 		// including previously-unscanned .txt/.tmpl/.sh. Generated content
 		// is NOT exempt (§6): if committed and public, it is guarded.
 		if v5TextExtensions[ext] {
-			if strings.HasSuffix(rel, "guard_v4_test.go") || strings.HasSuffix(rel, "guard_v5_test.go") {
-				return nil // the guards' own tables are not leaks
+			if strings.HasPrefix(rel, "test/repo/") {
+				return nil // the guards' own files name the law to enforce it
 			}
 			if rel == "test/repo/private_extraction_markers.txt" {
 				return nil // the guard's own marker DATA file: contains markers by definition
