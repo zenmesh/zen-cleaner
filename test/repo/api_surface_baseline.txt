@@ -259,6 +259,10 @@ internal/ops const SurfaceCLI
 internal/ops const SurfaceK8s
 internal/ops const SurfaceMCP
 internal/ops const SurfaceUI
+internal/ops func CanonicalDoc
+internal/ops func CanonicalDocJSON
+internal/ops type Doc
+internal/ops type DocOperation
 internal/ops type Kind
 internal/ops type Operation
 internal/ops type Surface

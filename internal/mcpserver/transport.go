@@ -14,9 +14,11 @@ import (
 	"io"
 )
 
-// rpcRequest is one JSON-RPC 2.0 request.
+// rpcRequest is one JSON-RPC 2.0 message. ID == nil marks a
+// notification (no response is ever written for it — the JSON-RPC law
+// strict clients rely on for notifications/initialized).
 type rpcRequest struct {
-	ID     int             `json:"id"`
+	ID     *int            `json:"id"`
 	Method string          `json:"method"`
 	Params json.RawMessage `json:"params,omitempty"`
 }
@@ -45,6 +47,9 @@ func (a *Adapter) RunStdio(in io.Reader, out io.Writer) error {
 		if err := json.Unmarshal(scanner.Bytes(), &req); err != nil {
 			continue // not JSON: skip the line (the transport's tolerance)
 		}
+		if req.ID == nil {
+			continue // a notification: never answered (the JSON-RPC law)
+		}
 		switch req.Method {
 		case "initialize":
 			res := map[string]interface{}{
@@ -53,19 +58,19 @@ func (a *Adapter) RunStdio(in io.Reader, out io.Writer) error {
 				"serverInfo":      map[string]string{"name": "zen-cleaner", "version": "0.1.0"},
 			}
 			b, _ := json.Marshal(res)
-			_ = enc.Encode(map[string]interface{}{"jsonrpc": "2.0", "id": req.ID, "result": json.RawMessage(b)})
+			_ = enc.Encode(map[string]interface{}{"jsonrpc": "2.0", "id": *req.ID, "result": json.RawMessage(b)})
 		case "tools/list":
 			tools := a.Tools()
 			if tools == nil {
-				_ = enc.Encode(map[string]interface{}{"jsonrpc": "2.0", "id": req.ID,
+				_ = enc.Encode(map[string]interface{}{"jsonrpc": "2.0", "id": *req.ID,
 					"error": rpcError{Code: -32601, Message: "not enabled (default-deny)"}})
 				continue
 			}
 			b, _ := json.Marshal(map[string]interface{}{"tools": tools})
-			_ = enc.Encode(map[string]interface{}{"jsonrpc": "2.0", "id": req.ID, "result": json.RawMessage(b)})
+			_ = enc.Encode(map[string]interface{}{"jsonrpc": "2.0", "id": *req.ID, "result": json.RawMessage(b)})
 		case "tools/call":
 			if !a.enabled {
-				_ = enc.Encode(map[string]interface{}{"jsonrpc": "2.0", "id": req.ID,
+				_ = enc.Encode(map[string]interface{}{"jsonrpc": "2.0", "id": *req.ID,
 					"error": rpcError{Code: -32601, Message: ErrNotEnabled.Error()}})
 				continue
 			}
@@ -73,19 +78,30 @@ func (a *Adapter) RunStdio(in io.Reader, out io.Writer) error {
 				Name string `json:"name"`
 			}
 			_ = json.Unmarshal(req.Params, &call)
+			// The stdio posture (81fa94e's contract): with no provider
+			// wired, the read-only tools answer the EMPTY body — never a
+			// panic, never a fabricated posture.
 			var res string
 			switch call.Name {
 			case "entitlement_status":
+				if a.ent == nil {
+					res = "{}"
+					break
+				}
 				res = a.ent.EntitlementSummary()
 			case "health_summary":
+				if a.health == nil {
+					res = "{}"
+					break
+				}
 				res = a.health.HealthSummary()
 			default:
 				res = "{}"
 			}
 			b, _ := json.Marshal(map[string]interface{}{"content": []map[string]string{{"type": "text", "text": res}}})
-			_ = enc.Encode(map[string]interface{}{"jsonrpc": "2.0", "id": req.ID, "result": json.RawMessage(b)})
+			_ = enc.Encode(map[string]interface{}{"jsonrpc": "2.0", "id": *req.ID, "result": json.RawMessage(b)})
 		default:
-			_ = enc.Encode(map[string]interface{}{"jsonrpc": "2.0", "id": req.ID,
+			_ = enc.Encode(map[string]interface{}{"jsonrpc": "2.0", "id": *req.ID,
 				"error": rpcError{Code: -32601, Message: fmt.Sprintf("unknown method %q", req.Method)}})
 		}
 	}

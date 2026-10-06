@@ -29,12 +29,12 @@
       "idempotency": "the check is pure; the metered usage counts once per admission",
       "auth": "the verified policy snapshot (the entitlegate's generation binding)",
       "bindings": {
-        "k8s": "in-process (the reconciler's ExecuteWithReceipt calls Admit before the delete path)"
+        "k8s": "in-process (the reconciler's ExecuteWithReceipt calls Admit before the delete path)",
+        "cli": "-entitlement-status -entitlement-snapshot <file> (the fail-closed snapshot verification + the identity render; verified live s105/s121)",
+        "mcp": "the entitlement_status tool (the read-only family; the stdio posture answers the empty body when no provider is wired)"
       },
       "absent_surfaces": {
-        "cli": "no admission-check verb",
         "api": "no REST admission route",
-        "mcp": "no MCP tool",
         "ui": "no console screen"
       }
     },
@@ -83,12 +83,12 @@
       "idempotency": "pure",
       "auth": "the cluster-internal (the health endpoints are not auth-gated by design; the cluster boundary is the gate)",
       "bindings": {
-        "k8s": "the health endpoints (internal/health)"
+        "k8s": "the health endpoints (internal/health)",
+        "cli": "-health-summary (the process-local posture: version/commit/uptime; verified live s105/s121)",
+        "mcp": "the health_summary tool (the read-only family)"
       },
       "absent_surfaces": {
-        "cli": "no health verb (kubectl observes)",
         "api": "the health endpoints ARE the HTTP surface (the only one, by design)",
-        "mcp": "no MCP tool",
         "ui": "no console screen"
       }
     }
