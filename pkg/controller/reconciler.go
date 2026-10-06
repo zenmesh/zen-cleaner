@@ -60,6 +60,11 @@ type PolicyReconciler struct {
 	// constructor always sets it.
 	safetyGate *safety.Gate
 
+	// policyIntegrity is the git-gitops integrity overlay (the declared
+	// digest + the optional ed25519 anchor). Nil = the overlay OFF (the
+	// drift condition still receipts, visibility-only).
+	policyIntegrity *PolicyIntegrityVerifier
+
 	// shouldReconcile is a function that returns true if reconciliation should proceed.
 	// Leader election is handled by controller-runtime Manager, so this always returns true.
 	shouldReconcile func() bool
@@ -275,6 +280,41 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "Ready", "PolicyInvalid", invalid.Error(), true)
 			}
 			return ctrl.Result{RequeueAfter: time.Hour}, nil
+		}
+	}
+
+	// The git-gitops integrity overlay (the declared digest + the
+	// optional trust anchor): drift is always receipted as a condition;
+	// with the anchor configured, an unsigned or drifted policy is
+	// policy_invalid — the mutated intent never executes.
+	if r.policyIntegrity != nil {
+		verdict := r.policyIntegrity.CheckIntegrity(policy)
+		switch {
+		case verdict.Refuses:
+			RecordReconcileOutcome("invalid_policy")
+			RecordSafetyRefusal(safety.ReasonPolicyInvalid)
+			r.logger.Error(nil, "Policy integrity refused; no cleanup will run",
+				sdklog.Operation("reconcile"),
+				sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+				sdklog.ErrorCode("POLICY_INTEGRITY_REFUSED"),
+				sdklog.String("detail", verdict.Detail))
+			if r.statusUpdater != nil {
+				policy.Status.Phase = "Error"
+				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "Ready", "PolicyIntegrityRefused", verdict.Detail, true)
+			}
+			return ctrl.Result{RequeueAfter: time.Hour}, nil
+		case verdict.Drifted:
+			if r.statusUpdater != nil {
+				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "PolicyDrifted", "DeclaredDigestMismatch", verdict.Detail, false)
+			}
+			r.logger.Info("Policy drift receipted (visibility)",
+				sdklog.Operation("reconcile"),
+				sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+				sdklog.String("detail", verdict.Detail))
+		default:
+			if r.statusUpdater != nil {
+				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "PolicyDrifted", "InSync", verdict.Detail, false)
+			}
 		}
 	}
 
