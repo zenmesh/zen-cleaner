@@ -99,7 +99,7 @@ func main() {
 // process exit code (the session IS the process: the stdio closes, the
 // process exits — the controller never starts).
 func runMCPStdio() int {
-	adapter := mcpserver.New()
+	adapter := mcpserver.New(nil, nil)
 	if !adapter.Enabled() {
 		fmt.Fprintln(os.Stderr, "zen-cleaner: the MCP adapter is DEFAULT-DENIED (set ZEN_CLEANER_MCP_MODE=stdio and ZEN_CLEANER_MCP_ACTOR=<actor> to opt in)")
 		return 1

@@ -75,8 +75,10 @@ func (a *Adapter) RunStdio(in io.Reader, out io.Writer) error {
 			_ = json.Unmarshal(req.Params, &call)
 			var res string
 			switch call.Name {
-			case "entitlement_status", "health_summary":
-				res = "{}" // the read-only summaries' live bodies ride the next slice
+			case "entitlement_status":
+				res = a.ent.EntitlementSummary()
+			case "health_summary":
+				res = a.health.HealthSummary()
 			default:
 				res = "{}"
 			}

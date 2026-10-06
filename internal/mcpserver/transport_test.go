@@ -11,7 +11,7 @@ import (
 
 func TestStdioDefaultDenyRefusesToolsList(t *testing.T) {
 	t.Setenv(ModeEnv, "")
-	a := New()
+	a := New(nil, nil)
 	var out bytes.Buffer
 	if err := a.RunStdio(strings.NewReader(`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`), &out); err != nil {
 		t.Fatal(err)
@@ -34,7 +34,7 @@ func TestStdioDefaultDenyRefusesToolsList(t *testing.T) {
 func TestStdioEnabledEnumeratesReadOnlyFamily(t *testing.T) {
 	t.Setenv(ModeEnv, MCPModeStdio)
 	t.Setenv(ActorEnv, "test")
-	a := New()
+	a := New(nil, nil)
 	var out bytes.Buffer
 	input := strings.Join([]string{
 		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`,

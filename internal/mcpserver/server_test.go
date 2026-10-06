@@ -10,7 +10,7 @@ import (
 func TestDefaultDeny(t *testing.T) {
 	t.Setenv(ModeEnv, "")
 	t.Setenv(ActorEnv, "")
-	a := New()
+	a := New(nil, nil)
 	if a.Enabled() {
 		t.Fatal("the adapter must be dark without the mode env (default-deny)")
 	}
@@ -25,7 +25,7 @@ func TestDefaultDeny(t *testing.T) {
 func TestEnabledRequiresActorAttribution(t *testing.T) {
 	t.Setenv(ModeEnv, MCPModeStdio)
 	t.Setenv(ActorEnv, "")
-	a := New()
+	a := New(nil, nil)
 	if !a.Enabled() {
 		t.Fatal("the mode env alone enables the transport")
 	}
@@ -37,7 +37,7 @@ func TestEnabledRequiresActorAttribution(t *testing.T) {
 func TestEnabledEnumeratesReadOnlyFamily(t *testing.T) {
 	t.Setenv(ModeEnv, MCPModeStdio)
 	t.Setenv(ActorEnv, "opencode-rotation")
-	a := New()
+	a := New(nil, nil)
 	tools := a.Tools()
 	if len(tools) != 2 {
 		t.Fatalf("want the 2-tool read-only family, got %v", tools)
@@ -61,7 +61,7 @@ func TestEnabledEnumeratesReadOnlyFamily(t *testing.T) {
 func TestListJSONShape(t *testing.T) {
 	t.Setenv(ModeEnv, MCPModeStdio)
 	t.Setenv(ActorEnv, "test")
-	a := New()
+	a := New(nil, nil)
 	body, err := a.ListJSON()
 	if err != nil {
 		t.Fatal(err)

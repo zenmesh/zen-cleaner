@@ -27,11 +27,27 @@ const MCPModeStdio = "stdio"
 // no call).
 const ActorEnv = "ZEN_CLEANER_MCP_ACTOR"
 
+// EntitlementSummaryProvider supplies the entitlement-status body (the
+// cleaner's own admission state: the metered usage + the entitlement
+// key — never a secret).
+type EntitlementSummaryProvider interface {
+	EntitlementSummary() string
+}
+
+// HealthSummaryProvider supplies the health-summary body (the
+// process-local posture: the version, the commit, the process uptime —
+// never the cluster data).
+type HealthSummaryProvider interface {
+	HealthSummary() string
+}
+
 // Adapter is the cleaner's MCP adapter.
 type Adapter struct {
 	enabled bool
 	actor   string
 	tools   []Tool
+	ent     EntitlementSummaryProvider
+	health  HealthSummaryProvider
 }
 
 // Tool is one typed read-only tool.
@@ -44,8 +60,8 @@ type Tool struct {
 // New applies the law: the adapter is ENABLED only when the mode env is
 // exactly stdio AND the actor is named — the default is deny, and the
 // audit attribution is not optional.
-func New() *Adapter {
-	a := &Adapter{}
+func New(ent EntitlementSummaryProvider, health HealthSummaryProvider) *Adapter {
+	a := &Adapter{ent: ent, health: health}
 	if os.Getenv(ModeEnv) == MCPModeStdio {
 		a.enabled = true
 	}
