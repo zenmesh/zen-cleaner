@@ -1,0 +1,97 @@
+{
+  "schema": "zen-cleaner/operation-registry/v1",
+  "product": "zen-cleaner",
+  "note": "the machine-readable operation registry (the R051 rotation's parity census artifact). The ABSENT bindings are the roadmap, typed with the reasons. The \u00a717 law: the deletion batch NEVER binds the REST surface.",
+  "operations": [
+    {
+      "id": "cleaner.config.validate-examples",
+      "domain": "config",
+      "summary": "Validate the example configs (the CLI verb: the config schema and the examples' conformance)",
+      "kind": "READ",
+      "consequence": "none (the validation only)",
+      "idempotency": "pure",
+      "auth": "local (the operator's own identity)",
+      "bindings": {
+        "cli": "cmd/validate-examples"
+      },
+      "absent_surfaces": {
+        "api": "no REST route",
+        "mcp": "no MCP tool",
+        "ui": "no console screen"
+      }
+    },
+    {
+      "id": "cleaner.entitlements.check",
+      "domain": "entitlements",
+      "summary": "The CleanerGate admission: the policy (the verified snapshot) -> the quota (this generation's window) -> the metered usage (cleaner.executions)",
+      "kind": "READ",
+      "consequence": "admits or refuses the batch; the usage meters",
+      "idempotency": "the check is pure; the metered usage counts once per admission",
+      "auth": "the verified policy snapshot (the entitlegate's generation binding)",
+      "bindings": {
+        "k8s": "in-process (the reconciler's ExecuteWithReceipt calls Admit before the delete path)"
+      },
+      "absent_surfaces": {
+        "cli": "no admission-check verb",
+        "api": "no REST admission route",
+        "mcp": "no MCP tool",
+        "ui": "no console screen"
+      }
+    },
+    {
+      "id": "cleaner.executions.delete-batch",
+      "domain": "executions",
+      "summary": "Execute one entitlement-gated deletion batch (policy -> quota -> metered usage -> the rate-limited delete path)",
+      "kind": "MUTATION",
+      "consequence": "deletes the matched resources; every deletion lands in the receipt",
+      "idempotency": "the reconciler's idempotent loop (the batch re-runs converge; the entitlegate counts one execution per admission)",
+      "auth": "the service account (the controller's own identity) + the CleanerGate's verified policy snapshot",
+      "bindings": {
+        "k8s": "the Cleanup CRD reconciliation (pkg/controller: the PolicyReconciler.ExecuteWithReceipt through the entitlegate's CleanerGate)"
+      },
+      "absent_surfaces": {
+        "cli": "no operator verb exists (the controller runs headless)",
+        "api": "no REST deletion route BY DESIGN (a REST deletion API would be a new operation requiring its own \u00a717 admission \u2014 never a shortcut)",
+        "mcp": "no MCP tool (the task_start family is maestro's; a cleaner tool would be the new typed operation)",
+        "ui": "no console screen"
+      }
+    },
+    {
+      "id": "cleaner.executions.dry-run",
+      "domain": "executions",
+      "summary": "Plan one deletion batch WITHOUT effects (the DryRun behavior: the plan contract, the batch test pins delete-must-not-delete)",
+      "kind": "DRY_RUN",
+      "consequence": "none (the plan only \u2014 the contract test pins delete-must-not-delete under DryRun)",
+      "idempotency": "pure (the same input -> the same plan)",
+      "auth": "the service account",
+      "bindings": {
+        "k8s": "the Cleanup CRD's DryRun behavior (pkg/controller: the batch contract)"
+      },
+      "absent_surfaces": {
+        "cli": "no dry-run verb",
+        "api": "no REST plan route",
+        "mcp": "no MCP tool",
+        "ui": "no console screen"
+      }
+    },
+    {
+      "id": "cleaner.health.read",
+      "domain": "health",
+      "summary": "The liveness/readiness surface (the controller's own health)",
+      "kind": "READ",
+      "consequence": "none",
+      "idempotency": "pure",
+      "auth": "the cluster-internal (the health endpoints are not auth-gated by design; the cluster boundary is the gate)",
+      "bindings": {
+        "k8s": "the health endpoints (internal/health)"
+      },
+      "absent_surfaces": {
+        "cli": "no health verb (kubectl observes)",
+        "api": "the health endpoints ARE the HTTP surface (the only one, by design)",
+        "mcp": "no MCP tool",
+        "ui": "no console screen"
+      }
+    }
+  ],
+  "absent_surfaces_note": "the ABSENT bindings are the roadmap: the CLI and the MCP tools are the highest-value parity additions (the operators and the agents); the REST API is typed absent BY DESIGN for the deletions (the \u00a717 front door) and owed for the reads"
+}
