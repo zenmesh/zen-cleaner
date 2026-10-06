@@ -72,4 +72,4 @@ else
 fi
 
 
-$SCRIPT_DIR/check-finops-vocabulary.sh tree
+$SCRIPT_DIR/check-private-vocabulary.sh tree

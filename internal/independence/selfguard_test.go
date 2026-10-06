@@ -1,11 +1,11 @@
 // Copyright 2026 Zen Mesh. All rights reserved.
 
 // THE CLEANER SELF-INDEPENDENCE GUARD (PI-SC-001 §2A applied to this
-// product): zen-cleaner is a PUBLIC repo with nothing around finops —
-// its RUNTIME imports may reference the shared SDK only. Any other
-// portfolio module imported at runtime would make Cleaner a consumer
-// of another product's semantics, which the independence law forbids
-// without a declaration.
+// product): zen-cleaner is a PUBLIC repo scoped to the cleanup
+// controller — its RUNTIME imports may reference the shared SDK only.
+// Any other portfolio module imported at runtime would make Cleaner a
+// consumer of another product's semantics, which the independence law
+// forbids without a declaration.
 //
 // The law is enforced over THIS module's tree at test time: every
 // non-test .go file is parsed, each import path is checked against

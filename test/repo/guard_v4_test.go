@@ -66,9 +66,11 @@ var allowedFirstPartyPackages = map[string]bool{}
 func init() {
 	for _, p := range []string{
 		"cmd/validate-examples", "cmd/zen-cleaner",
-		"internal/backoff", "internal/config", "internal/election",
-		"internal/entitlegate", "internal/errors", "internal/events", "internal/health",
-		"internal/logging", "internal/ratelimiter", "internal/ttl",
+		"internal/backoff", "internal/clireadops", "internal/config",
+		"internal/election", "internal/entitlegate", "internal/errors",
+		"internal/events", "internal/health", "internal/independence",
+		"internal/logging", "internal/mcpserver", "internal/ops",
+		"internal/ratelimiter", "internal/ttl",
 		"observability",
 		"pkg/api/v1alpha1", "pkg/attestation", "pkg/config", "pkg/controller",
 		"pkg/controller/testing", "pkg/errors", "pkg/safety",

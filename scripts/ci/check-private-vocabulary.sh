@@ -7,10 +7,10 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
-# CB-2 (PI-SC-001 P0, 2026-10-05): THE FINOPS-VOCABULARY GUARD.
+# CB-2 (PI-SC-001 P0, 2026-10-05): THE PRIVATE-VOCABULARY GUARD.
 #
 # The ADV-CLEANER engine is PRIVATE; this module is PUBLIC with nothing
-# around finops. The owner's history scrub removed the engine — this
+# around the private engine. The owner's history scrub removed the engine — this
 # guard exists so the leak class can NEVER re-land:
 #
 #   mode tree    — scan the tracked tree for the private vocabulary
@@ -39,7 +39,7 @@ scan_line() {
   local line="$1" where="$2"
   for needle in "${NEEDLES[@]}"; do
     if [[ "${line,,}" == *"${needle}"* ]]; then
-      echo "FINOPS-VOCAB GUARD: $where carries private-engine vocabulary ($needle)" >&2
+      echo "PRIVATE-VOCAB GUARD: $where carries private-engine vocabulary ($needle)" >&2
       violations=$((violations + 1))
     fi
   done
@@ -51,14 +51,14 @@ case "$mode" in
       # The guard's own files NAME the law to enforce it (the scanner's
       # own exception) — they are never leaks.
       case "$file" in
-        test/repo/guard_v4_test.go|test/repo/guard_v5_test.go|test/repo/guard_v6_test.go|scripts/ci/check-finops-vocabulary.sh)
+        test/repo/guard_v4_test.go|test/repo/guard_v5_test.go|test/repo/guard_v6_test.go|scripts/ci/check-private-vocabulary.sh)
           continue
           ;;
       esac
       while IFS= read -r line; do
         scan_line "$line" "$file"
       done < "$file"
-    done < <(git ls-files | grep -vE '^scripts/ci/check-finops-vocabulary\.sh$')
+    done < <(git ls-files | grep -vE '^scripts/ci/check-private-vocabulary.sh$')
     ;;
   commits)
     range="${2:-}"
@@ -74,7 +74,7 @@ case "$mode" in
 esac
 
 if [ "$violations" -gt 0 ]; then
-  echo "FINOPS-VOCAB GUARD: $violations violation(s) — the ADV-CLEANER engine is private; refuse" >&2
+  echo "PRIVATE-VOCAB GUARD: $violations violation(s) — the ADV-CLEANER engine is private; refuse" >&2
   exit 1
 fi
-echo "FINOPS-VOCAB GUARD: clean"
+echo "PRIVATE-VOCAB GUARD: clean"
