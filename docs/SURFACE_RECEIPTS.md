@@ -1,3 +1,5 @@
+> ⚠ **STALE-CODE / SUPERSEDED BY THE CURRENTNESS PROJECTION** (docsai staleness CI, 2026-10-08): this document's last update (2026-10-06) predates the repository's latest code change (2026-10-06) by ~0 days. The CURRENT status projection lives at zen-mgmt `generated/docs-portal/CURRENTNESS.md`; verify against the source — tracked on the docs drift register.
+
 # The cleaner's 4-surface receipts per operation (R051 LH-OC1)
 
 The receipt table from the operation registry's list (internal/ops/

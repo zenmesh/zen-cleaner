@@ -1,3 +1,5 @@
+> ⚠ **STALE-CODE / SUPERSEDED BY THE CURRENTNESS PROJECTION** (docsai staleness CI, 2026-10-08): this document's last update (2026-09-19) predates the repository's latest code change (2026-10-06) by ~17 days. The CURRENT status projection lives at zen-mgmt `generated/docs-portal/CURRENTNESS.md`; verify against the source — tracked on the docs drift register.
+
 # zen-cleaner — Kubernetes Compatibility
 
 This document summarizes what is **evidenced** about zen-cleaner's Kubernetes compatibility. Claims here are grounded in the repo's actual dependencies, tests, and CI configuration — not assumed.

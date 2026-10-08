@@ -1,3 +1,5 @@
+> ⚠ **STALE-CODE / SUPERSEDED BY THE CURRENTNESS PROJECTION** (docsai staleness CI, 2026-10-08): this document's last update (2026-09-23) predates the repository's latest code change (2026-10-06) by ~13 days. The CURRENT status projection lives at zen-mgmt `generated/docs-portal/CURRENTNESS.md`; verify against the source — tracked on the docs drift register.
+
 # Zen Cleaner
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)

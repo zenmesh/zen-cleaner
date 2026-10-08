@@ -1,3 +1,5 @@
+> ⚠ **STALE-CODE / SUPERSEDED BY THE CURRENTNESS PROJECTION** (docsai staleness CI, 2026-10-08): this document's last update (2026-09-19) predates the repository's latest code change (2026-10-06) by ~17 days. The CURRENT status projection lives at zen-mgmt `generated/docs-portal/CURRENTNESS.md`; verify against the source — tracked on the docs drift register.
+
 # Security Documentation
 
 This document provides security guidance for deploying and operating **zen-cleaner**. For **coordinated disclosure** and supported versions, see the root **[SECURITY.md](../SECURITY.md)** (contact: **security@zen-mesh.io**). **Zen Mesh Inc.** ([zen-mesh.io](https://zen-mesh.io)) sponsors OSS maintenance; other Zen Mesh offerings are governed separately.

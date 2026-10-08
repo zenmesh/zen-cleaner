@@ -1,3 +1,5 @@
+> ⚠ **STALE-CODE / SUPERSEDED BY THE CURRENTNESS PROJECTION** (docsai staleness CI, 2026-10-08): this document's last update (2026-09-19) predates the repository's latest code change (2026-10-06) by ~17 days. The CURRENT status projection lives at zen-mgmt `generated/docs-portal/CURRENTNESS.md`; verify against the source — tracked on the docs drift register.
+
 # Validating webhook TLS (production)
 
 The controller serves an HTTPS validating webhook (`--webhook-addr`, default `:9443`). The Kubernetes API server only trusts that endpoint if:
