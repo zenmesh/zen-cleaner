@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package ratelimiter provides rate limiting primitives for cleanup operations.
-// Extracted from zen-cleaner and zen-watcher to eliminate duplication.
+// A shared implementation eliminating duplication across controllers.
 package ratelimiter
 
 import (
@@ -25,7 +25,7 @@ import (
 )
 
 // RateLimiter implements rate limiting using token bucket algorithm.
-// This is a shared implementation used by zen-cleaner and zen-watcher.
+// This is a shared implementation used across controllers.
 type RateLimiter struct {
 	limiter *rate.Limiter
 }

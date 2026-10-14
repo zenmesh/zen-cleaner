@@ -4,7 +4,7 @@
 
 ## Overview
 
-This package provides generic structured error types that can be used across zen-cleaner, zen-lock, zen-watcher, and other Kubernetes controller components. It enables consistent error handling with support for arbitrary context fields.
+This package provides generic structured error types for Kubernetes controller components. It enables consistent error handling with support for arbitrary context fields.
 
 ## Features
 

@@ -1,7 +1,7 @@
-// SUPPORT2-050: real OpenTelemetry span producers for zen-cleaner's
-// reconcile path. Uses the otel SDK directly (cleaner does not depend
-// on zen-sdk). Three canonical span families bound to real controller
-// behavior: reconcile, error reconcile, batch deletion.
+// OpenTelemetry span producers for zen-cleaner's reconcile path,
+// built directly on go.opentelemetry.io/otel. Three canonical span
+// families bound to real controller behavior: reconcile, error
+// reconcile, batch deletion.
 // All attributes are bounded: policy name/namespace, resource kind,
 // count, and error type. No payload data, no secret material.
 

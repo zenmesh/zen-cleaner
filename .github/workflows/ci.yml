@@ -107,3 +107,45 @@ jobs:
             exit 1
           fi
           file bin/zen-cleaner
+
+  standalone-supply-chain:
+    name: Standalone OSS — credential-free build + private-dependency guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.0'
+          cache: false
+
+      # THE CREDENTIAL-FREE LAW: the standalone OSS build must succeed with
+      # an EMPTY module cache, NO git credentials (global/system config
+      # discarded), NO SSH agent, NO private proxy and NO inherited
+      # authentication — public dependencies only, from the public proxy.
+      - name: Credential-free cold build + module verify
+        env:
+          GIT_CONFIG_GLOBAL: /dev/null
+          GIT_CONFIG_SYSTEM: /dev/null
+          GIT_TERMINAL_PROMPT: '0'
+          SSH_AUTH_SOCK: ''
+          GOPROXY: 'https://proxy.golang.org,direct'
+          GOPRIVATE: ''
+        run: |
+          CACHEDIR="$(mktemp -d)"
+          export GOMODCACHE="$CACHEDIR/gomodcache"
+          export GOCACHE="$CACHEDIR/gocache"
+          go build ./...
+          go mod verify
+          echo "credential-free cold build OK (public module graph verified)"
+
+      # THE PRIVATE-DEPENDENCY LAWS (test/repo guard battery): direct,
+      # transitive, test and build graph scans; nested-module, replace,
+      # vendor, build-tag, generated-file, embed and binary leakage
+      # rejection — including the no-SDK-exception closure (self is the
+      # only lawful zenmesh domain).
+      - name: Private-dependency guard battery
+        run: go test ./test/repo/... -count=1

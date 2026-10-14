@@ -1,6 +1,6 @@
 # Rate Limiter Package
 
-Shared rate limiting primitives for cleanup operations, extracted from zen-cleaner and zen-watcher.
+Shared rate limiting primitives for cleanup operations, extracted from multiple controllers.
 
 ## Usage
 
@@ -41,10 +41,9 @@ import "github.com/zenmesh/zen-cleaner/internal/pkg/gc/ratelimiter"
 rl := ratelimiter.NewRateLimiter(maxPerSecond)
 ```
 
-**From zen-watcher**:
+**From a token-bucket implementation**:
 ```go
 // Before
-import "github.com/zenmesh/zen-watcher/pkg/server"
 rl := server.NewRateLimiter(maxTokens, refillInterval)
 
 // After

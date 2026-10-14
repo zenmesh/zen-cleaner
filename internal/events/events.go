@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package events provides a generic Kubernetes event recorder wrapper.
-// This package enables consistent event recording patterns across zen-cleaner, zen-lock, zen-watcher, and other components.
+// This package enables consistent event recording patterns across Kubernetes controller components.
 package events
 
 import (
@@ -77,7 +77,7 @@ type Recorder struct {
 }
 
 // NewRecorder creates a new event recorder.
-// Component is the component name (e.g., "zen-cleaner", "zen-lock-controller").
+// Component is the component name (e.g., "zen-cleaner", "policy-cleaner-controller").
 func NewRecorder(client kubernetes.Interface, component string) *Recorder {
 	// Create event broadcaster
 	eventBroadcaster := record.NewBroadcaster()

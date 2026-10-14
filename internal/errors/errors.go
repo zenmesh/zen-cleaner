@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package errors provides structured error types with context for Kubernetes controllers.
-// This package enables consistent error handling across zen-cleaner, zen-lock, zen-watcher, and other components.
+// This package enables consistent error handling across this controller and other Kubernetes controllers.
 package errors
 
 import (

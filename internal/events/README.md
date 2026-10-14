@@ -4,7 +4,7 @@
 
 ## Overview
 
-This package provides a generic wrapper around Kubernetes event recording that can be used across zen-cleaner, zen-lock, zen-watcher, and other Kubernetes controller components. It enables consistent event recording patterns.
+This package provides a generic wrapper around Kubernetes event recording for Kubernetes controller components. It enables consistent event recording patterns.
 
 ## Features
 

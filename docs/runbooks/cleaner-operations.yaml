@@ -1,5 +1,5 @@
 # SUPPORT2-047 runbooks: zen-cleaner operational conditions.
-# Schema mirrors zen-mgmt registries/operations/runbooks.yaml entry shape.
+# Runbook entry schema (zen-cleaner operations registry shape).
 runbooks:
   - id: rb-cleaner-operations
     title: "Cleanup controller operational conditions"

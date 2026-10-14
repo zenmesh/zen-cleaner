@@ -137,9 +137,9 @@ Checks if a resource has expired based on TTL spec.
 
 zen-cleaner uses this package internally for all TTL evaluation. If you need more advanced features (conditions, batch deletion, metrics), use zen-cleaner controller.
 
-## Integration with zen-watcher
+## Reuse
 
-zen-watcher uses this package for observation resource cleanup based on age.
+Other controllers may reuse this package for age-based resource cleanup.
 
 ## Testing
 

@@ -4,7 +4,7 @@
 
 ## Overview
 
-This package provides generic health check interfaces and implementations that can be used across zen-cleaner, zen-lock, zen-watcher, and other Kubernetes controller components. It enables consistent health check patterns for readiness, liveness, and startup probes.
+This package provides generic health check interfaces and implementations that can be used across Kubernetes controllers, and other Kubernetes controller components. It enables consistent health check patterns for readiness, liveness, and startup probes.
 
 ## Features
 

@@ -2,11 +2,7 @@ internal/backoff func DefaultConfig
 internal/backoff func NewBackoff
 internal/backoff type Backoff
 internal/backoff type Config
-internal/clireadops func ReadEntitlementStatus
 internal/clireadops func ReadHealthSummary
-internal/clireadops func StatusFromSnapshot
-internal/clireadops type EntitlementSnapshotView
-internal/clireadops type EntitlementStatus
 internal/clireadops type HealthSummary
 internal/config func LoadIngesterRateLimitConfig
 internal/config func NewServiceConfigValidator
@@ -57,9 +53,6 @@ internal/election func ShutdownContext
 internal/election type Config
 internal/election type LeaderElector
 internal/election type Runner
-internal/entitlegate const EntitlementKey
-internal/entitlegate func New
-internal/entitlegate type CleanerGate
 internal/errors const Permanent
 internal/errors const ResourceExhausted
 internal/errors const Transient
@@ -321,6 +314,9 @@ pkg/config const DefaultMaxConcurrentEvaluations
 pkg/config const DefaultMaxDeletionsPerSecond
 pkg/config func NewControllerConfig
 pkg/config type ControllerConfig
+pkg/controller const AnnDeclaredDigest
+pkg/controller const AnnPolicySignature
+pkg/controller const AnnPolicySigner
 pkg/controller const DefaultBatchSize
 pkg/controller const DefaultCacheSyncTimeout
 pkg/controller const DefaultCleanupInterval
@@ -364,6 +360,7 @@ pkg/controller func NewHealthChecker
 pkg/controller func NewInformerStoreResourceLister
 pkg/controller func NewLeaderState
 pkg/controller func NewPolicyEvaluationService
+pkg/controller func NewPolicyIntegrityVerifier
 pkg/controller func NewPolicyReconciler
 pkg/controller func NewPolicyReconcilerAdapter
 pkg/controller func NewPolicyReconcilerWithLeaderCheck
@@ -381,6 +378,7 @@ pkg/controller func RecordSafetyRefusal
 pkg/controller func ServeMetricsAlwaysOn
 pkg/controller func ServeStandalone
 pkg/controller func SetLeadershipGauge
+pkg/controller func SpecDigest
 pkg/controller func TargetBackoffFor
 pkg/controller type BatchDeleter
 pkg/controller type BatchDeleterCore
@@ -397,6 +395,7 @@ pkg/controller type ExecutionReceiptV2
 pkg/controller type GVRResolver
 pkg/controller type HealthChecker
 pkg/controller type InformerStoreResourceLister
+pkg/controller type IntegrityVerdict
 pkg/controller type LeaderState
 pkg/controller type ObjectResult
 pkg/controller type ObjectResultClass
@@ -404,6 +403,7 @@ pkg/controller type PolicyEvaluationResult
 pkg/controller type PolicyEvaluationService
 pkg/controller type PolicyEvaluator
 pkg/controller type PolicyEvaluatorCore
+pkg/controller type PolicyIntegrityVerifier
 pkg/controller type PolicyReconciler
 pkg/controller type PolicyReconcilerAdapter
 pkg/controller type PolicyReconcilerBatchDeleter

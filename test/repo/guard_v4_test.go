@@ -67,7 +67,7 @@ func init() {
 	for _, p := range []string{
 		"cmd/validate-examples", "cmd/zen-cleaner",
 		"internal/backoff", "internal/clireadops", "internal/config",
-		"internal/election", "internal/entitlegate", "internal/errors",
+		"internal/election", "internal/errors",
 		"internal/events", "internal/health", "internal/independence",
 		"internal/logging", "internal/mcpserver", "internal/ops",
 		"internal/ratelimiter", "internal/ttl",

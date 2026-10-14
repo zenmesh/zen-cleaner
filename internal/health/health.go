@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package health provides generic health check interfaces and utilities for Kubernetes controllers.
-// This package enables consistent health check patterns across zen-cleaner, zen-lock, zen-watcher, and other components.
+// This package enables consistent health check patterns across Kubernetes controller components.
 package health
 
 import (

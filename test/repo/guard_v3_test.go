@@ -288,11 +288,8 @@ func TestGuardV3_BuildGraphFirewall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("go list -deps -test: %v: %s", err, strings.TrimSpace(stderr.String()))
 	}
-	const (
-		self   = "github.com/zenmesh/zen-cleaner"
-		zenSDK = "github.com/zenmesh/zen-sdk"
-	)
-	allowedZenmesh := map[string]bool{self: true, zenSDK: true}
+	const self = "github.com/zenmesh/zen-cleaner"
+	allowedZenmesh := map[string]bool{self: true}
 	var violations []string
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		dep := strings.TrimSpace(line)

@@ -28,7 +28,6 @@ import (
 // adoption runs through it).
 var lawfulPrefixes = []string{
 	"github.com/zenmesh/zen-cleaner",
-	"github.com/zenmesh/zen-sdk",
 }
 
 // portfolioPrefixes: every module domain the estate census knows.

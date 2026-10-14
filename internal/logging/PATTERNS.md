@@ -71,13 +71,13 @@ func (h *Handler) HandleRequest(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-## Controller Components (zen-lock, zen-flow, zen-cleaner)
+## Controller Components (the estate controllers, zen-flow, zen-cleaner)
 
 ### Reconcile Pattern
 
 ```go
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-    logger := logging.NewLogger("zen-lock").WithContext(ctx)
+    logger := logging.NewLogger("the estate controllers").WithContext(ctx)
     
     // Extract resource context
     ctx = logging.WithNamespace(ctx, req.Namespace)
@@ -123,7 +123,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 ```go
 func (r *Reconciler) handleEvent(ctx context.Context, event watch.Event) {
-    logger := logging.NewLogger("zen-lock").WithContext(ctx)
+    logger := logging.NewLogger("the estate controllers").WithContext(ctx)
     
     logger.Info("Processing watch event",
         logging.Operation("watch_event"),

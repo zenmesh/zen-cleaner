@@ -22,8 +22,9 @@ spec:
     kind: Job
     namespace: default  # explicit namespace required by policy schema
   ttl:
-    secondsAfterCreation: 86400  # 24 hours
-  conditions:
-    phase: ["Succeeded", "Failed"]
+    # Jobs carry no status.phase; the canonical completion anchor is the
+    # completionTime timestamp field. Expire one hour after completion.
+    fieldPath: "status.completionTime"
+    secondsAfter: 3600
   behavior:
     maxDeletionsPerSecond: 10

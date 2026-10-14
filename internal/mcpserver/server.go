@@ -2,7 +2,7 @@
 
 // Package mcpserver is zen-cleaner's MCP adapter (the R051 rotation's
 // parity build-out — the cleaner's operations as MCP tools), following
-// the zen-watcher adapter's laws verbatim: DEFAULT-DENY (no mode env,
+// the adapter laws are carried over verbatim: DEFAULT-DENY (no mode env,
 // no tools), the audit attribution (no actor, no call), the READ-ONLY
 // tool family (the §17 law: the deletion batch NEVER leaves the k8s
 // surface — no MCP tool may start, trigger, or dry-run a deletion).
