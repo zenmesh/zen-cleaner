@@ -1,21 +1,70 @@
-# Example: Thin caller for Release Image reusable workflow
-# Copy this to .github/workflows/release-image.yml in your repo
-# Only include if projectType=controller and imageName is set
-
+# THE SINGLE CONSISTENT PUBLIC RELEASE PATH (MON soft-launch closure
+# 2026-10-15): ghcr.io/zenmesh/zen-cleaner, published with the BUILT-IN
+# GITHUB_TOKEN (packages:write — no external registry credential, no token
+# proliferation). The previous thin caller delegated to the external
+# zen-mesh/zen-oss-standards reusable workflow (404/not publicly available,
+# secrets:inherit) and build-multiarch.yml set push=false on login failure —
+# a green build that silently published NOTHING. Both are gone: this
+# workflow FAILS VISIBLY on any login/build/push failure.
 name: Release Image
 
 on:
   push:
     tags:
       - 'v*'
-      - '*.*.*-*'  # e.g., 0.0.1-alpha
+      - '*.*.*-*'
   workflow_dispatch:
 
-jobs:
-  build:
-    uses: zen-mesh/zen-oss-standards/.github/workflows/release-image.yml@v1.0.0
-    secrets: inherit
-    with:
-      image_name: 'zenmesh/zen-cleaner'  # Update with your image name from project.yaml
-      registry: 'docker.io'
+permissions:
+  contents: read
+  packages: write
 
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to ghcr.io (built-in GITHUB_TOKEN)
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/zenmesh/zen-cleaner
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value={{sha}}
+          labels: |
+            org.opencontainers.image.source=https://github.com/zenmesh/zen-cleaner
+
+      - name: Build and push (failure is visible)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+
+      - name: Record the immutable digest (publication proof)
+        run: |
+          echo "Published: ghcr.io/zenmesh/zen-cleaner@${{ steps.meta.outputs.version }}"
+          docker buildx imagetools inspect "ghcr.io/zenmesh/zen-cleaner:$(echo '${{ steps.meta.outputs.version }}' | head -1)" || true
+# FIRST-PUBLISH NOTE: a package created by GITHUB_TOKEN defaults to PRIVATE.
+# The one-time visibility step (package settings -> public) is an owner
+# action recorded in RELEASING.md; anonymous pulls stay denied until then.
