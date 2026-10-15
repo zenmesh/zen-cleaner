@@ -67,15 +67,23 @@ kubectl apply -f examples/temp-configmap-cleanup.yaml
 
 ### Minimal policy example
 
+The chart's default RBAC allowlist is **Jobs only**, and deletion is confined
+to the release namespace (`rbac.namespaceScope: true`). A ConfigMap policy
+must therefore (a) target the RELEASE namespace (default
+`zen-cleaner-system`) and (b) add ConfigMaps to the allowlist at install
+time — the same pattern extends to any supported kind:
+
 ```yaml
 apiVersion: cleaner.zen-mesh.io/v1alpha1
 kind: ZenCleanerPolicy
 metadata:
   name: cleanup-temp-configmaps
+  namespace: zen-cleaner-system   # the release namespace when namespaceScope=true
 spec:
   targetResource:
     apiVersion: v1
     kind: ConfigMap
+    namespace: zen-cleaner-system # explicit namespace required by policy schema
     labelSelector:
       matchLabels:
         temporary: "true"
@@ -83,6 +91,14 @@ spec:
     secondsAfterCreation: 3600
   behavior:
     maxDeletionsPerSecond: 10
+```
+
+```bash
+helm upgrade zen-cleaner ./deploy/helm/zen-cleaner \
+  --namespace zen-cleaner-system \
+  --reuse-values \
+  --set rbac.targetKinds[0].group=batch --set rbac.targetKinds[0].resource=jobs \
+  --set rbac.targetKinds[1].group=""    --set rbac.targetKinds[1].resource=configmaps
 ```
 
 ## Why zen-cleaner?
