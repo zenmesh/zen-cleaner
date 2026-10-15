@@ -113,3 +113,21 @@ For every release, produce and attach:
 6. **Provenance**: record build command + Go version + base image digest in the release notes
 
 `latest` is a development-only tag and must never be the documented production install path.
+
+## Public image publication (ghcr.io — the single path)
+
+Images publish to `ghcr.io/zenmesh/zen-cleaner` from tag pushes by
+`.github/workflows/release-image.yml` using the BUILT-IN `GITHUB_TOKEN`
+(packages:write) — no Docker Hub or external-registry credential exists or is
+needed. Publication failures fail the workflow visibly (no `continue-on-error`
+login, `push: true`).
+
+**One-time first-publish step (owner):** a package first created by
+`GITHUB_TOKEN` defaults to PRIVATE. After the first tag release, set the
+package visibility to public (Package settings → Visibility) so anonymous
+readers can pull; anonymous pulls remain denied until then — the soft-launch
+install path stays blocked without it.
+
+**Digest law:** record the immutable digest in the release notes and pin it in
+the README/chart instructions; tags never move (the old `build-multiarch`
+hardcoded `0.0.1-alpha` on main pushes — removed).
