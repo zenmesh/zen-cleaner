@@ -44,6 +44,18 @@ No packaged chart archive is published yet — install from a repository
 clone (the chart directory itself is the artifact; ordinary Helm tooling,
 no private infrastructure required).
 
+### Install from source (no published image needed)
+
+```bash
+docker build -t zen-cleaner:local .
+helm install zen-cleaner ./deploy/helm/zen-cleaner \
+  --namespace zen-cleaner-system --create-namespace \
+  --set image.repository=zen-cleaner --set image.tag=local
+# for a kind cluster: kind load docker-image zen-cleaner:local first
+```
+
+Requires Go 1.27+ and a container build; see BUILD_REQUIREMENTS.md.
+
 ### kubectl from a clone (advanced)
 
 The raw manifests under `deploy/manifests/` contain `${WEBHOOK_NAMESPACE}` and
