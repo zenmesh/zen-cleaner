@@ -17,10 +17,15 @@ rbac:
   targetKinds:
     - group: batch
       resource: jobs
-  # true: deletion is confined to the release namespace (Role); reads are
-  # always cluster-wide. false: deletion is granted cluster-wide
-  # (ClusterRole).
+  # true: deletion is confined to the release namespace + rbac.deleteNamespaces
+  # (Roles); reads are always cluster-wide. false: deletion is granted
+  # cluster-wide (ClusterRole). NOTE: the controller's own namespace is
+  # safety-protected — with namespaceScope=true, list the USER namespaces
+  # you intend to clean in rbac.deleteNamespaces or nothing can be deleted.
   namespaceScope: true
+  # Additional USER namespaces where deletion is authorized when
+  # namespaceScope=true (each gets its own namespaced Role/RoleBinding).
+  deleteNamespaces: []
 
 networkPolicy:
   enabled: true

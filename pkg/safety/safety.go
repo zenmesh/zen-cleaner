@@ -196,18 +196,16 @@ func (g *Gate) EvaluatePolicyTarget(target gcapi.TargetResourceSpec) (allowed bo
 	return true, ""
 }
 
-// excludedByLabelOrAnnotation checks the exclusion key as both label and
-// annotation; only the explicit value "true" opts out.
+// excludedByLabelOrAnnotation checks THE EXCLUSION KEY (as both label and
+// annotation); only the explicit value "true" opts out. The key scopes the
+// check: an unrelated label whose value happens to be "true" (the README's
+// own temporary: "true" selector example) must NOT exclude the object.
 func excludedByLabelOrAnnotation(obj *unstructured.Unstructured) bool {
-	for _, v := range obj.GetLabels() {
-		if isExclusionEntry(v) {
-			return true
-		}
+	if v, ok := obj.GetLabels()[ExclusionLabelKey]; ok && isExclusionEntry(v) {
+		return true
 	}
-	for _, v := range obj.GetAnnotations() {
-		if isExclusionEntry(v) {
-			return true
-		}
+	if v, ok := obj.GetAnnotations()[ExclusionLabelKey]; ok && isExclusionEntry(v) {
+		return true
 	}
 	return false
 }

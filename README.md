@@ -70,23 +70,29 @@ kubectl apply -f examples/temp-configmap-cleanup.yaml
 
 ### Minimal policy example
 
-The chart's default RBAC allowlist is **Jobs only**, and deletion is confined
-to the release namespace (`rbac.namespaceScope: true`). A ConfigMap policy
-must therefore (a) target the RELEASE namespace (default
-`zen-cleaner-system`) and (b) add ConfigMaps to the allowlist at install
-time — the same pattern extends to any supported kind:
+Two chart laws shape any policy:
+
+1. **RBAC allowlist** — the default `rbac.targetKinds` is **Jobs only**; add
+   kinds explicitly (use `--set-string` for the core API group: plain `--set`
+   with an empty value renders null and produces an invalid empty
+   `apiGroups` list).
+2. **Safety law** — the controller's OWN namespace is always protected, and
+   with the default `rbac.namespaceScope: true` deletion is authorized ONLY
+   in the release namespace (+ `rbac.deleteNamespaces`) — where the safety
+   law refuses it. So point policies at a USER namespace and authorize that
+   namespace for deletion:
 
 ```yaml
 apiVersion: cleaner.zen-mesh.io/v1alpha1
 kind: ZenCleanerPolicy
 metadata:
   name: cleanup-temp-configmaps
-  namespace: zen-cleaner-system   # the release namespace when namespaceScope=true
+  namespace: default              # a USER namespace (the release namespace is safety-protected)
 spec:
   targetResource:
     apiVersion: v1
     kind: ConfigMap
-    namespace: zen-cleaner-system # explicit namespace required by policy schema
+    namespace: default            # explicit namespace required by policy schema
     labelSelector:
       matchLabels:
         temporary: "true"
@@ -101,9 +107,12 @@ helm upgrade zen-cleaner ./deploy/helm/zen-cleaner \
   --namespace zen-cleaner-system \
   --reuse-values \
   --set rbac.targetKinds[0].group=batch --set rbac.targetKinds[0].resource=jobs \
-  --set-string rbac.targetKinds[1].group= --set rbac.targetKinds[1].resource=configmaps
-# NOTE: the core API group must be the EMPTY STRING; plain --set with ""
-# yields null and renders an invalid empty apiGroups list — use --set-string.
+  --set-string rbac.targetKinds[1].group= --set rbac.targetKinds[1].resource=configmaps \
+  --set rbac.deleteNamespaces[0]=default
+```
+
+An object can always be made permanently invisible to every policy with the
+exclusion label `zen-cleaner.zen-mesh.io/exclude: "true"`.
 ```
 
 ## Why zen-cleaner?

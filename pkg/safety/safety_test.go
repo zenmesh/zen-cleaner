@@ -122,3 +122,22 @@ func TestGate_EvaluatePolicyTarget(t *testing.T) {
 		t.Error("legitimate target refused")
 	}
 }
+
+// MON-REVIEW live-run regression: an unrelated label whose VALUE is "true"
+// must not exclude the object — only the exclusion KEY does.
+func TestExclusionIsKeyScoped(t *testing.T) {
+	gate := NewGate(Config{})
+	o := obj("app", "ConfigMap", "docexample")
+	o.SetLabels(map[string]string{"temporary": "true", "env": "true"})
+	if allowed, reason := gate.EvaluateObject(o, gcapi.BehaviorSpec{}); !allowed {
+		t.Fatalf("unrelated true-valued labels excluded the object: %s", reason)
+	}
+	o.SetAnnotations(map[string]string{"note": "true"})
+	if allowed, reason := gate.EvaluateObject(o, gcapi.BehaviorSpec{}); !allowed {
+		t.Fatalf("unrelated true-valued annotation excluded the object: %s", reason)
+	}
+	o.SetLabels(map[string]string{ExclusionLabelKey: "true"})
+	if allowed, _ := gate.EvaluateObject(o, gcapi.BehaviorSpec{}); allowed {
+		t.Fatal("the exclusion key itself no longer excludes")
+	}
+}

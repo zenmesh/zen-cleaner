@@ -42,12 +42,19 @@ subjects:
 ---
 # Delete access: confined to the release namespace when namespaceScope=true;
 # a ClusterRole grants cluster-wide delete when namespaceScope=false.
+{{- /* The controller's OWN namespace is safety-protected (pkg/safety), so
+with namespaceScope=true the release-namespace Role alone authorizes deletes
+nowhere. rbac.deleteNamespaces lists the USER namespaces where deletion is
+intended; each gets its own least-privilege Role + RoleBinding. */}}
+{{- $deleteNamespaces := prepend .Values.rbac.deleteNamespaces .Release.Namespace }}
+{{- range $dn := $deleteNamespaces }}
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: {{ if $scope }}Role{{ else }}ClusterRole{{ end }}
 metadata:
-  name: {{ .Release.Name }}-zen-cleaner-delete
+  name: {{ $.Release.Name }}-zen-cleaner-delete{{ if $scope }}-{{ $dn }}{{ end }}
   {{- if $scope }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $dn }}
   {{- end }}
 rules:
   {{- range $kinds }}
@@ -59,18 +66,19 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: {{ if $scope }}RoleBinding{{ else }}ClusterRoleBinding{{ end }}
 metadata:
-  name: {{ .Release.Name }}-zen-cleaner-delete
+  name: {{ $.Release.Name }}-zen-cleaner-delete{{ if $scope }}-{{ $dn }}{{ end }}
   {{- if $scope }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $dn }}
   {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: {{ if $scope }}Role{{ else }}ClusterRole{{ end }}
-  name: {{ .Release.Name }}-zen-cleaner-delete
+  name: {{ $.Release.Name }}-zen-cleaner-delete{{ if $scope }}-{{ $dn }}{{ end }}
 subjects:
   - kind: ServiceAccount
-    name: {{ .Release.Name }}-zen-cleaner
-    namespace: {{ .Release.Namespace }}
+    name: {{ $.Release.Name }}-zen-cleaner
+    namespace: {{ $.Release.Namespace }}
+{{- end }}
 {{- if .Values.leaderElection.enabled }}
 ---
 # Leader election: leases and events in the release namespace.
