@@ -45,17 +45,19 @@ subjects:
 {{- /* The controller's OWN namespace is safety-protected (pkg/safety), so
 with namespaceScope=true the release-namespace Role alone authorizes deletes
 nowhere. rbac.deleteNamespaces lists the USER namespaces where deletion is
-intended; each gets its own least-privilege Role + RoleBinding. */}}
-{{- $deleteNamespaces := prepend .Values.rbac.deleteNamespaces .Release.Namespace }}
+intended; each gets its own least-privilege Role + RoleBinding (release
+namespace deduped). The cluster-wide branch renders EXACTLY ONCE —
+deleteNamespaces are meaningless for ClusterRoles and must never produce
+duplicate identities. */}}
+{{- if $scope }}
+{{- $deleteNamespaces := uniq (prepend .Values.rbac.deleteNamespaces .Release.Namespace) }}
 {{- range $dn := $deleteNamespaces }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: {{ if $scope }}Role{{ else }}ClusterRole{{ end }}
+kind: Role
 metadata:
-  name: {{ $.Release.Name }}-zen-cleaner-delete{{ if $scope }}-{{ $dn }}{{ end }}
-  {{- if $scope }}
+  name: {{ $.Release.Name }}-zen-cleaner-delete-{{ $dn }}
   namespace: {{ $dn }}
-  {{- end }}
 rules:
   {{- range $kinds }}
   - apiGroups: [{{ .group | quote }}]
@@ -64,16 +66,40 @@ rules:
   {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: {{ if $scope }}RoleBinding{{ else }}ClusterRoleBinding{{ end }}
+kind: RoleBinding
 metadata:
-  name: {{ $.Release.Name }}-zen-cleaner-delete{{ if $scope }}-{{ $dn }}{{ end }}
-  {{- if $scope }}
+  name: {{ $.Release.Name }}-zen-cleaner-delete-{{ $dn }}
   namespace: {{ $dn }}
-  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: {{ if $scope }}Role{{ else }}ClusterRole{{ end }}
-  name: {{ $.Release.Name }}-zen-cleaner-delete{{ if $scope }}-{{ $dn }}{{ end }}
+  kind: Role
+  name: {{ $.Release.Name }}-zen-cleaner-delete-{{ $dn }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $.Release.Name }}-zen-cleaner
+    namespace: {{ $.Release.Namespace }}
+{{- end }}
+{{- else }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $.Release.Name }}-zen-cleaner-delete
+rules:
+  {{- range $kinds }}
+  - apiGroups: [{{ .group | quote }}]
+    resources: [{{ .resource | quote }}]
+    verbs: ["delete"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $.Release.Name }}-zen-cleaner-delete
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $.Release.Name }}-zen-cleaner-delete
 subjects:
   - kind: ServiceAccount
     name: {{ $.Release.Name }}-zen-cleaner
