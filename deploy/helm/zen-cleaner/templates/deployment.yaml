@@ -31,6 +31,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           # SUPPORT2-033 §14: hardened container context.
           securityContext:
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
