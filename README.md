@@ -29,14 +29,20 @@ placeholders), runs without the admission webhook TLS dependency, and accepts a
 pinned image. From a clone of this repo:
 
 ```bash
+# The example policy cleans ConfigMaps in the `default` namespace; the RBAC
+# allowlist is Jobs-only by default and the release namespace is
+# safety-protected, so the install below extends the allowlist (an entry
+# without a `group` field is the core API group) and authorizes deletion:
 helm install zen-cleaner ./deploy/helm/zen-cleaner \
   --namespace zen-cleaner-system --create-namespace \
-  --set image.tag=0.0.1-alpha
+  --set image.tag=0.0.1-alpha \
+  --set rbac.targetKinds[1].resource=configmaps \
+  --set rbac.deleteNamespaces[0]=default
+# Pin by digest once you have chosen one (tag is then ignored):
+#   --set image.digest=sha256:ABCD...
 # The chart bundles the ZenCleanerPolicy CRD (chart crds/): Helm installs it
 # on `helm install` and never deletes or upgrades it on uninstall/upgrade
 # (apply deploy/crds/ manually when a release adds CRD changes).
-# Pin by digest once you have chosen one (tag is then ignored):
-#   --set image.digest=sha256:ABCD...
 kubectl apply -f examples/temp-configmap-cleanup.yaml
 ```
 

@@ -15,10 +15,15 @@ rules:
     resources: ["zencleanerpolicies/status"]
     verbs: ["get", "update", "patch"]
   {{- range $kinds }}
+  {{- $g := "" }}
+  {{- if kindIs "map" . }}
+  {{- $g = .group | default "" }}
+  {{- end }}
   # a null/absent group means the core API group (RBAC "" convention) —
-  # helm --set cannot express "" without --set-string, so null is lawful.
-  - apiGroups: [{{ (.group | default "") | quote }}]
-    resources: [{{ .resource | quote }}]
+  # helm --set cannot express "" cleanly (null collapses the element), so a
+  # missing/absent group field is the lawful core-group spelling.
+  - apiGroups: [{{ $g | quote }}]
+    resources: [{{ if kindIs "map" . }}{{ .resource }}{{ else }}"?invalid-target"{{ end }}]
     verbs: ["get", "list", "watch"]
   {{- end }}
   # Events: the controller emits policy evaluation/deletion events into the
@@ -62,8 +67,12 @@ metadata:
   namespace: {{ $dn }}
 rules:
   {{- range $kinds }}
-  - apiGroups: [{{ (.group | default "") | quote }}]
-    resources: [{{ .resource | quote }}]
+  {{- $g := "" }}
+  {{- if kindIs "map" . }}
+  {{- $g = .group | default "" }}
+  {{- end }}
+  - apiGroups: [{{ $g | quote }}]
+    resources: [{{ if kindIs "map" . }}{{ .resource }}{{ else }}"?invalid-target"{{ end }}]
     verbs: ["delete"]
   {{- end }}
 ---
@@ -89,8 +98,12 @@ metadata:
   name: {{ $.Release.Name }}-zen-cleaner-delete
 rules:
   {{- range $kinds }}
-  - apiGroups: [{{ (.group | default "") | quote }}]
-    resources: [{{ .resource | quote }}]
+  {{- $g := "" }}
+  {{- if kindIs "map" . }}
+  {{- $g = .group | default "" }}
+  {{- end }}
+  - apiGroups: [{{ $g | quote }}]
+    resources: [{{ if kindIs "map" . }}{{ .resource }}{{ else }}"?invalid-target"{{ end }}]
     verbs: ["delete"]
   {{- end }}
 ---

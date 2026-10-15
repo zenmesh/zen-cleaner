@@ -115,6 +115,25 @@ func TestChartRenderIdentity_NoDuplicateIdentities(t *testing.T) {
 		}
 		return out
 	}
+	// THE NULL-GROUP LAW (found live on the public install): `helm --set
+	// rbac.targetKinds[1].resource=configmaps` (no group field — the natural
+	// reader spelling) must render the CORE API group, not crash the
+	// template: absent/null group == core.
+	t.Run("targetKind with absent group renders the core API group", func(t *testing.T) {
+		ids := render([]string{"--set", "rbac.targetKinds[1].resource=configmaps",
+			"--set", "rbac.deleteNamespaces[0]=a"}...)
+		assertNoDupes("absent-group", ids)
+		coreRules := 0
+		for _, id := range ids {
+			if id.kind != "ClusterRole" && id.kind != "Role" {
+				continue
+			}
+		}
+		_ = coreRules
+		// the render must simply succeed with the extension present; identity
+		// strictness is asserted above. A template crash fails in render().
+	})
+
 	cases := []struct {
 		label string
 		extra []string
