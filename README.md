@@ -98,7 +98,9 @@ helm upgrade zen-cleaner ./deploy/helm/zen-cleaner \
   --namespace zen-cleaner-system \
   --reuse-values \
   --set rbac.targetKinds[0].group=batch --set rbac.targetKinds[0].resource=jobs \
-  --set rbac.targetKinds[1].group=""    --set rbac.targetKinds[1].resource=configmaps
+  --set-string rbac.targetKinds[1].group= --set rbac.targetKinds[1].resource=configmaps
+# NOTE: the core API group must be the EMPTY STRING; plain --set with ""
+# yields null and renders an invalid empty apiGroups list — use --set-string.
 ```
 
 ## Why zen-cleaner?
