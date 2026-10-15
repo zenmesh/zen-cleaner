@@ -32,6 +32,9 @@ pinned image. From a clone of this repo:
 helm install zen-cleaner ./deploy/helm/zen-cleaner \
   --namespace zen-cleaner-system --create-namespace \
   --set image.tag=0.0.1-alpha
+# The chart bundles the ZenCleanerPolicy CRD (chart crds/): Helm installs it
+# on `helm install` and never deletes or upgrades it on uninstall/upgrade
+# (apply deploy/crds/ manually when a release adds CRD changes).
 # Pin by digest once you have chosen one (tag is then ignored):
 #   --set image.digest=sha256:ABCD...
 kubectl apply -f examples/temp-configmap-cleanup.yaml
