@@ -15,7 +15,9 @@ rules:
     resources: ["zencleanerpolicies/status"]
     verbs: ["get", "update", "patch"]
   {{- range $kinds }}
-  - apiGroups: [{{ .group | quote }}]
+  # a null/absent group means the core API group (RBAC "" convention) —
+  # helm --set cannot express "" without --set-string, so null is lawful.
+  - apiGroups: [{{ (.group | default "") | quote }}]
     resources: [{{ .resource | quote }}]
     verbs: ["get", "list", "watch"]
   {{- end }}
@@ -60,7 +62,7 @@ metadata:
   namespace: {{ $dn }}
 rules:
   {{- range $kinds }}
-  - apiGroups: [{{ .group | quote }}]
+  - apiGroups: [{{ (.group | default "") | quote }}]
     resources: [{{ .resource | quote }}]
     verbs: ["delete"]
   {{- end }}
@@ -87,7 +89,7 @@ metadata:
   name: {{ $.Release.Name }}-zen-cleaner-delete
 rules:
   {{- range $kinds }}
-  - apiGroups: [{{ .group | quote }}]
+  - apiGroups: [{{ (.group | default "") | quote }}]
     resources: [{{ .resource | quote }}]
     verbs: ["delete"]
   {{- end }}
