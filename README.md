@@ -22,43 +22,47 @@ Builds require **Go 1.27+** (see `go.mod`). Published container images are built
 
 ## Quick start
 
-### With kubectl
+### Recommended: Helm (repository chart)
 
-From a clone of this repo (paths match the tree layout):
+The chart is the supported install path: it renders valid manifests (no shell
+placeholders), runs without the admission webhook TLS dependency, and accepts a
+pinned image. From a clone of this repo:
 
 ```bash
-kubectl apply -f deploy/crds/cleaner.zen-mesh.io_zencleanerpolicies.yaml
-kubectl apply -f deploy/manifests/namespace.yaml
-kubectl apply -f deploy/manifests/rbac.yaml
-# Point deploy/manifests/deployment.yaml at your image (build locally or use a registry tag).
-kubectl apply -f deploy/manifests/deployment.yaml
+helm install zen-cleaner ./deploy/helm/zen-cleaner \
+  --namespace zen-cleaner-system --create-namespace \
+  --set image.tag=0.0.1-alpha
+# Pin by digest once you have chosen one (tag is then ignored):
+#   --set image.digest=sha256:ABCD...
+kubectl apply -f examples/temp-configmap-cleanup.yaml
 ```
 
-The validating admission webhook requires **TLS** in the cluster before you rely on admission enforcement. **Recommended path:** cert-manager + Secret `zen-cleaner-webhook-cert` + `deploy/webhook/validating-webhook.yaml`. Full steps: **[docs/WEBHOOK_TLS.md](docs/WEBHOOK_TLS.md)** (includes the manual-CA flow used by `scripts/comprehensive_e2e.sh` on kind).
+No packaged chart archive is published yet — install from a repository
+clone (the chart directory itself is the artifact; ordinary Helm tooling,
+no private infrastructure required).
+
+### kubectl from a clone (advanced)
+
+The raw manifests under `deploy/manifests/` contain `${WEBHOOK_NAMESPACE}` and
+an image reference that `kubectl apply` does NOT substitute — use the install
+script (it renders them with `envsubst`), not raw `kubectl apply`:
+
+```bash
+CLEANER_IMAGE=ghcr.io/zenmesh/zen-cleaner:0.0.1-alpha \
+WEBHOOK_NAMESPACE=zen-cleaner-system bash deploy/install.sh
+```
+
+The validating admission webhook requires **TLS** in the cluster before you
+rely on admission enforcement (the Helm path runs with the webhook disabled —
+policy validation then comes from the CRD schema alone). **Recommended
+webhook path:** cert-manager + Secret `zen-cleaner-webhook-cert` +
+`deploy/webhook/validating-webhook.yaml`. Full steps:
+**[docs/WEBHOOK_TLS.md](docs/WEBHOOK_TLS.md)**.
 
 Apply an example policy:
 
 ```bash
 kubectl apply -f examples/temp-configmap-cleanup.yaml
-```
-
-**Remote raw manifests** (replace branch/tag as needed):
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/zenmesh/zen-cleaner/main/deploy/crds/cleaner.zen-mesh.io_zencleanerpolicies.yaml
-kubectl apply -f https://raw.githubusercontent.com/zenmesh/zen-cleaner/main/deploy/manifests/namespace.yaml
-kubectl apply -f https://raw.githubusercontent.com/zenmesh/zen-cleaner/main/deploy/manifests/rbac.yaml
-kubectl apply -f https://raw.githubusercontent.com/zenmesh/zen-cleaner/main/deploy/manifests/deployment.yaml
-kubectl apply -f https://raw.githubusercontent.com/zenmesh/zen-cleaner/main/examples/temp-configmap-cleanup.yaml
-```
-
-### With Helm
-
-Install the Helm chart straight from this repository:
-
-```bash
-helm install zen-cleaner ./deploy/helm/zen-cleaner --namespace zen-cleaner-system --create-namespace
-kubectl apply -f https://raw.githubusercontent.com/zenmesh/zen-cleaner/main/examples/temp-configmap-cleanup.yaml
 ```
 
 ### Minimal policy example
@@ -174,7 +178,7 @@ zen-cleaner is a public repository available for community use, feedback, and co
 - **Public trust & evidence:** [docs/evidence/README.md](docs/evidence/README.md)
 - **Claims and maturity:** [docs/claims.md](docs/claims.md)
 - **AI context:** [llms.txt](llms.txt)
-- **No hosted website:** zen-cleaner does not have a dedicated website; `zen-mesh.io` is a parked/legacy domain that is not used for zen-cleaner
+- **No hosted website:** zen-cleaner does not have a dedicated website; it is documented entirely in this repository. The `cleaner.zen-mesh.io` API group is this project's own CRD group naming; zen-cleaner itself is standalone and does not require the Zen Mesh platform
 
 ## From the Zen Mesh team
 

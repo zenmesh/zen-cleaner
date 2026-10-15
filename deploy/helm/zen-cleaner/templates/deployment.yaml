@@ -21,9 +21,12 @@ spec:
       serviceAccountName: {{ .Release.Name }}-zen-cleaner
       containers:
         - name: controller
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           {{- if .Values.image.digest }}
+          # Digest pin wins; the tag becomes the name portion only and is not
+          # emitted as a second image key (duplicate keys are invalid YAML).
           image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
+          {{- else }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           # SUPPORT2-033 §14: hardened container context.

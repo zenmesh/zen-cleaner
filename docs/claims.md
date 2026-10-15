@@ -16,7 +16,7 @@ zen-cleaner is a Kubernetes controller that provides **declarative cleanup** for
 - Emits **Prometheus metrics**, Kubernetes events, and structured logs
 - Runs **leader election** (2+ replicas; multi-node HA runtime not validated)
 - Runs **non-root** with **restricted** Pod Security Standards
-- Compiles with **Go 1.26** using `controller-runtime v0.24`
+- Compiles with **Go 1.27** using `controller-runtime v0.24`
 
 ### Validated deletion behavior (real, non-dry-run)
 
@@ -64,7 +64,7 @@ See `docs/evidence/kubernetes/v1.36/kind.md` and `docs/evidence/kubernetes/v1.36
 
 ## Supported environments
 
-zen-cleaner is built with `client-go v0.35` targeting Kubernetes 1.31.x API. The CI test suite runs on `ubuntu-latest` GitHub runners with no cloud Kubernetes cluster. Compatibility with specific Kubernetes distributions or cloud providers is **not** actively evidenced.
+zen-cleaner is built with `client-go v0.36` targeting the Kubernetes 1.33 API surface. The CI test suite runs on `ubuntu-latest` GitHub runners with no cloud Kubernetes cluster. Compatibility with specific Kubernetes distributions or cloud providers is **not** actively evidenced.
 
 **Evidenced:**
 - Go build + unit + integration tests pass

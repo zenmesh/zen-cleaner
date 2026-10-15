@@ -1,3 +1,4 @@
+{{- if .Values.networkPolicy.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -9,10 +10,12 @@ spec:
       app.kubernetes.io/instance: {{ .Release.Name }}
   policyTypes: [Egress]
   egress:
-    # Kubernetes API: the API server endpoint is a host-network address
-    # (the kubernetes Service resolves to it), not a pod, so it can only be
-    # selected by CIDR. A namespaceSelector rule never matches it and some
-    # CNIs REJECT the unmatched egress outright.
+    # TLS egress: TCP/443 to ANY destination. The Kubernetes API server is a
+    # host-network address (the kubernetes Service resolves to it), not a
+    # pod, so it can only be selected by CIDR; a namespaceSelector rule never
+    # matches it and some CNIs REJECT the unmatched egress outright. This is
+    # therefore NOT an "API-only" rule: any HTTPS destination is reachable
+    # (an optional operator-tightened API CIDR may replace it).
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
@@ -29,3 +32,4 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
+{{- end }}

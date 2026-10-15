@@ -1,11 +1,12 @@
 // Copyright 2026 Zen Mesh. All rights reserved.
 
 // THE CLEANER SELF-INDEPENDENCE GUARD (PI-SC-001 §2A applied to this
-// product): zen-cleaner is a PUBLIC repo scoped to the cleanup
-// controller — its RUNTIME imports may reference the shared SDK only.
-// Any other portfolio module imported at runtime would make Cleaner a
-// consumer of another product's semantics, which the independence law
-// forbids without a declaration.
+// product): zen-cleaner is a PUBLIC standalone repo scoped to the cleanup
+// controller — its RUNTIME imports reference NO portfolio module at all,
+// the former shared-SDK exception included (the standalone restore removed
+// it; the entitlement-engine adoption history no longer applies). Any
+// portfolio module imported at runtime would make Cleaner a consumer of
+// another product's semantics, which the independence law forbids.
 //
 // The law is enforced over THIS module's tree at test time: every
 // non-test .go file is parsed, each import path is checked against
@@ -23,9 +24,9 @@ import (
 )
 
 // lawfulPrefixes: the portfolio modules zen-cleaner may import at
-// runtime — itself, plus the shared SDK per the SDKWildcard law
-// (every ->sdk edge is the contract surface; the entitlement-engine
-// adoption runs through it).
+// runtime — itself ONLY. The former SDKWildcard exception is gone from
+// the executable law as well as from go.mod; no ->sdk edge may return
+// without a new declaration and review.
 var lawfulPrefixes = []string{
 	"github.com/zenmesh/zen-cleaner",
 }

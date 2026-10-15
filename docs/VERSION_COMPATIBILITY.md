@@ -18,7 +18,7 @@ in their own environment.
 
 ## Compilation Compatibility
 
-zen-cleaner is built with `client-go v0.35` targeting Kubernetes 1.31.x API surface.
+zen-cleaner is built with `client-go v0.36` targeting the Kubernetes 1.33 API surface.
 Compilation compatibility does not guarantee runtime correctness on any specific
 Kubernetes version.
 
