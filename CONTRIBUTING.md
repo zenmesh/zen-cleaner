@@ -17,7 +17,7 @@ Thank you for your interest in contributing to zen-cleaner! This document provid
 
 1. **Fork and clone the repository:**
    ```bash
-   git clone https://github.com/zen-mesh/zen-cleaner.git
+   git clone https://github.com/zenmesh/zen-cleaner.git
    cd zen-cleaner
    ```
 

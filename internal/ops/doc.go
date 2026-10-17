@@ -12,18 +12,6 @@ import (
 	"strings"
 )
 
-// lawClass maps the registry Kind to the parity law's closed vocabulary.
-func lawClass(k Kind) string {
-	switch k {
-	case KindMutation:
-		return "IRREVERSIBLE_MUTATION" // the deletion batch deletes; the receipt records, never restores
-	case KindDryRun:
-		return "READ_ONLY" // the plan without the effect
-	default:
-		return "READ_ONLY"
-	}
-}
-
 // DocOperation is one operation in the canonical doc shape (the census's
 // consumption contract: id + surfaces read, never inferred).
 type DocOperation struct {

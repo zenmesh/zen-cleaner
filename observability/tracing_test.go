@@ -16,7 +16,14 @@ func testTP(t *testing.T) *tracetest.SpanRecorder {
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(rec))
 	prev := otel.GetTracerProvider()
 	otel.SetTracerProvider(tp)
-	t.Cleanup(func() { otel.SetTracerProvider(prev); tp.Shutdown(context.Background()) })
+	t.Cleanup(func() {
+		otel.SetTracerProvider(prev)
+		func() {
+			if err := tp.Shutdown(context.Background()); err != nil {
+				t.Errorf("shutdown tracer: %v", err)
+			}
+		}()
+	})
 	return rec
 }
 

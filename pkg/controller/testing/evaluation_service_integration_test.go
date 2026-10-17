@@ -48,7 +48,9 @@ func TestGetOrCreateEvaluationService_FirstCall(t *testing.T) {
 			},
 		},
 	}
-	store.Add(resource)
+	if err := store.Add(resource); err != nil {
+		t.Fatalf("seed informer store: %v", err)
+	}
 
 	// Create a resource lister directly
 	lister := controller.NewInformerStoreResourceLister(store)
@@ -305,7 +307,9 @@ func TestInformerStoreResourceLister_EdgeCases(t *testing.T) {
 	}
 
 	// Test with non-unstructured objects (should be filtered out)
-	store.Add("not-an-unstructured-object")
+	if err := store.Add(&metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: "typed-object"}}); err != nil {
+		t.Fatalf("seed informer store: %v", err)
+	}
 
 	all, err := lister.ListResources(context.Background(), schema.GroupVersionResource{}, "")
 	if err != nil {

@@ -71,7 +71,6 @@ func computeOverall(results []ObjectResult) string {
 // PlanDigest computes an order-independent canonical digest of the planned
 // object set. Kubernetes list ordering must not affect it.
 func PlanDigest(objects []unstructured.Unstructured) string {
-	type ident struct{ ns, kind, name, uid string }
 	ids := make([]string, 0, len(objects))
 	for _, o := range objects {
 		ids = append(ids, fmt.Sprintf("%s/%s/%s/%s", o.GetNamespace(), o.GetKind(), o.GetName(), o.GetUID()))

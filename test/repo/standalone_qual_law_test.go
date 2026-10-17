@@ -1,9 +1,8 @@
 package repo
 
 // STANDALONE QUALIFICATION RECEIPT (the public replacement for the
-// SDK-shared qualreceipt envelope: the private zen-sdk dependency is
-// gone; the qualification law stays, bound to Cleaner's ACTUAL candidate
-// and surfaces).
+// former shared receipt envelope: the qualification law is local and
+// public, bound to Cleaner's actual candidate and surfaces).
 //
 // The law proven here (mirroring the receipt laws the SDK envelope
 // carried, now local and public):
@@ -111,9 +110,9 @@ func receiptGeneration(r *standaloneReceipt) string {
 	}
 	sort.Strings(names)
 	h := sha256.New()
-	fmt.Fprintf(h, "%s\n%s\n", r.Module, r.GoDirective)
+	_, _ = fmt.Fprintf(h, "%s\n%s\n", r.Module, r.GoDirective)
 	for _, n := range names {
-		fmt.Fprintf(h, "%s=%s\n", n, r.Surfaces[n])
+		_, _ = fmt.Fprintf(h, "%s=%s\n", n, r.Surfaces[n])
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }

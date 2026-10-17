@@ -149,11 +149,12 @@ func (s *StatusUpdater) UpdateStatus(
 		"reason":             "PolicyActive",
 		"message":            "Policy is active and processing resources",
 	}
-	if phase == PolicyPhaseError {
+	switch phase {
+	case PolicyPhaseError:
 		readyCondition[statusSubresourceKey] = "False"
 		readyCondition["reason"] = "PolicyError"
 		readyCondition["message"] = "Policy evaluation encountered errors"
-	} else if phase == PolicyPhasePaused {
+	case PolicyPhasePaused:
 		readyCondition[statusSubresourceKey] = "False"
 		readyCondition["reason"] = "PolicyPaused"
 		readyCondition["message"] = "Policy is paused"

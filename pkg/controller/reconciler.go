@@ -714,7 +714,7 @@ func (r *PolicyReconciler) deleteBatch(
 	n, errs, receipt := r.ExecuteWithReceipt(ctx, batch, policy, rateLimiter, reasons)
 	if receipt != nil && r.eventRecorder != nil && r.Client != nil {
 		ref := policy.DeepCopy()
-		r.GetEventRecorder().Recorder.Eventf(ref, "Normal", "PolicyExecutionReceipt",
+		r.GetEventRecorder().Eventf(ref, "Normal", "PolicyExecutionReceipt",
 			"plan=%s overall=%s effects=%d", receipt.PlanDigest, receipt.OverallStatus, len(receipt.Results))
 	}
 	return n, errs

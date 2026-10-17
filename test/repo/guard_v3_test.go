@@ -30,13 +30,12 @@ package repo
 //	private indirect import  -> L2 (not self/pinned/stdlib)
 //	nested module / replace  -> L5
 //	generated code           -> L2 (no generated-file exemption)
-//	go:embed smuggling       -> the V3 embed-content law (below)
+//	embedded-content smuggling       -> the V3 embed-content law (below)
 //
 // The BUILD-GRAPH firewall (F) resolves the module's complete dependency
 // graph with GO'S OWN resolution (`go list -deps -test ./...` — not grep)
 // and refuses any dependency that is not self, a pinned module, or the
-// standard library; additionally no zenmesh path other than zen-cleaner and
-// the pinned zen-sdk may appear anywhere in the graph.
+// standard library; no other Zen module is permitted anywhere in the graph.
 //
 // The BINARY semantic firewall (G) builds the real server binary and proves
 // no private-scope marker and no private module name survives into the
@@ -150,7 +149,7 @@ func TestGuardV3_Attack_PrivateIndirectImport(t *testing.T) {
 // 6. Nested module with replace: nested go.mod is the L5 violation.
 func TestGuardV3_Attack_NestedModuleReplace(t *testing.T) {
 	root := writeAttackFixture(t, map[string]string{
-		"tools/sub/go.mod": "module sub\n\ngo 1.27.0\n\nreplace github.com/zenmesh/zen-sdk => /private/zen-sdk\n",
+		"tools/sub/go.mod": "module sub\n\ngo 1.27.0\n\nreplace github.com/zenmesh/nonpublic-fixture => /private/nonpublic-fixture\n",
 		"tools/sub/m.go":   "package sub\n",
 	})
 	assertFires(t, "nested module", v4Evaluate(t, root), "L5:")
@@ -174,7 +173,7 @@ var embedDirectiveRe = regexp.MustCompile(`(?m)^//[ \t]*go:embed[ \t]+(.+)$`)
 func embedTargetFiles(t *testing.T, root string) []string {
 	t.Helper()
 	var targets []string
-	filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".go") {
 			return err
 		}
@@ -195,12 +194,17 @@ func embedTargetFiles(t *testing.T, root string) []string {
 						continue
 					}
 					if info.IsDir() {
-						filepath.WalkDir(hit, func(sub string, sd os.DirEntry, serr error) error {
-							if serr == nil && !sd.IsDir() {
+						if err := filepath.WalkDir(hit, func(sub string, sd os.DirEntry, serr error) error {
+							if serr != nil {
+								return serr
+							}
+							if !sd.IsDir() {
 								targets = append(targets, sub)
 							}
 							return nil
-						})
+						}); err != nil {
+							return err
+						}
 						continue
 					}
 					targets = append(targets, hit)
@@ -209,6 +213,9 @@ func embedTargetFiles(t *testing.T, root string) []string {
 		}
 		return nil
 	})
+	if walkErr != nil {
+		t.Fatalf("scan embedded resources: %v", walkErr)
+	}
 	return targets
 }
 

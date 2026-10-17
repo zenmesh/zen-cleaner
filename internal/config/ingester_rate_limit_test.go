@@ -1,7 +1,6 @@
 package config
 
 import (
-	"os"
 	"testing"
 )
 
@@ -19,10 +18,10 @@ func (m *mockCRDRateLimitConfig) GetBurst() int {
 }
 
 func TestLoadIngesterRateLimitConfig(t *testing.T) {
-	os.Unsetenv("RATE_LIMIT_INGESTER_TEST_RPM")
-	os.Unsetenv("RATE_LIMIT_INGESTER_TEST_BURST")
-	os.Unsetenv("RATE_LIMIT_INGESTER_DEFAULT_RPM")
-	os.Unsetenv("RATE_LIMIT_INGESTER_DEFAULT_BURST")
+	t.Setenv("RATE_LIMIT_INGESTER_TEST_RPM", "")
+	t.Setenv("RATE_LIMIT_INGESTER_TEST_BURST", "")
+	t.Setenv("RATE_LIMIT_INGESTER_DEFAULT_RPM", "")
+	t.Setenv("RATE_LIMIT_INGESTER_DEFAULT_BURST", "")
 
 	// No config should return nil
 	cfg := LoadIngesterRateLimitConfig("test", nil)
@@ -30,8 +29,8 @@ func TestLoadIngesterRateLimitConfig(t *testing.T) {
 		t.Error("Expected nil config when no env vars set")
 	}
 
-	os.Setenv("RATE_LIMIT_INGESTER_TEST_RPM", "1000")
-	os.Setenv("RATE_LIMIT_INGESTER_TEST_BURST", "100")
+	t.Setenv("RATE_LIMIT_INGESTER_TEST_RPM", "1000")
+	t.Setenv("RATE_LIMIT_INGESTER_TEST_BURST", "100")
 	cfg = LoadIngesterRateLimitConfig("test", nil)
 	if cfg == nil {
 		t.Fatal("Expected non-nil config")
@@ -40,13 +39,13 @@ func TestLoadIngesterRateLimitConfig(t *testing.T) {
 		t.Errorf("Expected 1000, got %d", cfg.RequestsPerMinute)
 	}
 
-	os.Unsetenv("RATE_LIMIT_INGESTER_TEST_RPM")
-	os.Unsetenv("RATE_LIMIT_INGESTER_TEST_BURST")
+	t.Setenv("RATE_LIMIT_INGESTER_TEST_RPM", "")
+	t.Setenv("RATE_LIMIT_INGESTER_TEST_BURST", "")
 }
 
 func TestLoadIngesterRateLimitConfigWithCRD(t *testing.T) {
-	os.Unsetenv("RATE_LIMIT_INGESTER_TEST_RPM")
-	os.Unsetenv("RATE_LIMIT_INGESTER_TEST_BURST")
+	t.Setenv("RATE_LIMIT_INGESTER_TEST_RPM", "")
+	t.Setenv("RATE_LIMIT_INGESTER_TEST_BURST", "")
 
 	mockCRD := &mockCRDRateLimitConfig{rpm: 500, burst: 50}
 	cfg := LoadIngesterRateLimitConfig("test", mockCRD)
@@ -62,25 +61,25 @@ func TestLoadIngesterRateLimitConfigWithCRD(t *testing.T) {
 }
 
 func TestGetIngesterRateLimitFromEnv(t *testing.T) {
-	os.Unsetenv("RATE_LIMIT_INGESTER_TEST_REQUESTS_PER_MINUTE")
+	t.Setenv("RATE_LIMIT_INGESTER_TEST_REQUESTS_PER_MINUTE", "")
 	val := getIngesterRateLimitFromEnv("test", "REQUESTS_PER_MINUTE")
 	if val != 0 {
 		t.Errorf("Expected 0 for missing env, got %d", val)
 	}
 
-	os.Setenv("RATE_LIMIT_INGESTER_TEST_REQUESTS_PER_MINUTE", "500")
+	t.Setenv("RATE_LIMIT_INGESTER_TEST_REQUESTS_PER_MINUTE", "500")
 	val = getIngesterRateLimitFromEnv("test", "REQUESTS_PER_MINUTE")
 	if val != 500 {
 		t.Errorf("Expected 500, got %d", val)
 	}
 
-	os.Setenv("RATE_LIMIT_INGESTER_TEST_REQUESTS_PER_MINUTE", "invalid")
+	t.Setenv("RATE_LIMIT_INGESTER_TEST_REQUESTS_PER_MINUTE", "invalid")
 	val = getIngesterRateLimitFromEnv("test", "REQUESTS_PER_MINUTE")
 	if val != 0 {
 		t.Errorf("Expected 0 for invalid value, got %d", val)
 	}
 
-	os.Unsetenv("RATE_LIMIT_INGESTER_TEST_REQUESTS_PER_MINUTE")
+	t.Setenv("RATE_LIMIT_INGESTER_TEST_REQUESTS_PER_MINUTE", "")
 }
 
 func TestSourceConfigRateLimitAdapter(t *testing.T) {

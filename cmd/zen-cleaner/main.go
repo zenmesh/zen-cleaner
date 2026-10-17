@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -40,8 +40,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/zenmesh/zen-cleaner/internal/election"
-	"github.com/zenmesh/zen-cleaner/internal/mcpserver"
 	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	"github.com/zenmesh/zen-cleaner/internal/mcpserver"
 	"github.com/zenmesh/zen-cleaner/observability"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/config"
@@ -231,7 +231,7 @@ func runMain() int {
 	ctx, cancel := election.ShutdownContext(context.Background(), "zen-cleaner")
 	// SUPPORT2-049: OTel tracing. Safe default: no-op tracer unless
 	// OTEL_EXPORTER_OTLP_ENDPOINT is set. Non-fatal on init failure.
-	otel.SetTracerProvider(trace.NewNoopTracerProvider())
+	otel.SetTracerProvider(noop.NewTracerProvider())
 	defer cancel()
 
 	// Run with leader election using client-go
