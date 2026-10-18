@@ -156,7 +156,7 @@ jobs:
       # THE PRIVATE-DEPENDENCY LAWS (test/repo guard battery): direct,
       # transitive, test and build graph scans; nested-module, replace,
       # vendor, build-tag, generated-file, embed and binary leakage
-      # rejection — including the no-SDK-exception closure (self is the
+      # rejection — including the no-private-module-exception closure (self is the
       # only lawful zenmesh domain).
       - name: Private-dependency guard battery
         run: go test ./test/repo/... -count=1

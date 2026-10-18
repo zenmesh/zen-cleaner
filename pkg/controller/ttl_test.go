@@ -7,13 +7,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 )
 
 func TestPolicyReconciler_calculateExpirationTime_FixedTTL(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -42,7 +42,7 @@ func TestPolicyReconciler_calculateExpirationTime_FixedTTL(t *testing.T) {
 
 func TestPolicyReconciler_calculateExpirationTime_MappedTTL(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 	// Add creation timestamp for proper TTL calculation
 	resource := &unstructured.Unstructured{
@@ -82,7 +82,7 @@ func TestPolicyReconciler_calculateExpirationTime_MappedTTL(t *testing.T) {
 
 func TestPolicyReconciler_calculateExpirationTime_MappedTTL_Default(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 	// Add creation timestamp for proper TTL calculation
 	resource := &unstructured.Unstructured{
@@ -119,7 +119,7 @@ func TestPolicyReconciler_calculateExpirationTime_MappedTTL_Default(t *testing.T
 
 func TestPolicyReconciler_calculateExpirationTime_RelativeTTL(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 	now := time.Now()
 	oneHourAgo := now.Add(-1 * time.Hour)
@@ -153,7 +153,7 @@ func TestPolicyReconciler_calculateExpirationTime_RelativeTTL(t *testing.T) {
 
 func TestPolicyReconciler_calculateExpirationTime_NoTTL(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 	resource := &unstructured.Unstructured{}
 
@@ -167,7 +167,7 @@ func TestPolicyReconciler_calculateExpirationTime_NoTTL(t *testing.T) {
 
 func TestPolicyReconciler_calculateExpirationTime_FieldPathNotFound(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{},

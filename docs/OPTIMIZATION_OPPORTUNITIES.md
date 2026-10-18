@@ -31,14 +31,14 @@ Create a single logger instance per struct and reuse it:
 // In CleanerController struct
 type CleanerController struct {
     // ... existing fields ...
-    logger sdklog.Logger // Add this
+    logger cleanerlog.Logger // Add this
 }
 
 // In constructor
 func NewCleanerController(...) *CleanerController {
     return &CleanerController{
         // ... existing fields ...
-        logger: sdklog.NewLogger("zen-cleaner"), // Initialize once
+        logger: cleanerlog.NewLogger("zen-cleaner"), // Initialize once
     }
 }
 

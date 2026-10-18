@@ -35,9 +35,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/internal/ratelimiter"
-	sdkttl "github.com/zenmesh/zen-cleaner/internal/ttl"
+	cleanerttl "github.com/zenmesh/zen-cleaner/internal/ttl"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/config"
 	cleanererrors "github.com/zenmesh/zen-cleaner/pkg/errors"
@@ -108,7 +108,7 @@ type PolicyReconciler struct {
 	eventRecorder *EventRecorder
 
 	// Logger instance (reused to avoid allocations).
-	logger *sdklog.Logger
+	logger *cleanerlog.Logger
 
 	// RESTMapper for GVR resolution (optional, improves reliability for irregular CRDs).
 	// If nil, falls back to pluralization-based resolution.
@@ -190,7 +190,7 @@ func NewPolicyReconcilerWithRESTMapper(
 		policySpecs:               make(map[types.UID]*v1alpha1.ZenCleanerPolicySpec),
 		statusUpdater:             statusUpdater,
 		eventRecorder:             eventRecorder,
-		logger:                    sdklog.NewLogger("zen-cleaner"),
+		logger:                    cleanerlog.NewLogger("zen-cleaner"),
 		restMapper:                restMapper,
 		gvrResolver:               gvrResolver,
 		evaluationServices:        make(map[string]*PolicyEvaluationService),
@@ -235,7 +235,7 @@ func NewPolicyReconcilerWithLeaderCheck(
 		policySpecs:               make(map[types.UID]*v1alpha1.ZenCleanerPolicySpec),
 		statusUpdater:             statusUpdater,
 		eventRecorder:             eventRecorder,
-		logger:                    sdklog.NewLogger("zen-cleaner"),
+		logger:                    cleanerlog.NewLogger("zen-cleaner"),
 		evaluationServices:        make(map[string]*PolicyEvaluationService),
 	}
 }
@@ -272,9 +272,9 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			RecordReconcileOutcome("invalid_policy")
 			RecordSafetyRefusal(safety.ReasonPolicyInvalid)
 			r.logger.Error(invalid, "Policy failed runtime validation; no cleanup will run",
-				sdklog.Operation("reconcile"),
-				sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
-				sdklog.ErrorCode("POLICY_INVALID"))
+				cleanerlog.Operation("reconcile"),
+				cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+				cleanerlog.ErrorCode("POLICY_INVALID"))
 			if r.statusUpdater != nil {
 				policy.Status.Phase = "Error"
 				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "Ready", "PolicyInvalid", invalid.Error(), true)
@@ -294,10 +294,10 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			RecordReconcileOutcome("invalid_policy")
 			RecordSafetyRefusal(safety.ReasonPolicyInvalid)
 			r.logger.Error(nil, "Policy integrity refused; no cleanup will run",
-				sdklog.Operation("reconcile"),
-				sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
-				sdklog.ErrorCode("POLICY_INTEGRITY_REFUSED"),
-				sdklog.String("detail", verdict.Detail))
+				cleanerlog.Operation("reconcile"),
+				cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+				cleanerlog.ErrorCode("POLICY_INTEGRITY_REFUSED"),
+				cleanerlog.String("detail", verdict.Detail))
 			if r.statusUpdater != nil {
 				policy.Status.Phase = "Error"
 				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "Ready", "PolicyIntegrityRefused", verdict.Detail, true)
@@ -308,9 +308,9 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "PolicyDrifted", "DeclaredDigestMismatch", verdict.Detail, false)
 			}
 			r.logger.Info("Policy drift receipted (visibility)",
-				sdklog.Operation("reconcile"),
-				sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
-				sdklog.String("detail", verdict.Detail))
+				cleanerlog.Operation("reconcile"),
+				cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+				cleanerlog.String("detail", verdict.Detail))
 		default:
 			if r.statusUpdater != nil {
 				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "PolicyDrifted", "InSync", verdict.Detail, false)
@@ -441,7 +441,7 @@ func (r *PolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha1.
 	if err == nil {
 		return service.EvaluatePolicy(ctx, policy)
 	}
-	r.logger.Debug("Evaluation service unavailable, using direct evaluation", sdklog.Operation("evaluate_policy"), sdklog.Error(err))
+	r.logger.Debug("Evaluation service unavailable, using direct evaluation", cleanerlog.Operation("evaluate_policy"), cleanerlog.Error(err))
 	// Use struct logger to avoid allocations
 	startTime := time.Now()
 	defer func() {
@@ -449,7 +449,7 @@ func (r *PolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha1.
 		recordEvaluationDuration(policy.Namespace, policy.Name, duration)
 	}()
 
-	r.logger.Debug("Evaluating policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
+	r.logger.Debug("Evaluating policy", cleanerlog.Operation("evaluate_policy"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
 
 	// Get or create resource informer for this policy
 	informer, err := r.getOrCreateResourceInformer(ctx, policy)
@@ -458,7 +458,7 @@ func (r *PolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha1.
 		cleanerErr = cleanerErr.WithContext("policy_namespace", policy.Namespace)
 		cleanerErr = cleanerErr.WithContext("policy_name", policy.Name)
 		recordError(policy.Namespace, policy.Name, "informer_creation_failed")
-		r.logger.Error(cleanerErr, "Error creating resource informer for policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("INFORMER_CREATION_FAILED"))
+		r.logger.Error(cleanerErr, "Error creating resource informer for policy", cleanerlog.Operation("evaluate_policy"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.ErrorCode("INFORMER_CREATION_FAILED"))
 		return cleanerErr
 	}
 
@@ -514,11 +514,11 @@ func (r *PolicyReconciler) shouldDelete(resource *unstructured.Unstructured, pol
 	if err != nil {
 		// ErrRelativeTTLExpired means the relative TTL is already in the past —
 		// the resource is expired and should be deleted now.
-		if stderrors.Is(err, sdkttl.ErrRelativeTTLExpired) {
+		if stderrors.Is(err, cleanerttl.ErrRelativeTTLExpired) {
 			return true, ReasonTTLExpired
 		}
 		// Use struct logger to avoid allocations
-		r.logger.Debug("Could not calculate expiration time for resource", sdklog.Operation("should_delete"), sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())), sdklog.Error(err))
+		r.logger.Debug("Could not calculate expiration time for resource", cleanerlog.Operation("should_delete"), cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())), cleanerlog.Error(err))
 		return false, ReasonNoTTL
 	}
 
@@ -555,7 +555,7 @@ func (r *PolicyReconciler) deleteResource(ctx context.Context, resource *unstruc
 	// Dry run check
 	if policy.Spec.Behavior.DryRun {
 		RecordDryRunCandidate()
-		r.logger.Info("[DRY RUN] Would delete resource", sdklog.Operation("delete_resource"), sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
+		r.logger.Info("[DRY RUN] Would delete resource", cleanerlog.Operation("delete_resource"), cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
 		return nil
 	}
 
@@ -671,7 +671,7 @@ func (r *PolicyReconciler) getOrCreateResourceInformer(ctx context.Context, poli
 	}
 
 	// Use struct logger to avoid allocations
-	r.logger.Debug("Created resource informer for policy", sdklog.Operation("get_or_create_informer"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.String("uid", string(policy.UID)))
+	r.logger.Debug("Created resource informer for policy", cleanerlog.Operation("get_or_create_informer"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.String("uid", string(policy.UID)))
 	return createdInformer, nil
 }
 
@@ -736,7 +736,7 @@ func (r *PolicyReconciler) GetStatusUpdater() *StatusUpdater {
 }
 
 // GetLogger returns the logger (for testing).
-func (r *PolicyReconciler) GetLogger() *sdklog.Logger {
+func (r *PolicyReconciler) GetLogger() *cleanerlog.Logger {
 	return r.logger
 }
 
@@ -828,7 +828,7 @@ func (r *PolicyReconciler) cleanupPolicyResources(nn types.NamespacedName) {
 	}
 
 	// Use struct logger to avoid allocations
-	r.logger.Info("Cleaning up resources for policy", sdklog.Operation("cleanup_policy_resources"), sdklog.String("policy", nn.Namespace+"/"+nn.Name), sdklog.String("uid", string(uid)))
+	r.logger.Info("Cleaning up resources for policy", cleanerlog.Operation("cleanup_policy_resources"), cleanerlog.String("policy", nn.Namespace+"/"+nn.Name), cleanerlog.String("uid", string(uid)))
 
 	// Clean up resource informer
 	r.cleanupResourceInformer(uid)
@@ -860,7 +860,7 @@ func (r *PolicyReconciler) cleanupRateLimiter(policyUID types.UID) {
 	if _, exists := r.rateLimiters[policyUID]; exists {
 		delete(r.rateLimiters, policyUID)
 		// Use struct logger to avoid allocations
-		r.logger.Debug("Cleaned up rate limiter for policy", sdklog.Operation("cleanup_rate_limiter"), sdklog.String("uid", string(policyUID)))
+		r.logger.Debug("Cleaned up rate limiter for policy", cleanerlog.Operation("cleanup_rate_limiter"), cleanerlog.String("uid", string(policyUID)))
 	}
 
 	// Update metrics
@@ -874,7 +874,7 @@ func (r *PolicyReconciler) recordPolicyPhaseMetrics(ctx context.Context) {
 	policyList := &v1alpha1.ZenCleanerPolicyList{}
 	if err := r.List(ctx, policyList); err != nil {
 		// Use struct logger to avoid allocations
-		r.logger.Debug("Failed to list policies for metrics", sdklog.Operation("record_policy_phase_metrics"), sdklog.Error(err))
+		r.logger.Debug("Failed to list policies for metrics", cleanerlog.Operation("record_policy_phase_metrics"), cleanerlog.Error(err))
 		return
 	}
 

@@ -30,9 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/zenmesh/zen-cleaner/internal/backoff"
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/internal/ratelimiter"
-	sdkttl "github.com/zenmesh/zen-cleaner/internal/ttl"
+	cleanerttl "github.com/zenmesh/zen-cleaner/internal/ttl"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/config"
 	cleanererrors "github.com/zenmesh/zen-cleaner/pkg/errors"
@@ -157,8 +157,8 @@ func getOrCreateRateLimiterShared(mgr RateLimiterManager, policy *v1alpha1.ZenCl
 	// Update metrics
 	recordRateLimiterCount(len(rateLimiters))
 
-	logger := sdklog.NewLogger("zen-cleaner")
-	logger.Debug("Created rate limiter for policy", sdklog.Operation("get_or_create_rate_limiter"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.String("uid", string(policy.UID)), sdklog.Int("rate_per_sec", maxDeletionsPerSecond))
+	logger := cleanerlog.NewLogger("zen-cleaner")
+	logger.Debug("Created rate limiter for policy", cleanerlog.Operation("get_or_create_rate_limiter"), cleanerlog.String("policy", policy.Namespace+"/"+policy.Name), cleanerlog.String("uid", string(policy.UID)), cleanerlog.Int("rate_per_sec", maxDeletionsPerSecond))
 	return limiter
 }
 
@@ -231,15 +231,15 @@ func deleteBatchShared(
 		}
 		// Logger creation here is acceptable as deletion logging is infrequent
 		// Future optimization: pass logger as parameter to avoid allocations
-		logger := sdklog.NewLogger("zen-cleaner")
+		logger := cleanerlog.NewLogger("zen-cleaner")
 		// SUPPORT2-041 audit law: every deletion log must identify the acting
 		// policy (name + UID) so operators can attribute destructive effects.
 		logger.Info("Deleted resource",
-			sdklog.Operation("delete_batch"),
-			sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())),
-			sdklog.String("reason", reason),
-			sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
-			sdklog.String("policyUID", string(policy.UID)))
+			cleanerlog.Operation("delete_batch"),
+			cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())),
+			cleanerlog.String("reason", reason),
+			cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+			cleanerlog.String("policyUID", string(policy.UID)))
 	}
 
 	return deletedCount, errs
@@ -252,13 +252,13 @@ type TTLCalculator interface{}
 // This now delegates to zen-cleaner/internal/pkg/gc/ttl for the actual evaluation.
 func calculateExpirationTimeShared(resource *unstructured.Unstructured, ttlSpec *v1alpha1.TTLSpec) (time.Time, error) {
 	// Convert v1alpha1.TTLSpec to zen-cleaner/internal ttl.Spec
-	sdkSpec := convertToSDKTTLSpec(ttlSpec)
-	return sdkttl.CalculateExpirationTime(resource, sdkSpec)
+	localSpec := convertToLocalTTLSpec(ttlSpec)
+	return cleanerttl.CalculateExpirationTime(resource, localSpec)
 }
 
-// convertToSDKTTLSpec converts zen-cleaner's TTLSpec to zen-cleaner/internal's ttl.Spec.
-func convertToSDKTTLSpec(gcSpec *v1alpha1.TTLSpec) *sdkttl.Spec {
-	return &sdkttl.Spec{
+// convertToLocalTTLSpec converts zen-cleaner's TTLSpec to zen-cleaner/internal's ttl.Spec.
+func convertToLocalTTLSpec(gcSpec *v1alpha1.TTLSpec) *cleanerttl.Spec {
+	return &cleanerttl.Spec{
 		SecondsAfterCreation: gcSpec.SecondsAfterCreation,
 		FieldPath:            gcSpec.FieldPath,
 		Mappings:             gcSpec.Mappings,
@@ -431,8 +431,8 @@ func meetsLabelConditionsShared(resource *unstructured.Unstructured, labelConds 
 			}
 		default:
 			// Unknown operator - fail safe by rejecting
-			logger := sdklog.NewLogger("zen-cleaner")
-			logger.Warn("Unknown label condition operator, rejecting match", sdklog.Operation("meets_label_conditions"), sdklog.String("operator", labelCond.Operator))
+			logger := cleanerlog.NewLogger("zen-cleaner")
+			logger.Warn("Unknown label condition operator, rejecting match", cleanerlog.Operation("meets_label_conditions"), cleanerlog.String("operator", labelCond.Operator))
 			return false
 		}
 	}
@@ -512,8 +512,8 @@ func matchesSelectorsShared(resource *unstructured.Unstructured, target *v1alpha
 		selector, err := metav1.LabelSelectorAsSelector(target.LabelSelector)
 		if err != nil {
 			cleanerErr := cleanererrors.Wrap(err, "invalid_label_selector", "invalid label selector")
-			logger := sdklog.NewLogger("zen-cleaner")
-			logger.Error(cleanerErr, "Invalid label selector", sdklog.Operation("matches_selectors"), sdklog.ErrorCode("INVALID_LABEL_SELECTOR"))
+			logger := cleanerlog.NewLogger("zen-cleaner")
+			logger.Error(cleanerErr, "Invalid label selector", cleanerlog.Operation("matches_selectors"), cleanerlog.ErrorCode("INVALID_LABEL_SELECTOR"))
 			return false
 		}
 

@@ -24,8 +24,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
-	sdkttl "github.com/zenmesh/zen-cleaner/internal/ttl"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerttl "github.com/zenmesh/zen-cleaner/internal/ttl"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/config"
 	cleanererrors "github.com/zenmesh/zen-cleaner/pkg/errors"
@@ -46,7 +46,7 @@ type PolicyEvaluationService struct {
 	safetyGate          *safety.Gate
 	eventRecorder       *EventRecorder
 	controllerConfig    *config.ControllerConfig
-	logger              *sdklog.Logger
+	logger              *cleanerlog.Logger
 }
 
 // SetSafetyGate wires the evaluation-time safety gate (SUPPORT2-033 §2).
@@ -67,10 +67,10 @@ func NewPolicyEvaluationService(
 	statusUpdater *StatusUpdater,
 	eventRecorder *EventRecorder,
 	controllerConfig *config.ControllerConfig,
-	logger *sdklog.Logger,
+	logger *cleanerlog.Logger,
 ) *PolicyEvaluationService {
 	if logger == nil {
-		logger = sdklog.NewLogger("zen-cleaner")
+		logger = cleanerlog.NewLogger("zen-cleaner")
 	}
 	return &PolicyEvaluationService{
 		resourceLister:      resourceLister,
@@ -95,7 +95,7 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 		recordEvaluationDuration(policy.Namespace, policy.Name, duration)
 	}()
 
-	s.logger.Debug("Evaluating policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
+	s.logger.Debug("Evaluating policy", cleanerlog.Operation("evaluate_policy"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
 
 	// Parse GVR from policy (same validation as reconciler/informer path)
 	gvr, err := validation.ParseGVR(policy.Spec.TargetResource.APIVersion, policy.Spec.TargetResource.Kind)
@@ -104,7 +104,7 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 		cleanerErr = cleanerErr.WithContext("policy_namespace", policy.Namespace)
 		cleanerErr = cleanerErr.WithContext("policy_name", policy.Name)
 		recordError(policy.Namespace, policy.Name, "invalid_gvr")
-		s.logger.Error(cleanerErr, "Invalid GVR in policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("INVALID_GVR"))
+		s.logger.Error(cleanerErr, "Invalid GVR in policy", cleanerlog.Operation("evaluate_policy"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.ErrorCode("INVALID_GVR"))
 		return cleanerErr
 	}
 
@@ -121,7 +121,7 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 		cleanerErr = cleanerErr.WithContext("policy_namespace", policy.Namespace)
 		cleanerErr = cleanerErr.WithContext("policy_name", policy.Name)
 		recordError(policy.Namespace, policy.Name, "list_resources_failed")
-		s.logger.Error(cleanerErr, "Error listing resources", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("LIST_RESOURCES_FAILED"))
+		s.logger.Error(cleanerErr, "Error listing resources", cleanerlog.Operation("evaluate_policy"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.ErrorCode("LIST_RESOURCES_FAILED"))
 		return cleanerErr
 	}
 
@@ -181,7 +181,7 @@ func (s *PolicyEvaluationService) evaluateResources(
 	// Check context cancellation at start to avoid unnecessary work
 	select {
 	case <-ctx.Done():
-		s.logger.Debug("Stopping policy evaluation: context canceled", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
+		s.logger.Debug("Stopping policy evaluation: context canceled", cleanerlog.Operation("evaluate_policy"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
 		return int64(0), int64(0)
 	default:
 	}
@@ -192,7 +192,7 @@ func (s *PolicyEvaluationService) evaluateResources(
 		if i%contextCheckInterval == 0 {
 			select {
 			case <-ctx.Done():
-				s.logger.Debug("Stopping policy evaluation: context canceled", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
+				s.logger.Debug("Stopping policy evaluation: context canceled", cleanerlog.Operation("evaluate_policy"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
 				return matchedCount, pendingCount
 			default:
 			}
@@ -252,14 +252,14 @@ func (s *PolicyEvaluationService) deleteResourcesInBatches(
 	// Check context cancellation at start
 	select {
 	case <-ctx.Done():
-		s.logger.Debug("Stopping batch deletion: context canceled", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
+		s.logger.Debug("Stopping batch deletion: context canceled", cleanerlog.Operation("delete_batch"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
 		return 0
 	default:
 	}
 
 	rateLimiter := s.rateLimiterProvider.GetOrCreateRateLimiter(policy)
 	if rateLimiter == nil {
-		s.logger.Error(nil, "Rate limiter is nil, cannot proceed with deletions", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("RATE_LIMITER_NIL"))
+		s.logger.Error(nil, "Rate limiter is nil, cannot proceed with deletions", cleanerlog.Operation("delete_batch"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.ErrorCode("RATE_LIMITER_NIL"))
 		return 0
 	}
 	batchSize := s.getBatchSize(policy)
@@ -270,7 +270,7 @@ func (s *PolicyEvaluationService) deleteResourcesInBatches(
 		// Check context cancellation between batches
 		select {
 		case <-ctx.Done():
-			s.logger.Debug("Stopping batch deletion: context canceled", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
+			s.logger.Debug("Stopping batch deletion: context canceled", cleanerlog.Operation("delete_batch"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
 			return deletedCount
 		default:
 		}
@@ -295,7 +295,7 @@ func (s *PolicyEvaluationService) deleteResourcesInBatches(
 			if s.eventRecorder != nil {
 				s.eventRecorder.RecordEvaluationFailed(policy, err)
 			}
-			s.logger.Error(err, "Error deleting batch for policy", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("DELETE_BATCH_FAILED"))
+			s.logger.Error(err, "Error deleting batch for policy", cleanerlog.Operation("delete_batch"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.ErrorCode("DELETE_BATCH_FAILED"))
 		}
 	}
 	return deletedCount
@@ -317,7 +317,7 @@ func (s *PolicyEvaluationService) updatePolicyStatus(
 
 	if err := s.statusUpdater.UpdateStatus(statusCtx, policy, matchedCount, deletedCount, pendingCount, refusals); err != nil {
 		if statusCtx.Err() != nil {
-			s.logger.Debug("Status update canceled or timed out", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Error(statusCtx.Err()))
+			s.logger.Debug("Status update canceled or timed out", cleanerlog.Operation("update_status"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.Error(statusCtx.Err()))
 			return nil
 		}
 		cleanerErr := cleanererrors.Wrap(err, "status_update_failed", "failed to update policy status")
@@ -327,7 +327,7 @@ func (s *PolicyEvaluationService) updatePolicyStatus(
 		if s.eventRecorder != nil {
 			s.eventRecorder.RecordStatusUpdateFailed(policy, cleanerErr)
 		}
-		s.logger.Error(cleanerErr, "Error updating policy status", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("UPDATE_STATUS_FAILED"))
+		s.logger.Error(cleanerErr, "Error updating policy status", cleanerlog.Operation("update_status"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.ErrorCode("UPDATE_STATUS_FAILED"))
 		return cleanerErr
 	}
 	return nil
@@ -340,10 +340,10 @@ func (s *PolicyEvaluationService) shouldDelete(resource *unstructured.Unstructur
 	if err != nil {
 		// ErrRelativeTTLExpired means the relative TTL is already in the past —
 		// the resource is expired and should be deleted now.
-		if errors.Is(err, sdkttl.ErrRelativeTTLExpired) {
+		if errors.Is(err, cleanerttl.ErrRelativeTTLExpired) {
 			return true, ReasonTTLExpired
 		}
-		s.logger.Debug("Could not calculate expiration time for resource", sdklog.Operation("should_delete"), sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())), sdklog.Error(err))
+		s.logger.Debug("Could not calculate expiration time for resource", cleanerlog.Operation("should_delete"), cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())), cleanerlog.Error(err))
 		return false, ReasonNoTTL
 	}
 

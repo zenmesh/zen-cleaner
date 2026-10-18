@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/internal/ratelimiter"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/config"
@@ -36,7 +36,7 @@ import (
 // TestPolicyReconciler_matchesSelectors tests the matchesSelectors method.
 func TestPolicyReconciler_matchesSelectors(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 
 	tests := []struct {

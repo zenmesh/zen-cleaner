@@ -19,16 +19,16 @@ limitations under the License.
 package errors
 
 import (
-	sdkerrors "github.com/zenmesh/zen-cleaner/internal/errors"
+	cleanererrors "github.com/zenmesh/zen-cleaner/internal/errors"
 )
 
 // CleanerError is an alias for zen-cleaner/internal's ContextError.
 // This maintains backward compatibility while using the shared implementation.
-type CleanerError = sdkerrors.ContextError
+type CleanerError = cleanererrors.ContextError
 
 // WithPolicy adds policy context to an error.
 func WithPolicy(err error, namespace, name string) *CleanerError {
-	return sdkerrors.WithMultipleContext(err, map[string]string{
+	return cleanererrors.WithMultipleContext(err, map[string]string{
 		"policy_namespace": namespace,
 		"policy_name":      name,
 	})
@@ -36,7 +36,7 @@ func WithPolicy(err error, namespace, name string) *CleanerError {
 
 // WithResource adds resource context to an error.
 func WithResource(err error, namespace, name string) *CleanerError {
-	return sdkerrors.WithMultipleContext(err, map[string]string{
+	return cleanererrors.WithMultipleContext(err, map[string]string{
 		"resource_namespace": namespace,
 		"resource_name":      name,
 	})
@@ -44,15 +44,15 @@ func WithResource(err error, namespace, name string) *CleanerError {
 
 // New creates a new CleanerError.
 func New(errType, message string) *CleanerError {
-	return sdkerrors.New(errType, message)
+	return cleanererrors.New(errType, message)
 }
 
 // Wrap wraps an error with a message and type.
 func Wrap(err error, errType, message string) *CleanerError {
-	return sdkerrors.Wrap(err, errType, message)
+	return cleanererrors.Wrap(err, errType, message)
 }
 
 // Wrapf wraps an error with a formatted message and type.
 func Wrapf(err error, errType, format string, args ...interface{}) *CleanerError {
-	return sdkerrors.Wrapf(err, errType, format, args...)
+	return cleanererrors.Wrapf(err, errType, format, args...)
 }

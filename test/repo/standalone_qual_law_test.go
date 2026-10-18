@@ -4,7 +4,7 @@ package repo
 // former shared receipt envelope: the qualification law is local and
 // public, bound to Cleaner's actual candidate and surfaces).
 //
-// The law proven here (mirroring the receipt laws the SDK envelope
+// The law proven here (mirroring the receipt laws the former shared envelope
 // carried, now local and public):
 //   L1 SURFACE BINDING  — the receipt names the three canonical baseline
 //                         artifacts (the V6 exported-API surface, the V7

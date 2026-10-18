@@ -135,7 +135,7 @@ go test -v ./pkg/controller/... -run TestCleanerController_StartStop
 
 #### GoLand / IntelliJ IDEA
 
-1. **Configure Go SDK:**
+1. **Configure Go toolchain:**
    - File → Settings → Go → GOROOT
    - Set to your Go installation path
 

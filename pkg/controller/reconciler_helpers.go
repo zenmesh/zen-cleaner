@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	cleanererrors "github.com/zenmesh/zen-cleaner/pkg/errors"
 	"github.com/zenmesh/zen-cleaner/pkg/safety"
@@ -38,14 +38,14 @@ import (
 // handlePolicyDeletion handles cleanup when a policy is deleted.
 func (r *PolicyReconciler) handlePolicyDeletion(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = ctx // Context reserved for future use (cancellation/timeout)
-	r.logger.Debug("Policy not found, cleaning up resources", sdklog.Operation("reconcile"))
+	r.logger.Debug("Policy not found, cleaning up resources", cleanerlog.Operation("reconcile"))
 	r.cleanupPolicyResources(req.NamespacedName)
 	return ctrl.Result{}, nil
 }
 
 // handlePolicyFetchError handles errors when fetching a policy.
 func (r *PolicyReconciler) handlePolicyFetchError(err error) (ctrl.Result, error) {
-	r.logger.Error(err, "Failed to fetch ZenCleanerPolicy", sdklog.Operation("fetch_policy"), sdklog.ErrorCode("FETCH_POLICY_FAILED"))
+	r.logger.Error(err, "Failed to fetch ZenCleanerPolicy", cleanerlog.Operation("fetch_policy"), cleanerlog.ErrorCode("FETCH_POLICY_FAILED"))
 	return ctrl.Result{}, err
 }
 
@@ -55,7 +55,7 @@ func (r *PolicyReconciler) handleInformerRecreation(policy *v1alpha1.ZenCleanerP
 		return
 	}
 
-	r.logger.Debug("Policy spec changed, recreating informer", sdklog.Operation("update_informer"))
+	r.logger.Debug("Policy spec changed, recreating informer", cleanerlog.Operation("update_informer"))
 	r.cleanupResourceInformer(policy.UID)
 	// Clear old spec to allow new one to be tracked
 	r.policySpecsMu.Lock()
@@ -65,7 +65,7 @@ func (r *PolicyReconciler) handleInformerRecreation(policy *v1alpha1.ZenCleanerP
 
 // handlePausedPolicy handles paused policies.
 func (r *PolicyReconciler) handlePausedPolicy() (ctrl.Result, error) {
-	r.logger.Debug("Policy is paused, skipping evaluation", sdklog.Operation("reconcile"))
+	r.logger.Debug("Policy is paused, skipping evaluation", cleanerlog.Operation("reconcile"))
 	return ctrl.Result{RequeueAfter: r.getRequeueInterval()}, nil
 }
 
@@ -80,17 +80,17 @@ func (r *PolicyReconciler) handleEvaluationError(err error, policy *v1alpha1.Zen
 		count := r.targetFailureCount(policy.UID)
 		delay := TargetBackoffFor(count)
 		r.logger.Warn("Target capability validation failed; bounded backoff",
-			sdklog.Operation("evaluate_policy"),
-			sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
-			sdklog.String("target_class", string(tcErr.Type)),
-			sdklog.String("retry_in", delay.String()))
+			cleanerlog.Operation("evaluate_policy"),
+			cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+			cleanerlog.String("target_class", string(tcErr.Type)),
+			cleanerlog.String("retry_in", delay.String()))
 		return ctrl.Result{RequeueAfter: delay}, nil
 	}
 	cleanerErr := cleanererrors.WithPolicy(err, policy.Namespace, policy.Name)
 	if cleanerErr.Type == "" {
 		cleanerErr.Type = ErrorTypeEvaluationFailed
 	}
-	r.logger.Error(cleanerErr, "Error evaluating policy", sdklog.Operation("evaluate_policy"), sdklog.ErrorCode("EVALUATE_POLICY_FAILED"))
+	r.logger.Error(cleanerErr, "Error evaluating policy", cleanerlog.Operation("evaluate_policy"), cleanerlog.ErrorCode("EVALUATE_POLICY_FAILED"))
 	// Requeue with backoff on error
 	return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 }
@@ -103,7 +103,7 @@ func (r *PolicyReconciler) resolveGVRForDeletion(resource *unstructured.Unstruct
 			return resolvedGVR
 		}
 		// Fall back to pluralization if GVRResolver fails
-		r.logger.Debug("GVRResolver failed, falling back to pluralization", sdklog.Operation("delete_resource"), sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())), sdklog.Error(gvrErr))
+		r.logger.Debug("GVRResolver failed, falling back to pluralization", cleanerlog.Operation("delete_resource"), cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())), cleanerlog.Error(gvrErr))
 	}
 
 	// Use pluralization fallback
@@ -144,9 +144,9 @@ func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource
 		if allowed, reason := r.safetyGate.EvaluateObject(resource, behavior); !allowed {
 			RecordSafetyRefusal(reason)
 			r.logger.Info("Safety gate refused deletion",
-				sdklog.Operation("delete_resource"),
-				sdklog.String("reason", reason),
-				sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
+				cleanerlog.Operation("delete_resource"),
+				cleanerlog.String("reason", reason),
+				cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
 			return nil
 		}
 	}
@@ -166,9 +166,9 @@ func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource
 	if live.GetUID() != resource.GetUID() {
 		RecordSafetyRefusal(safety.ReasonStaleUID)
 		r.logger.Info("Stale-cache deletion refused (UID precondition)",
-			sdklog.Operation("delete_resource"),
-			sdklog.String("reason", safety.ReasonStaleUID),
-			sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
+			cleanerlog.Operation("delete_resource"),
+			cleanerlog.String("reason", safety.ReasonStaleUID),
+			cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
 		return nil
 	}
 

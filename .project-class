@@ -15,6 +15,6 @@ FORBIDDEN:
 ALLOWED:
   - Standard library
   - k8s.io/client-go/*
-  - internal/* (inlined SDK code)
+  - internal/* (standalone implementation)
   - User-facing documentation
 

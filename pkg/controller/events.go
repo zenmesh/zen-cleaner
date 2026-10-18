@@ -5,20 +5,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 
-	sdkevents "github.com/zenmesh/zen-cleaner/internal/events"
+	cleanerevents "github.com/zenmesh/zen-cleaner/internal/events"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 )
 
 // EventRecorder wraps Kubernetes event recorder for the Zen Cleaner controller.
 // This now uses zen-cleaner/internal/pkg/events as the base implementation.
 type EventRecorder struct {
-	*sdkevents.Recorder
+	*cleanerevents.Recorder
 }
 
 // NewEventRecorder creates a new event recorder.
 func NewEventRecorder(client kubernetes.Interface) *EventRecorder {
 	return &EventRecorder{
-		Recorder: sdkevents.NewRecorder(client, "zen-cleaner"),
+		Recorder: cleanerevents.NewRecorder(client, "zen-cleaner"),
 	}
 }
 
@@ -59,7 +59,7 @@ func (er *EventRecorder) RecordResourceDeleted(
 		corev1.EventTypeNormal,
 		"ResourceDeleted",
 		"Deleted resource %s (reason: %s)",
-		sdkevents.GetResourceName(resource), reason,
+		cleanerevents.GetResourceName(resource), reason,
 	)
 }
 

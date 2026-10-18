@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/controller"
 )
@@ -72,7 +72,7 @@ func TestGetOrCreateEvaluationService_FirstCall(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	if service == nil {
@@ -105,7 +105,7 @@ func TestGetOrCreateEvaluationService_ReuseService(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	// Create service second time (simulating reuse)
@@ -119,7 +119,7 @@ func TestGetOrCreateEvaluationService_ReuseService(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	// Services should be different instances (NewPolicyEvaluationService always creates new)
@@ -235,7 +235,7 @@ func TestPolicyEvaluationService_WithAllMocks(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	ctx := context.Background()
@@ -281,7 +281,7 @@ func TestPolicyEvaluationService_ErrorHandling(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	ctx := context.Background()

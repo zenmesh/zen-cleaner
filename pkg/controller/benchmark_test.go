@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 )
 
 // BenchmarkLoggerReuse benchmarks logger reuse vs creating new loggers.
@@ -34,13 +34,13 @@ func BenchmarkLoggerReuse(b *testing.B) {
 	b.Run("NewLoggerEachTime", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			logger := sdklog.NewLogger("zen-cleaner")
+			logger := cleanerlog.NewLogger("zen-cleaner")
 			_ = logger
 		}
 	})
 
 	// Benchmark: Reusing logger (new way)
-	logger := sdklog.NewLogger("zen-cleaner")
+	logger := cleanerlog.NewLogger("zen-cleaner")
 	b.Run("ReuseLogger", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
