@@ -16,7 +16,7 @@
 # Builder toolchain pinned by digest (golang:1.27.2-alpine). The module
 # declares `go 1.27.2`; the release contract (project.yaml goVersion, README,
 # .github workflow go-version pins) all declare Go 1.27.
-FROM golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS builder
+FROM golang@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8 AS builder
 
 WORKDIR /build
 
