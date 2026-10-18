@@ -35,7 +35,7 @@ pinned image. From a clone of this repo:
 # without a `group` field is the core API group) and authorizes deletion:
 helm install zen-cleaner ./deploy/helm/zen-cleaner \
   --namespace zen-cleaner-system --create-namespace \
-  --set image.tag=0.1.0 \
+  --set image.tag=0.1.1 \
   --set rbac.targetKinds[1].resource=configmaps \
   --set rbac.deleteNamespaces[0]=default
 # Pin by digest once you have chosen one (tag is then ignored):
@@ -69,7 +69,7 @@ an image reference that `kubectl apply` does NOT substitute — use the install
 script (it renders them with `envsubst`), not raw `kubectl apply`:
 
 ```bash
-CLEANER_IMAGE=ghcr.io/zenmesh/zen-cleaner:0.1.0 \
+CLEANER_IMAGE=ghcr.io/zenmesh/zen-cleaner:0.1.1 \
 WEBHOOK_NAMESPACE=zen-cleaner-system bash deploy/install.sh
 ```
 
