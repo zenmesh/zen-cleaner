@@ -1,6 +1,41 @@
 apiVersion: v2
 name: zen-cleaner
-description: Zen Cleaner - declarative garbage collection controller
+description: Zen Cleaner - declarative Kubernetes garbage collection controller (policy-driven, dry-run first, default-deny RBAC)
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
+# Truthful, public project metadata. No HA/SOC2/production-qualification claim
+# is made: this is a 0.x community project (see RELEASING.md).
+home: https://github.com/zenmesh/zen-cleaner
+sources:
+  - https://github.com/zenmesh/zen-cleaner
+maintainers:
+  - name: Zen Mesh
+    email: zen@zen-mesh.io
+    url: https://github.com/zenmesh
+keywords:
+  - garbage-collection
+  - cleanup
+  - ttl
+  - policy
+  - kubernetes
+  - cost-optimization
+annotations:
+  # Artifact Hub annotation (https://artifacthub.io/docs/topics/annotations/helm/)
+  artifacthub.io/changes: |
+    - kind: added
+      description: First public 0.1.0 release. Policy-driven cleanup with dry-run, default-deny RBAC, label/field selectors and per-class TTLs.
+    - kind: changed
+      description: Builder image updated to a newer pinned golang digest (go 1.27.2).
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/links: |
+    - name: source code
+      url: https://github.com/zenmesh/zen-cleaner
+    - name: chart source
+      url: https://github.com/zenmesh/zen-cleaner/tree/main/deploy/helm/zen-cleaner
+    - name: support
+      url: https://github.com/zenmesh/zen-cleaner/issues
+    - name: security report
+      url: https://github.com/zenmesh/zen-cleaner/blob/main/SECURITY.md
+    - name: overview video
+      url: https://youtube.com/shorts/i4I0RDWZnFw

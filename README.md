@@ -35,7 +35,7 @@ pinned image. From a clone of this repo:
 # without a `group` field is the core API group) and authorizes deletion:
 helm install zen-cleaner ./deploy/helm/zen-cleaner \
   --namespace zen-cleaner-system --create-namespace \
-  --set image.tag=0.0.1-alpha \
+  --set image.tag=0.1.0 \
   --set rbac.targetKinds[1].resource=configmaps \
   --set rbac.deleteNamespaces[0]=default
 # Pin by digest once you have chosen one (tag is then ignored):
@@ -69,7 +69,7 @@ an image reference that `kubectl apply` does NOT substitute — use the install
 script (it renders them with `envsubst`), not raw `kubectl apply`:
 
 ```bash
-CLEANER_IMAGE=ghcr.io/zenmesh/zen-cleaner:0.0.1-alpha \
+CLEANER_IMAGE=ghcr.io/zenmesh/zen-cleaner:0.1.0 \
 WEBHOOK_NAMESPACE=zen-cleaner-system bash deploy/install.sh
 ```
 
@@ -247,5 +247,6 @@ zen-cleaner is a public repository available for community use, feedback, and co
 - **GitHub Repository**: [github.com/zenmesh/zen-cleaner](https://github.com/zenmesh/zen-cleaner)
 - **Documentation Index**: [docs/INDEX.md](docs/INDEX.md)
 - **Helm**: `deploy/helm/zen-cleaner` chart in this repository
-- **Explainer video**: [YouTube](https://www.youtube.com/watch?v=P8afhcgjWVQ&list=PL1AGc_sKXJBdInu0yffTJxN828oaCuqwx)
+- **Overview video (short)**: [How Zen Cleaner Fixes Kubernetes Resource Clutter](https://youtube.com/shorts/i4I0RDWZnFw) — a short overview published by Zen Mesh Inc. covering the resource-clutter problem Zen Cleaner addresses. *Note: this is the publisher's overview video, not a recorded run of the commands in this README; the install steps below are the authoritative instructions.*
+- **Explainer video (longer)**: [YouTube](https://www.youtube.com/watch?v=P8afhcgjWVQ&list=PL1AGc_sKXJBdInu0yffTJxN828oaCuqwx)
 - **Zen Mesh Inc.**: [zen-mesh.io](https://zen-mesh.io)
