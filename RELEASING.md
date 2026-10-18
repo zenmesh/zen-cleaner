@@ -4,19 +4,32 @@ This document describes the release process for zen-cleaner.
 
 ## Release Types
 
-### Pre-release (v0.x.x)
+**A `0.x` version is an EARLY-DEVELOPMENT version, not automatically a
+prerelease.** Per SemVer 2.0 §4, anything before `1.0.0` signals that the API
+may still change; whether an individual `0.x` release is *published* as a
+prerelease is a separate, deliberate choice made at release time.
 
-Pre-releases are used during the development phase:
-- `v0.1.0`, `v0.2.0`, etc. for minor releases
-- `v0.1.1`, `v0.1.2`, etc. for patch releases
-- Pre-releases may have breaking changes
+In this repository that choice is explicit:
 
-### Stable Release (v1.0.0+)
+- A release tagged `0.1.0` (no suffix) is a normal, installable public
+  release — this is what the first public release uses.
+- A release tagged `0.2.0-alpha` (a SemVer pre-release suffix) is published as a
+  GitHub **prerelease**, which is marked "pre-release" on the release page and
+  is excluded from Artifact Hub's stable-version display.
 
-Stable releases follow semantic versioning:
-- **Major** (v1.0.0, v2.0.0): Breaking changes
-- **Minor** (v1.1.0, v1.2.0): New features, backward compatible
-- **Patch** (v1.0.1, v1.0.2): Bug fixes, backward compatible
+Do not infer "prerelease" from the `0.` alone. Version `0.0.1-alpha` was an
+earlier prerelease; `0.1.0` is the first installable public release.
+
+### Stability expectations under `1.0.0`
+
+Stated plainly so users are not surprised:
+
+- The CRD is `v1alpha1` and **may change incompatibly** in any `0.x` release.
+- `0.x` releases carry no compatibility guarantee between minor versions.
+- Patch releases (`0.1.1`) are expected to be backward compatible within the
+  same minor.
+
+No HA, SOC2, or production-qualification claim is made for `0.x`.
 
 ## Release Checklist
 
@@ -28,41 +41,46 @@ Stable releases follow semantic versioning:
 - [ ] Documentation is up-to-date
 - [ ] CHANGELOG.md is updated with release notes
 - [ ] Version numbers are updated in:
-  - [ ] `go.mod` (if needed)
-  - [ ] `deploy/helm/zen-cleaner/Chart.yaml`
-  - [ ] `deploy/helm/zen-cleaner/values.yaml` (if needed)
-  - [ ] `docs/KEP_GENERIC_GARBAGE_COLLECTION.md` (if needed)
+  - [ ] `deploy/helm/zen-cleaner/Chart.yaml` (`version` + `appVersion`)
+  - [ ] `deploy/helm/zen-cleaner/values.yaml` (`image.tag`)
+  - [ ] `README.md` install examples
+  - [ ] `CHANGELOG.md`
+
+  **`go.mod` is deliberately NOT a release-version file.** Its `go` directive
+  declares the required *language/toolchain* version (currently `go 1.27.2`);
+  editing it to match a release number would break builds and mean nothing.
+  The binary version is stamped at build time from the git tag via the
+  `VERSION` build arg (see `.github/workflows/release-image.yml`).
 
 ### Creating a Release
 
-1. **Create Release Branch** (for major/minor releases):
+**`main` is the only long-lived branch.** There is no permanent
+`release/vX.Y.Z` branch: version-bump work happens on a short-lived branch and
+is merged to `main` through a pull request, so every release point is exactly
+`main`. Branches are auto-deleted after merge.
+
+1. **Branch from `main`** and update the version files listed above, then open a
+   PR. `main` is protected: the five required checks must pass and review
+   conversations must be resolved before it merges.
+
+2. **Tag the merged commit** — tagging is what publishes the image:
+
    ```bash
-   git checkout -b release/vX.Y.0
+   git checkout main && git pull
+   git tag -a X.Y.Z -m "Release X.Y.Z"
+   git push origin X.Y.Z
    ```
 
-2. **Update Version**:
-   - Update version in relevant files
-   - Commit changes: `git commit -m "chore: bump version to vX.Y.Z"`
+   The tag push triggers `.github/workflows/release-image.yml`, which builds
+   and pushes the multi-arch image and records the published digest. Tags are
+   immutable: **never move or delete a published tag.** To fix a bad release,
+   publish the next patch version.
 
-3. **Create Git Tag**:
-   ```bash
-   git tag -a vX.Y.Z -m "Release vX.Y.Z"
-   git push origin vX.Y.Z
-   ```
+3. **Create the GitHub Release** against that tag, using the CHANGELOG entry.
+   Mark it a prerelease only if the tag carries a SemVer pre-release suffix.
 
-4. **Create GitHub Release**:
-   - Go to GitHub Releases page
-   - Click "Draft a new release"
-   - Select the tag
-   - Copy release notes from CHANGELOG.md
-   - Publish release
-
-5. **Build and Publish** (if applicable):
-   ```bash
-   make build-release
-   make build-image
-   # Push Docker image to registry
-   ```
+4. **Record the digest** published by the workflow in the release notes, and
+   keep it pinned in the chart/docs.
 
 ### After Release
 

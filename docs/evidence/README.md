@@ -51,13 +51,13 @@ This index catalogs what is evidenced about zen-cleaner. Each category states wh
 
 | Evidence | Status | Location |
 |----------|--------|----------|
-| git tags | ✅ Present | `v0.0.1-alpha` |
-| Helm chart | ✅ Present | `docs/zen-cleaner-0.0.1-alpha.tgz` |
-| Container image | ✅ Present | `zenmesh/zen-cleaner:0.0.1-alpha` |
-| Release notes | ⚠️ Template-only | Template in `docs/evidence/releases/template.md` |
-| SBOM | ❌ Missing | Not generated |
-| SLSA provenance | ❌ Missing | Not published |
-| Signed images | ❌ Missing | Not signed (no cosign) |
+| git tags | ✅ Present | `0.1.0` (public release), `0.0.1-alpha` (earlier prerelease) |
+| Helm chart | ✅ Present | Chart directory `deploy/helm/zen-cleaner` — published to an OCI registry; **no** `.tgz` is committed to this repository |
+| Container image | ✅ Present | `ghcr.io/zenmesh/zen-cleaner` (published from the tag via the Release Image workflow; multi-arch linux/amd64 + linux/arm64) |
+| Release notes | ✅ Present | GitHub Release for the tag |
+| SBOM | ⚠️ Missing | Not generated |
+| SLSA provenance | ⚠️ Missing | Not published |
+| Signed images | ⚠️ Missing | Not signed (no cosign) |
 
 ## CRD/API compatibility evidence
 

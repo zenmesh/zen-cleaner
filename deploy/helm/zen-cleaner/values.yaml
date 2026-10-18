@@ -1,7 +1,8 @@
 image:
   repository: ghcr.io/zenmesh/zen-cleaner
   # Pinned version tag; never use :latest for production installs (D039 §4).
-  tag: "0.0.1-alpha"
+  # Kept in step with Chart.yaml appVersion and the published release.
+  tag: "0.1.0"
   digest: ""
   pullPolicy: IfNotPresent
 
