@@ -13,10 +13,22 @@
 # limitations under the License.
 
 # Build stage
-# Builder toolchain pinned by digest (golang:1.27.2-alpine). The module
+# Builder toolchain pinned by digest (golang:1.27.2-ALPINE). The module
 # declares `go 1.27.2`; the release contract (project.yaml goVersion, README,
 # .github workflow go-version pins) all declare Go 1.27.
-FROM golang@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8 AS builder
+#
+# THE BASE VARIANT IS PART OF THE PIN, not an incidental detail. The build
+# stage runs `apk add`, so the builder MUST be an Alpine image. Dependabot
+# #12 replaced this digest with sha256:8201530… — which reports go1.27.2 but
+# is Debian trixie, so `apk` does not exist and every image build fails at
+# this line with `apk: not found`. The digest was therefore reverted to the
+# Alpine variant of the SAME Go version.
+#
+# `golang:1.27.2-alpine` still resolves to exactly this digest, so there is
+# no newer Alpine 1.27.2 build to move to: a future bump must re-verify the
+# base OS (cat /etc/os-release) and not just the Go version. This is also
+# why the release path is not merely a version bump.
+FROM golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS builder
 
 WORKDIR /build
 
