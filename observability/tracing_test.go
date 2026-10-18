@@ -6,17 +6,24 @@ import (
 	"testing"
 
 	"go.opentelemetry.io/otel"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	oteltrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 func testTP(t *testing.T) *tracetest.SpanRecorder {
 	t.Helper()
 	rec := tracetest.NewSpanRecorder()
-	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(rec))
+	tp := oteltrace.NewTracerProvider(oteltrace.WithSpanProcessor(rec))
 	prev := otel.GetTracerProvider()
 	otel.SetTracerProvider(tp)
-	t.Cleanup(func() { otel.SetTracerProvider(prev); tp.Shutdown(context.Background()) })
+	t.Cleanup(func() {
+		otel.SetTracerProvider(prev)
+		func() {
+			if err := tp.Shutdown(context.Background()); err != nil {
+				t.Errorf("shutdown tracer: %v", err)
+			}
+		}()
+	})
 	return rec
 }
 

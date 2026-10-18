@@ -206,7 +206,7 @@ Three bugs were identified and fixed during the initial validation cycle:
 | Bug | Symptom | Fix | File |
 |-----|---------|-----|------|
 | BUG-001: `getOrCreateEvaluationService` singleton | Different-GVR policies got wrong `matched=0` | Key cache by target resource (apiVersion/kind/namespace) | `pkg/controller/reconciler.go` |
-| BUG-002: Relative TTL never deletes | `ErrRelativeTTLExpired` returned `(false, ReasonNoTTL)` | Check for `errors.Is(err, sdkttl.ErrRelativeTTLExpired)` | `pkg/controller/reconciler.go`, `evaluate_policy_refactored.go` |
+| BUG-002: Relative TTL never deletes | `ErrRelativeTTLExpired` returned `(false, ReasonNoTTL)` | Check for `errors.Is(err, cleanerttl.ErrRelativeTTLExpired)` | `pkg/controller/reconciler.go`, `evaluate_policy_refactored.go` |
 | BUG-003: `parseFieldPath` splits annotation dots | Dotted annotation keys broken | Backslash-escaped dot support (`\.`) | `internal/ttl/evaluator.go` |
 
 Each bug has corresponding regression tests:

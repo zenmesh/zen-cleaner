@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"sort"
 	"testing"
 
 	zenv1alpha1 "github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
@@ -151,8 +150,4 @@ func eqFold(a, b string) bool {
 		}
 	}
 	return true
-}
-
-func sortDeterministic(objs []unstructured.Unstructured) {
-	sort.Slice(objs, func(i, j int) bool { return objs[i].GetName() < objs[j].GetName() })
 }

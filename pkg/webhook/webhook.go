@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/config"
 	"github.com/zenmesh/zen-cleaner/pkg/safety"
@@ -109,7 +109,7 @@ func NewWebhookServer(addr, certFile, keyFile string) (*WebhookServer, error) {
 
 // Start starts the webhook server without TLS (for testing).
 func (ws *WebhookServer) Start(ctx context.Context) error {
-	logger := sdklog.NewLogger("zen-cleaner-webhook")
+	logger := cleanerlog.NewLogger("zen-cleaner-webhook")
 	logger.Info("Starting webhook server without TLS (testing mode)...")
 
 	go func() {
@@ -131,8 +131,8 @@ func (ws *WebhookServer) Start(ctx context.Context) error {
 
 // StartTLS starts the webhook server with TLS.
 func (ws *WebhookServer) StartTLS(ctx context.Context, certFile, keyFile string) error {
-	logger := sdklog.NewLogger("zen-cleaner-webhook")
-	logger.Info("Starting webhook server with TLS", sdklog.String("address", ws.server.Addr))
+	logger := cleanerlog.NewLogger("zen-cleaner-webhook")
+	logger.Info("Starting webhook server with TLS", cleanerlog.String("address", ws.server.Addr))
 
 	go func() {
 		<-ctx.Done()
@@ -159,7 +159,7 @@ func (ws *WebhookServer) handleValidate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Read admission review request
-	logger := sdklog.NewLogger("zen-cleaner-webhook")
+	logger := cleanerlog.NewLogger("zen-cleaner-webhook")
 	var review admissionv1.AdmissionReview
 	if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
 		logger.Error(err, "Failed to decode admission review")
@@ -180,7 +180,7 @@ func (ws *WebhookServer) handleValidate(w http.ResponseWriter, r *http.Request) 
 
 	// Validate the policy
 	if err := ws.validatePolicy(review.Request); err != nil {
-		logger.Debug("Policy validation failed", sdklog.String("error", err.Error()))
+		logger.Debug("Policy validation failed", cleanerlog.String("error", err.Error()))
 		response.Response.Allowed = false
 		response.Response.Result = &metav1.Status{
 			Code:    http.StatusUnprocessableEntity,
@@ -250,7 +250,7 @@ func (ws *WebhookServer) handleMutate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Read admission review request
-	logger := sdklog.NewLogger("zen-cleaner-webhook")
+	logger := cleanerlog.NewLogger("zen-cleaner-webhook")
 	var review admissionv1.AdmissionReview
 	if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
 		logger.Error(err, "Failed to decode admission review")
@@ -295,7 +295,7 @@ func (ws *WebhookServer) handleMutate(w http.ResponseWriter, r *http.Request) {
 					pt := admissionv1.PatchTypeJSONPatch
 					return &pt
 				}()
-				logger.Debug("Policy mutation succeeded", sdklog.Int("patches", len(patches)))
+				logger.Debug("Policy mutation succeeded", cleanerlog.Int("patches", len(patches)))
 			}
 		} else {
 			logger.Debug("Policy mutation succeeded (no patches needed)")

@@ -26,7 +26,7 @@ echo "🔒 Banned Package Check"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Check that no external packages reference internal/ packages inappropriately
-# (This is allowed within zen-cleaner since internal/ is inlined SDK code)
+# (This is allowed within zen-cleaner since internal/ contains the standalone implementation)
 
 # Check for proper internal package usage
 INTERNAL_PKGS=$(find "${REPO_ROOT}/internal" -name "*.go" -type f | wc -l)

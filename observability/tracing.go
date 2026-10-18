@@ -15,8 +15,9 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	oteltrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 const tracerName = "github.com/zenmesh/zen-cleaner"
@@ -26,14 +27,14 @@ const tracerName = "github.com/zenmesh/zen-cleaner"
 func InitTracing(ctx context.Context) (func(context.Context) error, error) {
 	ep := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if ep == "" {
-		otel.SetTracerProvider(trace.NewNoopTracerProvider())
+		otel.SetTracerProvider(noop.NewTracerProvider())
 		return func(context.Context) error { return nil }, nil
 	}
 	exp, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpoint(ep), otlptracehttp.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
-	tp := sdktrace.NewTracerProvider(sdktrace.WithBatcher(exp))
+	tp := oteltrace.NewTracerProvider(oteltrace.WithBatcher(exp))
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 	return func(ctx context.Context) error { return tp.Shutdown(ctx) }, nil

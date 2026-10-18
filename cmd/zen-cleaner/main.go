@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -40,8 +40,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/zenmesh/zen-cleaner/internal/election"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/internal/mcpserver"
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/observability"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/config"
@@ -68,8 +68,8 @@ var (
 	version   = "dev"
 	commit    = "unknown"
 	buildDate = "unknown"
-	logger    *sdklog.Logger
-	setupLog  *sdklog.Logger
+	logger    *cleanerlog.Logger
+	setupLog  *cleanerlog.Logger
 )
 
 var (
@@ -126,9 +126,9 @@ func runMain() int {
 	}
 
 	// Initialize the zen-cleaner logger (configures the controller-runtime logger automatically)
-	logger = sdklog.NewLogger("zen-cleaner")
+	logger = cleanerlog.NewLogger("zen-cleaner")
 	setupLog = logger.WithComponent("setup")
-	setupLog.Debug("Zen Cleaner controller starting", sdklog.String("version", version), sdklog.String("commit", commit), sdklog.String("buildDate", buildDate))
+	setupLog.Debug("Zen Cleaner controller starting", cleanerlog.String("version", version), cleanerlog.String("commit", commit), cleanerlog.String("buildDate", buildDate))
 
 	// OpenTelemetry tracing initialization can be added here when a tracing backend is configured
 	// For now, continue without tracing
@@ -139,14 +139,14 @@ func runMain() int {
 	// Create dynamic client (still needed for resource informers)
 	dynamicClient, err := dynamic.NewForConfig(restCfg)
 	if err != nil {
-		setupLog.Error(err, "Error building dynamic client", sdklog.ErrorCode("CLIENT_ERROR"))
+		setupLog.Error(err, "Error building dynamic client", cleanerlog.ErrorCode("CLIENT_ERROR"))
 		return 1
 	}
 
 	// Create Kubernetes client for events + leader election
 	kubeClient, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
-		setupLog.Error(err, "Error building Kubernetes client", sdklog.ErrorCode("CLIENT_ERROR"))
+		setupLog.Error(err, "Error building Kubernetes client", cleanerlog.ErrorCode("CLIENT_ERROR"))
 		return 1
 	}
 
@@ -156,20 +156,20 @@ func runMain() int {
 	// Create scheme and add ZenCleanerPolicy types
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		setupLog.Error(err, "Error adding scheme", sdklog.ErrorCode("SCHEME_ERROR"))
+		setupLog.Error(err, "Error adding scheme", cleanerlog.ErrorCode("SCHEME_ERROR"))
 		return 1
 	}
 
 	crClient, err := client.New(restCfg, client.Options{Scheme: scheme})
 	if err != nil {
-		setupLog.Error(err, "Error building controller client", sdklog.ErrorCode("CLIENT_ERROR"))
+		setupLog.Error(err, "Error building controller client", cleanerlog.ErrorCode("CLIENT_ERROR"))
 		return 1
 	}
 
 	// Load controller configuration
 	controllerConfig := config.NewControllerConfig()
 	if err := controllerConfig.LoadFromEnv(); err != nil {
-		setupLog.Error(err, "Error loading configuration from environment", sdklog.ErrorCode("CONFIG_LOAD_ERROR"))
+		setupLog.Error(err, "Error loading configuration from environment", cleanerlog.ErrorCode("CONFIG_LOAD_ERROR"))
 		return 1
 	}
 	// Precedence: env (ZEN_CLEANER_*) overrides defaults; explicit flags
@@ -192,10 +192,10 @@ func runMain() int {
 	}
 
 	setupLog.Info("Controller configuration",
-		sdklog.String("cleanupInterval", controllerConfig.CleanupInterval.String()),
-		sdklog.Int("maxDeletionsPerSecond", controllerConfig.MaxDeletionsPerSecond),
-		sdklog.Int("batchSize", controllerConfig.BatchSize),
-		sdklog.Int("maxConcurrentEvaluations", controllerConfig.MaxConcurrentEvaluations))
+		cleanerlog.String("cleanupInterval", controllerConfig.CleanupInterval.String()),
+		cleanerlog.Int("maxDeletionsPerSecond", controllerConfig.MaxDeletionsPerSecond),
+		cleanerlog.Int("batchSize", controllerConfig.BatchSize),
+		cleanerlog.Int("maxConcurrentEvaluations", controllerConfig.MaxConcurrentEvaluations))
 
 	// Create status updater with configuration
 	statusUpdater := controller.NewStatusUpdaterWithConfig(dynamicClient, controllerConfig)
@@ -231,7 +231,7 @@ func runMain() int {
 	ctx, cancel := election.ShutdownContext(context.Background(), "zen-cleaner")
 	// SUPPORT2-049: OTel tracing. Safe default: no-op tracer unless
 	// OTEL_EXPORTER_OTLP_ENDPOINT is set. Non-fatal on init failure.
-	otel.SetTracerProvider(trace.NewNoopTracerProvider())
+	otel.SetTracerProvider(noop.NewTracerProvider())
 	defer cancel()
 
 	// Run with leader election using client-go
@@ -243,8 +243,8 @@ func runMain() int {
 
 	if *leaderElection {
 		setupLog.Info("Leader election enabled",
-			sdklog.String("electionID", *leaderElectionID),
-			sdklog.String("namespace", *leaderElectionNamespace))
+			cleanerlog.String("electionID", *leaderElectionID),
+			cleanerlog.String("namespace", *leaderElectionNamespace))
 	} else {
 		setupLog.Warn("Leader election disabled - only safe for single replica")
 	}
@@ -261,12 +261,12 @@ func runMain() int {
 	// target-capability validation (SUPPORT2-003 §4).
 	disc, err := discovery.NewDiscoveryClientForConfig(restCfg)
 	if err != nil {
-		setupLog.Error(err, "Error building discovery client", sdklog.ErrorCode("CLIENT_ERROR"))
+		setupLog.Error(err, "Error building discovery client", cleanerlog.ErrorCode("CLIENT_ERROR"))
 		return 1
 	}
 	restMapper, err := apiutil.NewDynamicRESTMapper(restCfg, http.DefaultClient)
 	if err != nil {
-		setupLog.Error(err, "Error building REST mapper", sdklog.ErrorCode("CLIENT_ERROR"))
+		setupLog.Error(err, "Error building REST mapper", cleanerlog.ErrorCode("CLIENT_ERROR"))
 		return 1
 	}
 	reconciler := controller.NewPolicyReconcilerWithRESTMapper(
@@ -312,7 +312,7 @@ func runMain() int {
 	healthMux.Handle("/leaderz", controller.LeaderzCheck(leaderState))
 	stopHealth, err := controller.ServeStandalone(ctx, *healthProbeAddr, healthMux)
 	if err != nil {
-		setupLog.Error(err, "Error starting standalone health server", sdklog.ErrorCode("HEALTH_SERVER_ERROR"))
+		setupLog.Error(err, "Error starting standalone health server", cleanerlog.ErrorCode("HEALTH_SERVER_ERROR"))
 		return 1
 	}
 	defer stopHealth()
@@ -322,18 +322,18 @@ func runMain() int {
 	// SUPPORT2-050: OTel tracing init (safe no-op default).
 	traceShutdown, traceErr := observability.InitTracing(ctx)
 	if traceErr != nil {
-		setupLog.Warn("Tracing init failed (non-fatal)", sdklog.Error(traceErr))
+		setupLog.Warn("Tracing init failed (non-fatal)", cleanerlog.Error(traceErr))
 	} else {
 		defer func() {
 			if sdErr := traceShutdown(context.Background()); sdErr != nil {
-				setupLog.Warn("Tracing shutdown error", sdklog.Error(sdErr))
+				setupLog.Warn("Tracing shutdown error", cleanerlog.Error(sdErr))
 			}
 		}()
 	}
 
 	stopMetrics, err := controller.ServeMetricsAlwaysOn(ctx, *metricsAddr)
 	if err != nil {
-		setupLog.Error(err, "Error starting always-on metrics server", sdklog.ErrorCode("METRICS_SERVER_ERROR"))
+		setupLog.Error(err, "Error starting always-on metrics server", cleanerlog.ErrorCode("METRICS_SERVER_ERROR"))
 		return 1
 	}
 	defer stopMetrics()
@@ -356,7 +356,7 @@ func runMain() int {
 		runController(runCtx, restCfg, &mgrOpts, reconciler, healthChecker, scheme, dynamicClient, statusUpdater, eventRecorder, controllerConfig)
 	})
 	if err != nil {
-		setupLog.Error(err, "Leader election failed", sdklog.ErrorCode("LEADER_ELECTION_ERROR"))
+		setupLog.Error(err, "Leader election failed", cleanerlog.ErrorCode("LEADER_ELECTION_ERROR"))
 		return 1
 	}
 	return 0
@@ -371,7 +371,7 @@ func startWebhookServer(ctx context.Context, targetGate gcwebhook.TargetGate) {
 	}
 	webhookServer, err := gcwebhook.NewWebhookServer(*webhookAddr, *webhookCertFile, *webhookKeyFile)
 	if err != nil {
-		setupLog.Error(err, "Error creating webhook server", sdklog.ErrorCode("WEBHOOK_CREATE_ERROR"))
+		setupLog.Error(err, "Error creating webhook server", cleanerlog.ErrorCode("WEBHOOK_CREATE_ERROR"))
 		os.Exit(1)
 	}
 	webhookServer.SetTargetGate(targetGate)
@@ -387,13 +387,13 @@ func startWebhookServer(ctx context.Context, targetGate gcwebhook.TargetGate) {
 
 	if !certExists || !keyExists {
 		if !*insecureWebhook {
-			setupLog.Error(fmt.Errorf("%w (cert: %s, key: %s). TLS is required for production. Use --insecure-webhook flag only for testing", ErrWebhookTLSCertificatesMissing, *webhookCertFile, *webhookKeyFile), "TLS certificates missing", sdklog.ErrorCode("TLS_CERT_MISSING"))
+			setupLog.Error(fmt.Errorf("%w (cert: %s, key: %s). TLS is required for production. Use --insecure-webhook flag only for testing", ErrWebhookTLSCertificatesMissing, *webhookCertFile, *webhookKeyFile), "TLS certificates missing", cleanerlog.ErrorCode("TLS_CERT_MISSING"))
 			os.Exit(1)
 		}
-		setupLog.Warn("Webhook starting without TLS (insecure mode) - NOT RECOMMENDED FOR PRODUCTION", sdklog.Component("webhook"))
+		setupLog.Warn("Webhook starting without TLS (insecure mode) - NOT RECOMMENDED FOR PRODUCTION", cleanerlog.Component("webhook"))
 		go func() {
 			if err := webhookServer.Start(ctx); err != nil {
-				setupLog.Error(err, "Error starting webhook server", sdklog.ErrorCode("WEBHOOK_START_ERROR"))
+				setupLog.Error(err, "Error starting webhook server", cleanerlog.ErrorCode("WEBHOOK_START_ERROR"))
 			}
 		}()
 		return
@@ -401,10 +401,10 @@ func startWebhookServer(ctx context.Context, targetGate gcwebhook.TargetGate) {
 
 	go func() {
 		if err := webhookServer.StartTLS(ctx, *webhookCertFile, *webhookKeyFile); err != nil {
-			setupLog.Error(err, "Error starting webhook server", sdklog.ErrorCode("WEBHOOK_START_ERROR"))
+			setupLog.Error(err, "Error starting webhook server", cleanerlog.ErrorCode("WEBHOOK_START_ERROR"))
 		}
 	}()
-	setupLog.Info("Webhook server starting with TLS", sdklog.String("address", *webhookAddr), sdklog.Component("webhook"))
+	setupLog.Info("Webhook server starting with TLS", cleanerlog.String("address", *webhookAddr), cleanerlog.Component("webhook"))
 }
 
 // runController runs the controller manager and all components (leader only
@@ -419,7 +419,7 @@ func runController(ctx context.Context, restCfg *rest.Config, mgrOpts *ctrl.Opti
 	// mgrOpts.HealthProbeBindAddress is already "0" from baseOpts.
 	mgr, err := ctrl.NewManager(restCfg, *mgrOpts)
 	if err != nil {
-		setupLog.Error(err, "Error creating controller manager", sdklog.ErrorCode("MANAGER_CREATE_ERROR"))
+		setupLog.Error(err, "Error creating controller manager", cleanerlog.ErrorCode("MANAGER_CREATE_ERROR"))
 		os.Exit(1)
 	}
 
@@ -430,7 +430,7 @@ func runController(ctx context.Context, restCfg *rest.Config, mgrOpts *ctrl.Opti
 
 	// Setup reconciler with manager
 	if err := reconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Error setting up reconciler", sdklog.ErrorCode("RECONCILER_SETUP_ERROR"))
+		setupLog.Error(err, "Error setting up reconciler", cleanerlog.ErrorCode("RECONCILER_SETUP_ERROR"))
 		os.Exit(1)
 	}
 
@@ -438,19 +438,19 @@ func runController(ctx context.Context, restCfg *rest.Config, mgrOpts *ctrl.Opti
 
 	// Add enhanced liveness check (verifies active processing)
 	if err := mgr.AddHealthzCheck("healthz", healthChecker.LivenessCheck); err != nil {
-		setupLog.Error(err, "Error adding health check", sdklog.ErrorCode("HEALTH_CHECK_ERROR"))
+		setupLog.Error(err, "Error adding health check", cleanerlog.ErrorCode("HEALTH_CHECK_ERROR"))
 		os.Exit(1)
 	}
 
 	// Add enhanced readiness check (verifies informer sync status)
 	if err := mgr.AddReadyzCheck("readyz", healthChecker.ReadinessCheck); err != nil {
-		setupLog.Error(err, "Error adding readiness check", sdklog.ErrorCode("READY_CHECK_ERROR"))
+		setupLog.Error(err, "Error adding readiness check", cleanerlog.ErrorCode("READY_CHECK_ERROR"))
 		os.Exit(1)
 	}
 
 	// Add startup check (simple initialization check)
 	if err := mgr.AddHealthzCheck("startup", healthChecker.StartupCheck); err != nil {
-		setupLog.Error(err, "Error adding startup check", sdklog.ErrorCode("STARTUP_CHECK_ERROR"))
+		setupLog.Error(err, "Error adding startup check", cleanerlog.ErrorCode("STARTUP_CHECK_ERROR"))
 		os.Exit(1)
 	}
 
@@ -464,12 +464,12 @@ func runController(ctx context.Context, restCfg *rest.Config, mgrOpts *ctrl.Opti
 	// Start the manager (this blocks until context is canceled)
 	// mgr.Start() errors are typically non-fatal (e.g., context canceled on shutdown)
 	// We don't call os.Exit here to allow graceful shutdown via defer cancel()
-	setupLog.Info("Starting Zen Cleaner controller manager", sdklog.Operation("start"))
+	setupLog.Info("Starting Zen Cleaner controller manager", cleanerlog.Operation("start"))
 	if err := mgr.Start(ctx); err != nil {
-		setupLog.Error(err, "Error starting manager", sdklog.ErrorCode("MANAGER_START_ERROR"))
+		setupLog.Error(err, "Error starting manager", cleanerlog.ErrorCode("MANAGER_START_ERROR"))
 		// Don't call os.Exit here - let the defer cancel() run for cleanup
 		return
 	}
 
-	setupLog.Info("Zen Cleaner controller shutdown complete", sdklog.Operation("shutdown"))
+	setupLog.Info("Zen Cleaner controller shutdown complete", cleanerlog.Operation("shutdown"))
 }

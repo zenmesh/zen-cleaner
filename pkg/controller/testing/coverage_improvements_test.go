@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/controller"
 )
@@ -75,7 +75,7 @@ func TestPolicyEvaluationService_NoResources(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	ctx := context.Background()
@@ -141,7 +141,7 @@ func TestPolicyEvaluationService_NoConditions(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	ctx := context.Background()
@@ -189,7 +189,7 @@ func TestPolicyEvaluationService_ListResourcesError(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	ctx := context.Background()
@@ -263,7 +263,7 @@ func TestPolicyEvaluationService_ContextCancellationDuringEvaluation(t *testing.
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	// Cancel context immediately
@@ -293,7 +293,7 @@ func TestPolicyEvaluationService_StatusUpdater(t *testing.T) {
 		nil, // StatusUpdater - nil is OK for this test
 		nil, // EventRecorder - nil is OK for this test
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	ctx := context.Background()
@@ -318,7 +318,7 @@ func TestPolicyEvaluationService_EventRecorder(t *testing.T) {
 		nil,
 		nil, // EventRecorder - nil is OK
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	ctx := context.Background()

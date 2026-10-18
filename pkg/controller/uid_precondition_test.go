@@ -26,13 +26,13 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 
 	gcapi "github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/safety"
 )
 
-func testLogger() *sdklog.Logger { return sdklog.NewLogger("test") }
+func testLogger() *cleanerlog.Logger { return cleanerlog.NewLogger("test") }
 
 // cmWithUID builds an unstructured ConfigMap fixture with a fixed UID.
 func cmWithUID(name, uid string) *unstructured.Unstructured {

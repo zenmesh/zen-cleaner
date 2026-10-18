@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	sdkconfig "github.com/zenmesh/zen-cleaner/internal/config"
+	cleanerconfig "github.com/zenmesh/zen-cleaner/internal/config"
 )
 
 // Default values for controller configuration.
@@ -86,7 +86,7 @@ func NewControllerConfig() *ControllerConfig {
 // Environment variables override defaults if set.
 // This implementation uses zen-cleaner/internal/pkg/config for validation.
 func (c *ControllerConfig) LoadFromEnv() error {
-	validator := sdkconfig.NewValidator()
+	validator := cleanerconfig.NewValidator()
 
 	// ZEN_CLEANER_INTERVAL - duration string (e.g., "1m", "30s", "2h")
 	if val := validator.OptionalDuration("ZEN_CLEANER_INTERVAL", ""); val != "" {

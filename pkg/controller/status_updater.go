@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/config"
 	cleanererrors "github.com/zenmesh/zen-cleaner/pkg/errors"
@@ -149,11 +149,12 @@ func (s *StatusUpdater) UpdateStatus(
 		"reason":             "PolicyActive",
 		"message":            "Policy is active and processing resources",
 	}
-	if phase == PolicyPhaseError {
+	switch phase {
+	case PolicyPhaseError:
 		readyCondition[statusSubresourceKey] = "False"
 		readyCondition["reason"] = "PolicyError"
 		readyCondition["message"] = "Policy evaluation encountered errors"
-	} else if phase == PolicyPhasePaused {
+	case PolicyPhasePaused:
 		readyCondition[statusSubresourceKey] = "False"
 		readyCondition["reason"] = "PolicyPaused"
 		readyCondition["message"] = "Policy is paused"
@@ -199,13 +200,13 @@ func (s *StatusUpdater) UpdateStatus(
 		cleanerErr := cleanererrors.Wrap(err, "status_update_failed", "failed to update ZenCleanerPolicy status")
 		cleanerErr = cleanerErr.WithContext("policy_namespace", policy.Namespace)
 		cleanerErr = cleanerErr.WithContext("policy_name", policy.Name)
-		logger := sdklog.NewLogger("zen-cleaner")
-		logger.Warn("Failed to update ZenCleanerPolicy status", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Error(cleanerErr))
+		logger := cleanerlog.NewLogger("zen-cleaner")
+		logger.Warn("Failed to update ZenCleanerPolicy status", cleanerlog.Operation("update_status"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.Error(cleanerErr))
 		return cleanerErr
 	}
 
-	logger := sdklog.NewLogger("zen-cleaner")
-	logger.Debug("Updated ZenCleanerPolicy status", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Int64("matched", matched), sdklog.Int64("deleted", deleted), sdklog.Int64("pending", pending))
+	logger := cleanerlog.NewLogger("zen-cleaner")
+	logger.Debug("Updated ZenCleanerPolicy status", cleanerlog.Operation("update_status"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.Int64("matched", matched), cleanerlog.Int64("deleted", deleted), cleanerlog.Int64("pending", pending))
 
 	return nil
 }

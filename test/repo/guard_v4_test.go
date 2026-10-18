@@ -341,7 +341,7 @@ func v4Evaluate(t *testing.T, root string) []string {
 func trackedTextFiles(t *testing.T, root string) []string {
 	t.Helper()
 	var out []string
-	filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -370,6 +370,9 @@ func trackedTextFiles(t *testing.T, root string) []string {
 		}
 		return nil
 	})
+	if walkErr != nil {
+		t.Fatalf("scan tracked text: %v", walkErr)
+	}
 	return out
 }
 

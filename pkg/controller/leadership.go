@@ -33,7 +33,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 )
 
 // LeaderState tracks whether this replica currently leads, plus a startup
@@ -41,12 +41,12 @@ import (
 type LeaderState struct {
 	leading      atomic.Bool
 	startedAt    time.Time
-	logger       *sdklog.Logger
+	logger       *cleanerlog.Logger
 	startupGrace time.Duration
 }
 
 // NewLeaderState creates the tracker with a startup grace period.
-func NewLeaderState(startupGrace time.Duration, logger *sdklog.Logger) *LeaderState {
+func NewLeaderState(startupGrace time.Duration, logger *cleanerlog.Logger) *LeaderState {
 	return &LeaderState{
 		startedAt:    time.Now(),
 		logger:       logger,
@@ -135,7 +135,7 @@ func ServeStandalone(ctx context.Context, addr string, mux *http.ServeMux) (stop
 			_ = srv.Shutdown(shutdownCtx)
 		case err := <-errCh:
 			if err != nil {
-				sdklog.NewLogger("zen-cleaner").Error(err, "standalone health server failed")
+				cleanerlog.NewLogger("zen-cleaner").Error(err, "standalone health server failed")
 			}
 		}
 	}()

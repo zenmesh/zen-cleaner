@@ -17,7 +17,7 @@ Thank you for your interest in contributing to zen-cleaner! This document provid
 
 1. **Fork and clone the repository:**
    ```bash
-   git clone https://github.com/zen-mesh/zen-cleaner.git
+   git clone https://github.com/zenmesh/zen-cleaner.git
    cd zen-cleaner
    ```
 
@@ -135,7 +135,7 @@ go test -v ./pkg/controller/... -run TestCleanerController_StartStop
 
 #### GoLand / IntelliJ IDEA
 
-1. **Configure Go SDK:**
+1. **Configure Go toolchain:**
    - File → Settings → Go → GOROOT
    - Set to your Go installation path
 

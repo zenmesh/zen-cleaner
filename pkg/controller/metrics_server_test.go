@@ -33,7 +33,11 @@ func TestServeMetricsAlwaysOn_ServesBothRegistries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /metrics: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("close metrics response: %v", err)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("GET /metrics: got %d want 200", resp.StatusCode)
 	}

@@ -322,11 +322,7 @@ func isValidVersion(version string) bool {
 // validateTTL validates the TTL specification.
 func validateTTL(ttl *gcapi.TTLSpec) error {
 	// At least one TTL option must be specified
-	hasTTL := false
-
-	if ttl.SecondsAfterCreation != nil && *ttl.SecondsAfterCreation > 0 {
-		hasTTL = true
-	}
+	hasTTL := ttl.SecondsAfterCreation != nil && *ttl.SecondsAfterCreation > 0
 
 	if ttl.FieldPath != "" {
 		hasTTL = true

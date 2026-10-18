@@ -5,13 +5,13 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 )
 
 func TestPolicyReconciler_meetsConditions_Phase(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 
 	tests := []struct {
@@ -84,7 +84,7 @@ func TestPolicyReconciler_meetsConditions_Phase(t *testing.T) {
 
 func TestPolicyReconciler_meetsConditions_Labels(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 
 	tests := []struct {
@@ -161,7 +161,7 @@ func TestPolicyReconciler_meetsConditions_Labels(t *testing.T) {
 
 func TestPolicyReconciler_meetsConditions_Annotations(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 
 	tests := []struct {
@@ -220,7 +220,7 @@ func TestPolicyReconciler_meetsConditions_Annotations(t *testing.T) {
 
 func TestPolicyReconciler_meetsConditions_FieldConditions(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 
 	tests := []struct {

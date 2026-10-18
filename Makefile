@@ -118,7 +118,7 @@ coverage: test-unit
 	@echo "Checking coverage threshold (minimum: 65%)..."
 	@COVERAGE=$$(go tool cover -func=coverage.out | tail -1 | awk '{print $$3}' | sed 's/%//'); \
 	if [ -z "$$COVERAGE" ]; then \
-		echo "⚠️  Could not determine coverage percentage"; \
+		echo "❌ Could not determine coverage percentage"; exit 1; \
 	elif [ $$(echo "$$COVERAGE < 65" | bc -l) -eq 1 ]; then \
 		echo "❌ Coverage $$COVERAGE% is below the 65% threshold"; \
 		exit 1; \

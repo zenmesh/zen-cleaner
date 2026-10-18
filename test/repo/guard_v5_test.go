@@ -142,8 +142,11 @@ func TestV5(t *testing.T) {
 	}
 	// §15: nested modules banned (V4 checks during its walk; asserted here
 	// independently so V5 stands alone).
-	filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
-		if err != nil || !d.IsDir() {
+	if err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
 			return nil
 		}
 		rel, rerr := filepath.Rel(root, p)
@@ -154,7 +157,9 @@ func TestV5(t *testing.T) {
 			violations = append(violations, "V5 §15: nested go.mod at "+filepath.ToSlash(rel))
 		}
 		return nil
-	})
+	}); err != nil {
+		t.Fatalf("scan nested modules: %v", err)
+	}
 
 	if textScanned == 0 {
 		t.Fatal("V5: extension scan must have covered text artifacts")

@@ -47,6 +47,7 @@ jobs:
             org.opencontainers.image.source=https://github.com/zenmesh/zen-cleaner
 
       - name: Build and push (failure is visible)
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -61,10 +62,18 @@ jobs:
             COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
 
-      - name: Record the immutable digest (publication proof)
+      - name: Verify and record the published digest
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          echo "Published: ghcr.io/zenmesh/zen-cleaner@${{ steps.meta.outputs.version }}"
-          docker buildx imagetools inspect "ghcr.io/zenmesh/zen-cleaner:$(echo '${{ steps.meta.outputs.version }}' | head -1)" || true
+          if ! [[ "$IMAGE_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "Build did not return a valid published image digest"
+            exit 1
+          fi
+          IMAGE_REF="ghcr.io/zenmesh/zen-cleaner@$IMAGE_DIGEST"
+          docker buildx imagetools inspect "$IMAGE_REF"
+          echo "Published: $IMAGE_REF"
+          echo "Published image: \`$IMAGE_REF\`" >> "$GITHUB_STEP_SUMMARY"
 # FIRST-PUBLISH NOTE: a package created by GITHUB_TOKEN defaults to PRIVATE.
 # The one-time visibility step (package settings -> public) is an owner
 # action recorded in RELEASING.md; anonymous pulls stay denied until then.

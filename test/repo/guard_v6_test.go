@@ -124,7 +124,9 @@ func TestV6ExportedAPISnapshot(t *testing.T) {
 	baselineRaw, err := os.ReadFile(baselinePath)
 	if err != nil {
 		// First run: write the baseline and pass (bootstrap).
-		os.WriteFile(baselinePath, []byte(got), 0o644)
+		if err := os.WriteFile(baselinePath, []byte(got), 0o644); err != nil {
+			t.Fatalf("write API baseline: %v", err)
+		}
 		t.Log("API surface baseline created (bootstrap)")
 		return
 	}
@@ -165,7 +167,7 @@ func generateSnapshot(t *testing.T, root string) string {
 	t.Helper()
 	var lines []string
 	fset := token.NewFileSet()
-	filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
 			return nil
 		}
@@ -214,6 +216,9 @@ func generateSnapshot(t *testing.T, root string) string {
 		}
 		return nil
 	})
+	if walkErr != nil {
+		t.Fatalf("scan public API: %v", walkErr)
+	}
 	sort.Strings(lines)
 	return strings.Join(lines, "\n")
 }

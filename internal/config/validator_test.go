@@ -9,7 +9,7 @@ func TestValidator_RequireString(t *testing.T) {
 	v := NewValidator()
 
 	// Test missing env var
-	os.Unsetenv("TEST_REQUIRED")
+	t.Setenv("TEST_REQUIRED", "")
 	val := v.RequireString("TEST_REQUIRED")
 	if val != "" {
 		t.Errorf("Expected empty string, got %s", val)
@@ -19,7 +19,7 @@ func TestValidator_RequireString(t *testing.T) {
 	}
 
 	// Test present env var
-	os.Setenv("TEST_REQUIRED", "test-value")
+	t.Setenv("TEST_REQUIRED", "test-value")
 	v2 := NewValidator()
 	val = v2.RequireString("TEST_REQUIRED")
 	if val != "test-value" {
@@ -28,33 +28,33 @@ func TestValidator_RequireString(t *testing.T) {
 	if v2.HasErrors() {
 		t.Error("Expected no validation errors")
 	}
-	os.Unsetenv("TEST_REQUIRED")
+	t.Setenv("TEST_REQUIRED", "")
 }
 
 func TestValidator_OptionalString(t *testing.T) {
 	v := NewValidator()
 
 	// Test missing env var with default
-	os.Unsetenv("TEST_OPTIONAL")
+	t.Setenv("TEST_OPTIONAL", "")
 	val := v.OptionalString("TEST_OPTIONAL", "default-value")
 	if val != "default-value" {
 		t.Errorf("Expected 'default-value', got %s", val)
 	}
 
 	// Test present env var
-	os.Setenv("TEST_OPTIONAL", "actual-value")
+	t.Setenv("TEST_OPTIONAL", "actual-value")
 	val = v.OptionalString("TEST_OPTIONAL", "default-value")
 	if val != "actual-value" {
 		t.Errorf("Expected 'actual-value', got %s", val)
 	}
-	os.Unsetenv("TEST_OPTIONAL")
+	t.Setenv("TEST_OPTIONAL", "")
 }
 
 func TestValidator_RequireInt(t *testing.T) {
 	v := NewValidator()
 
 	// Test missing env var
-	os.Unsetenv("TEST_INT")
+	t.Setenv("TEST_INT", "")
 	val := v.RequireInt("TEST_INT")
 	if val != 0 {
 		t.Errorf("Expected 0, got %d", val)
@@ -64,7 +64,7 @@ func TestValidator_RequireInt(t *testing.T) {
 	}
 
 	// Test invalid int
-	os.Setenv("TEST_INT", "not-a-number")
+	t.Setenv("TEST_INT", "not-a-number")
 	v2 := NewValidator()
 	val = v2.RequireInt("TEST_INT")
 	if val != 0 {
@@ -75,7 +75,7 @@ func TestValidator_RequireInt(t *testing.T) {
 	}
 
 	// Test valid int
-	os.Setenv("TEST_INT", "42")
+	t.Setenv("TEST_INT", "42")
 	v3 := NewValidator()
 	val = v3.RequireInt("TEST_INT")
 	if val != 42 {
@@ -84,14 +84,14 @@ func TestValidator_RequireInt(t *testing.T) {
 	if v3.HasErrors() {
 		t.Error("Expected no validation errors")
 	}
-	os.Unsetenv("TEST_INT")
+	t.Setenv("TEST_INT", "")
 }
 
 func TestValidator_RequireURL(t *testing.T) {
 	v := NewValidator()
 
 	// Test missing env var
-	os.Unsetenv("TEST_URL")
+	t.Setenv("TEST_URL", "")
 	val := v.RequireURL("TEST_URL")
 	if val != "" {
 		t.Errorf("Expected empty string, got %s", val)
@@ -101,7 +101,7 @@ func TestValidator_RequireURL(t *testing.T) {
 	}
 
 	// Test invalid URL
-	os.Setenv("TEST_URL", "not-a-url")
+	t.Setenv("TEST_URL", "not-a-url")
 	v2 := NewValidator()
 	val = v2.RequireURL("TEST_URL")
 	if val != "" {
@@ -112,7 +112,7 @@ func TestValidator_RequireURL(t *testing.T) {
 	}
 
 	// Test valid URL
-	os.Setenv("TEST_URL", "https://example.com")
+	t.Setenv("TEST_URL", "https://example.com")
 	v3 := NewValidator()
 	val = v3.RequireURL("TEST_URL")
 	if val != "https://example.com" {
@@ -121,14 +121,14 @@ func TestValidator_RequireURL(t *testing.T) {
 	if v3.HasErrors() {
 		t.Error("Expected no validation errors")
 	}
-	os.Unsetenv("TEST_URL")
+	t.Setenv("TEST_URL", "")
 }
 
 func TestValidator_RequireCSV(t *testing.T) {
 	v := NewValidator()
 
 	// Test missing env var
-	os.Unsetenv("TEST_CSV")
+	t.Setenv("TEST_CSV", "")
 	val := v.RequireCSV("TEST_CSV")
 	if val != nil {
 		t.Errorf("Expected nil, got %v", val)
@@ -138,7 +138,7 @@ func TestValidator_RequireCSV(t *testing.T) {
 	}
 
 	// Test valid CSV
-	os.Setenv("TEST_CSV", "a,b,c")
+	t.Setenv("TEST_CSV", "a,b,c")
 	v2 := NewValidator()
 	val = v2.RequireCSV("TEST_CSV")
 	if len(val) != 3 {
@@ -147,7 +147,7 @@ func TestValidator_RequireCSV(t *testing.T) {
 	if v2.HasErrors() {
 		t.Error("Expected no validation errors")
 	}
-	os.Unsetenv("TEST_CSV")
+	t.Setenv("TEST_CSV", "")
 }
 
 func TestValidator_Validate(t *testing.T) {
@@ -160,23 +160,23 @@ func TestValidator_Validate(t *testing.T) {
 	}
 
 	// With errors
-	os.Unsetenv("TEST_REQUIRED")
+	t.Setenv("TEST_REQUIRED", "")
 	v.RequireString("TEST_REQUIRED")
 	err = v.Validate()
 	if err == nil {
 		t.Error("Expected validation error")
 	}
-	os.Unsetenv("TEST_REQUIRED")
+	t.Setenv("TEST_REQUIRED", "")
 }
 
 func TestValidator_OptionalURL(t *testing.T) {
 	v := NewValidator()
-	os.Unsetenv("OPT_URL")
+	t.Setenv("OPT_URL", "")
 	if got := v.OptionalURL("OPT_URL", "https://default.example"); got != "https://default.example" {
 		t.Errorf("got %q", got)
 	}
 
-	os.Setenv("OPT_URL", "not-url")
+	t.Setenv("OPT_URL", "not-url")
 	if got := v.OptionalURL("OPT_URL", "https://fallback.example"); got != "https://fallback.example" {
 		t.Errorf("invalid URL should use default, got %q", got)
 	}
@@ -185,22 +185,22 @@ func TestValidator_OptionalURL(t *testing.T) {
 	}
 
 	v2 := NewValidator()
-	os.Setenv("OPT_URL2", "https://ok.example")
+	t.Setenv("OPT_URL2", "https://ok.example")
 	if got := v2.OptionalURL("OPT_URL2", "https://default.example"); got != "https://ok.example" {
 		t.Errorf("got %q", got)
 	}
-	os.Unsetenv("OPT_URL")
-	os.Unsetenv("OPT_URL2")
+	t.Setenv("OPT_URL", "")
+	t.Setenv("OPT_URL2", "")
 }
 
 func TestValidator_OptionalInt(t *testing.T) {
 	v := NewValidator()
-	os.Unsetenv("OPT_INT")
+	t.Setenv("OPT_INT", "")
 	if v.OptionalInt("OPT_INT", 7) != 7 {
 		t.Error("default int")
 	}
 
-	os.Setenv("OPT_INT", "nope")
+	t.Setenv("OPT_INT", "nope")
 	v2 := NewValidator()
 	if v2.OptionalInt("OPT_INT", 42) != 42 {
 		t.Error("invalid int uses default")
@@ -209,17 +209,17 @@ func TestValidator_OptionalInt(t *testing.T) {
 		t.Error("expected error for bad int")
 	}
 
-	os.Setenv("OPT_INT", "99")
+	t.Setenv("OPT_INT", "99")
 	v3 := NewValidator()
 	if v3.OptionalInt("OPT_INT", 1) != 99 {
 		t.Error("parsed int")
 	}
-	os.Unsetenv("OPT_INT")
+	t.Setenv("OPT_INT", "")
 }
 
 func TestValidator_RequireBool_and_OptionalBool(t *testing.T) {
 	v := NewValidator()
-	os.Unsetenv("REQ_BOOL")
+	t.Setenv("REQ_BOOL", "")
 	if v.RequireBool("REQ_BOOL") {
 		t.Error("missing bool should be false")
 	}
@@ -227,37 +227,37 @@ func TestValidator_RequireBool_and_OptionalBool(t *testing.T) {
 		t.Error("expected error")
 	}
 
-	os.Setenv("REQ_BOOL", "not-bool")
+	t.Setenv("REQ_BOOL", "not-bool")
 	v2 := NewValidator()
 	v2.RequireBool("REQ_BOOL")
 	if !v2.HasErrors() {
 		t.Error("invalid bool")
 	}
 
-	os.Setenv("REQ_BOOL", "true")
+	t.Setenv("REQ_BOOL", "true")
 	v3 := NewValidator()
 	if !v3.RequireBool("REQ_BOOL") {
 		t.Error("true")
 	}
 
-	os.Unsetenv("OPT_BOOL")
+	t.Setenv("OPT_BOOL", "")
 	v4 := NewValidator()
 	if !v4.OptionalBool("OPT_BOOL", true) {
 		t.Error("optional default true")
 	}
 
-	os.Setenv("OPT_BOOL", "false")
+	t.Setenv("OPT_BOOL", "false")
 	v5 := NewValidator()
 	if v5.OptionalBool("OPT_BOOL", true) {
 		t.Error("optional false")
 	}
-	os.Unsetenv("REQ_BOOL")
-	os.Unsetenv("OPT_BOOL")
+	t.Setenv("REQ_BOOL", "")
+	t.Setenv("OPT_BOOL", "")
 }
 
 func TestValidator_Duration_helpers(t *testing.T) {
 	v := NewValidator()
-	os.Unsetenv("REQ_DUR")
+	t.Setenv("REQ_DUR", "")
 	if v.RequireDuration("REQ_DUR") != "" {
 		t.Error("empty when missing")
 	}
@@ -265,95 +265,95 @@ func TestValidator_Duration_helpers(t *testing.T) {
 		t.Error("error when missing")
 	}
 
-	os.Setenv("REQ_DUR", "bad")
+	t.Setenv("REQ_DUR", "bad")
 	v2 := NewValidator()
 	v2.RequireDuration("REQ_DUR")
 	if !v2.HasErrors() {
 		t.Error("bad duration suffix")
 	}
 
-	os.Setenv("REQ_DUR", "30s")
+	t.Setenv("REQ_DUR", "30s")
 	v3 := NewValidator()
 	if v3.RequireDuration("REQ_DUR") != "30s" {
 		t.Errorf("got %q", v3.RequireDuration("REQ_DUR"))
 	}
 
-	os.Unsetenv("OPT_DUR")
+	t.Setenv("OPT_DUR", "")
 	v4 := NewValidator()
 	if v4.OptionalDuration("OPT_DUR", "5m") != "5m" {
 		t.Error("optional default")
 	}
 
-	os.Setenv("OPT_DUR", "bad")
+	t.Setenv("OPT_DUR", "bad")
 	v5 := NewValidator()
 	if v5.OptionalDuration("OPT_DUR", "1h") != "1h" {
 		t.Error("invalid optional uses default")
 	}
-	os.Unsetenv("REQ_DUR")
-	os.Unsetenv("OPT_DUR")
+	t.Setenv("REQ_DUR", "")
+	t.Setenv("OPT_DUR", "")
 }
 
 func TestValidator_RequireOneOf(t *testing.T) {
 	v := NewValidator()
-	os.Unsetenv("ONEOF")
+	t.Setenv("ONEOF", "")
 	if v.RequireOneOf("ONEOF", []string{"a", "b"}) != "" {
 		t.Error("empty when unset")
 	}
 
-	os.Setenv("ONEOF", "c")
+	t.Setenv("ONEOF", "c")
 	v2 := NewValidator()
 	v2.RequireOneOf("ONEOF", []string{"a", "b"})
 	if !v2.HasErrors() {
 		t.Error("not in allowed")
 	}
 
-	os.Setenv("ONEOF", "b")
+	t.Setenv("ONEOF", "b")
 	v3 := NewValidator()
 	if v3.RequireOneOf("ONEOF", []string{"a", "b"}) != "b" {
 		t.Error("match")
 	}
-	os.Unsetenv("ONEOF")
+	t.Setenv("ONEOF", "")
 }
 
 func TestValidator_OptionalCSV(t *testing.T) {
 	v := NewValidator()
-	os.Unsetenv("OCSV")
+	t.Setenv("OCSV", "")
 	def := []string{"x"}
 	gotDef := v.OptionalCSV("OCSV", def)
 	if len(gotDef) != 1 || gotDef[0] != "x" {
 		t.Errorf("default CSV: %#v", gotDef)
 	}
 
-	os.Setenv("OCSV", "a, b , ")
+	t.Setenv("OCSV", "a, b , ")
 	v2 := NewValidator()
 	got := v2.OptionalCSV("OCSV", def)
 	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
 		t.Errorf("got %#v", got)
 	}
-	os.Unsetenv("OCSV")
+	t.Setenv("OCSV", "")
 }
 
 func TestValidator_ForbidInProduction(t *testing.T) {
 	old := os.Getenv("ENVIRONMENT")
 	defer func() {
 		if old == "" {
-			os.Unsetenv("ENVIRONMENT")
+			t.Setenv("ENVIRONMENT", "")
 		} else {
-			os.Setenv("ENVIRONMENT", old)
+			t.Setenv("ENVIRONMENT", old)
 		}
-		os.Unsetenv("DEVONLY")
+		t.Setenv("DEVONLY", "")
 	}()
 
-	os.Unsetenv("DEVONLY")
-	os.Setenv("ENVIRONMENT", "development")
+	t.Setenv("DEVONLY", "")
+	t.Setenv("ENVIRONMENT", "development")
 	v := NewValidator()
 	v.ForbidInProduction("DEVONLY")
 	if v.HasErrors() {
 		t.Error("no error outside production")
 	}
 
-	os.Setenv("ENVIRONMENT", "production")
-	os.Setenv("DEVONLY", "1")
+	t.Setenv("ENVIRONMENT", "production")
+	t.Setenv("DEVONLY", "1")
 	v2 := NewValidator()
 	v2.ForbidInProduction("DEVONLY")
 	if !v2.HasErrors() {
@@ -363,7 +363,7 @@ func TestValidator_ForbidInProduction(t *testing.T) {
 
 func TestValidator_Errors_slice(t *testing.T) {
 	v := NewValidator()
-	os.Unsetenv("MULTI_MISSING")
+	t.Setenv("MULTI_MISSING", "")
 	v.RequireString("MULTI_MISSING")
 	v.RequireInt("MULTI_MISSING")
 	errs := v.Errors()

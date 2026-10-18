@@ -23,13 +23,6 @@ type rpcRequest struct {
 	Params json.RawMessage `json:"params,omitempty"`
 }
 
-// rpcResponse is one JSON-RPC 2.0 response.
-type rpcResponse struct {
-	ID     int             `json:"id"`
-	Result json.RawMessage `json:"result,omitempty"`
-	Error  *rpcError       `json:"error,omitempty"`
-}
-
 type rpcError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`

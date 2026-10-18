@@ -248,19 +248,19 @@ Loads rate limit configuration with priority order:
 
 **Usage:**
 ```go
-import sdkconfig "github.com/zenmesh/zen-cleaner/internal/config"
+import cleanerconfig "github.com/zenmesh/zen-cleaner/internal/config"
 
 // From CRD (zen-ingester)
-var crdConfig sdkconfig.CRDRateLimitConfig
+var crdConfig cleanerconfig.CRDRateLimitConfig
 if config.RateLimit != nil {
-    crdConfig = sdkconfig.NewSourceConfigRateLimitAdapter(
+    crdConfig = cleanerconfig.NewSourceConfigRateLimitAdapter(
         config.RateLimit.ObservationsPerMinute,
         config.RateLimit.Burst,
     )
 }
 
 // Load configuration (harmonized across components)
-rateLimitConfig := sdkconfig.LoadIngesterRateLimitConfig("falco", crdConfig)
+rateLimitConfig := cleanerconfig.LoadIngesterRateLimitConfig("falco", crdConfig)
 if rateLimitConfig != nil {
     rps := float64(rateLimitConfig.RequestsPerMinute) / 60.0
     burst := rateLimitConfig.Burst
@@ -285,7 +285,7 @@ type CRDRateLimitConfig interface {
 **SourceConfigRateLimitAdapter:**
 Adapter for `zen-ingester`'s `RateLimitConfig` (with `ObservationsPerMinute` field):
 ```go
-adapter := sdkconfig.NewSourceConfigRateLimitAdapter(observationsPerMinute, burst)
+adapter := cleanerconfig.NewSourceConfigRateLimitAdapter(observationsPerMinute, burst)
 ```
 
 **Benefits:**
@@ -296,6 +296,6 @@ adapter := sdkconfig.NewSourceConfigRateLimitAdapter(observationsPerMinute, burs
 
 ## See Also
 
-- [Zen SDK README](../../README.md)
+- [Zen Cleaner README](../../README.md)
 - [Migration Guide](../../docs/MIGRATION_GUIDE.md)
 

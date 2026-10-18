@@ -82,7 +82,7 @@ func NewRecorder(client kubernetes.Interface, component string) *Recorder {
 	// Create event broadcaster
 	eventBroadcaster := record.NewBroadcaster()
 	// StartStructuredLogging is removed as it requires klog-compatible logger.
-	// Event logging is handled via StartRecordingToSink and we use sdklog for application logging.
+	// Event logging is handled via StartRecordingToSink and we use cleanerlog for application logging.
 	var sinkWatch watch.Interface
 	if client != nil {
 		sinkWatch = eventBroadcaster.StartRecordingToSink(&eventSinkWrapper{

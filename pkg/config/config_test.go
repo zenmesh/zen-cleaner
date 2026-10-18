@@ -17,7 +17,6 @@ limitations under the License.
 package config
 
 import (
-	"os"
 	"testing"
 	"time"
 )
@@ -39,32 +38,8 @@ func TestNewControllerConfig(t *testing.T) {
 }
 
 func TestControllerConfig_LoadFromEnv(t *testing.T) {
-	// Save original values
-	originalCleanupInterval := os.Getenv("ZEN_CLEANER_INTERVAL")
-	originalMaxDeletions := os.Getenv("ZEN_CLEANER_MAX_DELETIONS_PER_SECOND")
-	originalBatchSize := os.Getenv("ZEN_CLEANER_BATCH_SIZE")
-
-	// Clean up after test
-	defer func() {
-		if originalCleanupInterval != "" {
-			os.Setenv("ZEN_CLEANER_INTERVAL", originalCleanupInterval)
-		} else {
-			os.Unsetenv("ZEN_CLEANER_INTERVAL")
-		}
-		if originalMaxDeletions != "" {
-			os.Setenv("ZEN_CLEANER_MAX_DELETIONS_PER_SECOND", originalMaxDeletions)
-		} else {
-			os.Unsetenv("ZEN_CLEANER_MAX_DELETIONS_PER_SECOND")
-		}
-		if originalBatchSize != "" {
-			os.Setenv("ZEN_CLEANER_BATCH_SIZE", originalBatchSize)
-		} else {
-			os.Unsetenv("ZEN_CLEANER_BATCH_SIZE")
-		}
-	}()
-
 	// Test ZEN_CLEANER_INTERVAL
-	os.Setenv("ZEN_CLEANER_INTERVAL", "2m")
+	t.Setenv("ZEN_CLEANER_INTERVAL", "2m")
 	cfg := NewControllerConfig()
 	if err := cfg.LoadFromEnv(); err != nil {
 		t.Fatalf("LoadFromEnv() returned error: %v", err)
@@ -74,7 +49,7 @@ func TestControllerConfig_LoadFromEnv(t *testing.T) {
 	}
 
 	// Test ZEN_CLEANER_MAX_DELETIONS_PER_SECOND
-	os.Setenv("ZEN_CLEANER_MAX_DELETIONS_PER_SECOND", "20")
+	t.Setenv("ZEN_CLEANER_MAX_DELETIONS_PER_SECOND", "20")
 	cfg = NewControllerConfig()
 	if err := cfg.LoadFromEnv(); err != nil {
 		t.Fatalf("LoadFromEnv() returned error: %v", err)
@@ -84,7 +59,7 @@ func TestControllerConfig_LoadFromEnv(t *testing.T) {
 	}
 
 	// Test ZEN_CLEANER_BATCH_SIZE
-	os.Setenv("ZEN_CLEANER_BATCH_SIZE", "100")
+	t.Setenv("ZEN_CLEANER_BATCH_SIZE", "100")
 	cfg = NewControllerConfig()
 	if err := cfg.LoadFromEnv(); err != nil {
 		t.Fatalf("LoadFromEnv() returned error: %v", err)
@@ -94,7 +69,7 @@ func TestControllerConfig_LoadFromEnv(t *testing.T) {
 	}
 
 	// Test invalid values (should keep defaults and return validation error)
-	os.Setenv("ZEN_CLEANER_MAX_DELETIONS_PER_SECOND", "invalid")
+	t.Setenv("ZEN_CLEANER_MAX_DELETIONS_PER_SECOND", "invalid")
 	cfg = NewControllerConfig()
 	err := cfg.LoadFromEnv()
 	if err == nil {
@@ -104,8 +79,8 @@ func TestControllerConfig_LoadFromEnv(t *testing.T) {
 		t.Errorf("Expected MaxDeletionsPerSecond=%d (default), got %d", DefaultMaxDeletionsPerSecond, cfg.MaxDeletionsPerSecond)
 	}
 
-	os.Unsetenv("ZEN_CLEANER_MAX_DELETIONS_PER_SECOND")
-	os.Setenv("ZEN_CLEANER_BATCH_SIZE", "not-a-number")
+	t.Setenv("ZEN_CLEANER_MAX_DELETIONS_PER_SECOND", "")
+	t.Setenv("ZEN_CLEANER_BATCH_SIZE", "not-a-number")
 	cfg = NewControllerConfig()
 	err = cfg.LoadFromEnv()
 	if err == nil {

@@ -2,7 +2,7 @@
 
 ## Dependencies
 
-zen-cleaner has no external private dependencies. All SDK code is inlined into `internal/` packages.
+zen-cleaner has no external private dependencies. All first-party implementation is maintained locally in `internal/` packages.
 
 ## Build
 

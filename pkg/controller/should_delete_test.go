@@ -7,13 +7,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 )
 
 func TestPolicyReconciler_shouldDelete_TTLExpired(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 
 	// Create a resource that was created 2 hours ago
@@ -45,7 +45,7 @@ func TestPolicyReconciler_shouldDelete_TTLExpired(t *testing.T) {
 
 func TestPolicyReconciler_shouldDelete_TTLNotExpired(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 
 	// Create a resource that was created 30 minutes ago
@@ -77,7 +77,7 @@ func TestPolicyReconciler_shouldDelete_TTLNotExpired(t *testing.T) {
 
 func TestPolicyReconciler_shouldDelete_ConditionNotMet(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 
 	// Create an expired resource
@@ -115,7 +115,7 @@ func TestPolicyReconciler_shouldDelete_ConditionNotMet(t *testing.T) {
 
 func TestPolicyReconciler_shouldDelete_RelativeTTL_Expired(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 
 	// RelativeTo timestamp 3 hours ago + 1 hour SecondsAfter = already expired
@@ -151,7 +151,7 @@ func TestPolicyReconciler_shouldDelete_RelativeTTL_Expired(t *testing.T) {
 
 func TestPolicyReconciler_shouldDelete_RelativeTTL_NotExpired(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 
 	// RelativeTo timestamp 30 minutes ago + 2 hours SecondsAfter = not yet expired
@@ -187,7 +187,7 @@ func TestPolicyReconciler_shouldDelete_RelativeTTL_NotExpired(t *testing.T) {
 
 func TestPolicyReconciler_shouldDelete_NoTTL(t *testing.T) {
 	reconciler := &PolicyReconciler{
-		logger: sdklog.NewLogger("zen-cleaner"),
+		logger: cleanerlog.NewLogger("zen-cleaner"),
 	}
 
 	resource := &unstructured.Unstructured{

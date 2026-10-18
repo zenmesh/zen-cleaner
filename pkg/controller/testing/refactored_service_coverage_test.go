@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/controller"
 )
@@ -120,7 +120,7 @@ func TestParseGVR(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				sdklog.NewLogger("zen-cleaner"),
+				cleanerlog.NewLogger("zen-cleaner"),
 			)
 
 			ctx := context.Background()
@@ -232,7 +232,7 @@ func TestPolicyEvaluationService_GetBatchSize(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				sdklog.NewLogger("zen-cleaner"),
+				cleanerlog.NewLogger("zen-cleaner"),
 			)
 
 			ctx := context.Background()
@@ -352,7 +352,7 @@ func TestPolicyEvaluationService_ShouldDelete(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				sdklog.NewLogger("zen-cleaner"),
+				cleanerlog.NewLogger("zen-cleaner"),
 			)
 
 			ctx := context.Background()
@@ -384,7 +384,7 @@ func TestPolicyEvaluationService_StatusUpdateTimeout(t *testing.T) {
 		nil, // StatusUpdater - nil is OK, error handling tested elsewhere
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	ctx := context.Background()
@@ -467,7 +467,7 @@ func TestPolicyEvaluationService_BatchDeletionErrors(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	ctx := context.Background()
@@ -557,7 +557,7 @@ func TestPolicyEvaluationService_WildcardNamespace(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	ctx := context.Background()

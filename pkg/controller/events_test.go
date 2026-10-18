@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes/fake"
 
-	sdkevents "github.com/zenmesh/zen-cleaner/internal/events"
+	cleanerevents "github.com/zenmesh/zen-cleaner/internal/events"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 )
 
@@ -156,7 +156,7 @@ func TestGetResourceName(t *testing.T) {
 			},
 		},
 	}
-	name := sdkevents.GetResourceName(resource)
+	name := cleanerevents.GetResourceName(resource)
 	if name != "test-resource" {
 		t.Errorf("Expected 'test-resource', got '%s'", name)
 	}
@@ -178,7 +178,7 @@ func TestGetResourceName_Unknown(t *testing.T) {
 			},
 		},
 	}
-	name := sdkevents.GetResourceName(obj)
+	name := cleanerevents.GetResourceName(obj)
 	// Unstructured.GetName() returns empty string if metadata.name is not set
 	if name != "" {
 		t.Errorf("Expected empty string for object without name, got '%s'", name)

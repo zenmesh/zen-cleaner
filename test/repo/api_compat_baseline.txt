@@ -446,8 +446,8 @@ pkg/controller func NewEventRecorder func(kubernetes.Interface)(*EventRecorder)
 pkg/controller func NewGVRResolver func(meta.RESTMapper)(*GVRResolver)
 pkg/controller func NewHealthChecker func(*PolicyReconciler)(*HealthChecker)
 pkg/controller func NewInformerStoreResourceLister func(cache.Store)(ResourceLister)
-pkg/controller func NewLeaderState func(time.Duration,*sdklog.Logger)(*LeaderState)
-pkg/controller func NewPolicyEvaluationService func(ResourceLister,SelectorMatcher,ConditionMatcher,TTLCalculator,RateLimiterProvider,BatchDeleterCore,*StatusUpdater,*EventRecorder,*config.ControllerConfig,*sdklog.Logger)(*PolicyEvaluationService)
+pkg/controller func NewLeaderState func(time.Duration,*cleanerlog.Logger)(*LeaderState)
+pkg/controller func NewPolicyEvaluationService func(ResourceLister,SelectorMatcher,ConditionMatcher,TTLCalculator,RateLimiterProvider,BatchDeleterCore,*StatusUpdater,*EventRecorder,*config.ControllerConfig,*cleanerlog.Logger)(*PolicyEvaluationService)
 pkg/controller func NewPolicyReconciler func(client.Client,*runtime.Scheme,dynamic.Interface,*StatusUpdater,*EventRecorder,*config.ControllerConfig)(*PolicyReconciler)
 pkg/controller func NewPolicyReconcilerAdapter func(*PolicyReconciler)(*PolicyReconcilerAdapter)
 pkg/controller func NewPolicyReconcilerWithLeaderCheck func(client.Client,*runtime.Scheme,dynamic.Interface,*StatusUpdater,*EventRecorder,*config.ControllerConfig,func() bool)(*PolicyReconciler)
@@ -502,7 +502,7 @@ pkg/controller method PolicyReconciler.DeleteResourceWithContext func(context.Co
 pkg/controller method PolicyReconciler.EvaluatePolicyForTesting func(context.Context,*v1alpha1.ZenCleanerPolicy,*PolicyEvaluationService)(error)
 pkg/controller method PolicyReconciler.ExecuteWithReceipt func(context.Context,[]*unstructured.Unstructured,*gcapi.ZenCleanerPolicy,*ratelimiter.RateLimiter,map[string]string)(int64,[]error,*ExecutionReceiptV2)
 pkg/controller method PolicyReconciler.GetEventRecorder func()(*EventRecorder)
-pkg/controller method PolicyReconciler.GetLogger func()(*sdklog.Logger)
+pkg/controller method PolicyReconciler.GetLogger func()(*cleanerlog.Logger)
 pkg/controller method PolicyReconciler.GetStatusUpdater func()(*StatusUpdater)
 pkg/controller method PolicyReconciler.Reconcile func(context.Context,ctrl.Request)(ctrl.Result,error)
 pkg/controller method PolicyReconciler.SetDiscoveryClient func(discovery.DiscoveryInterface)()
@@ -531,7 +531,7 @@ pkg/controller type DefaultResourceInformer struct{}
 pkg/controller type DefaultResourceInformerFactory struct{}
 pkg/controller type DefaultResourceLister struct{}
 pkg/controller type DefaultSelectorMatcher struct{}
-pkg/controller type EventRecorder struct{*sdkevents.Recorder}
+pkg/controller type EventRecorder struct{*cleanerevents.Recorder}
 pkg/controller type ExecutionReceipt struct{CompletedAt:time.Time,OverallStatus:string,PlanDigest:string,Results:[]ObjectResult,StartedAt:time.Time,Version:string}
 pkg/controller type ExecutionReceiptV2 struct{ExecutionReceipt,PolicyRef:policyRef}
 pkg/controller type GVRResolver struct{}
@@ -606,7 +606,7 @@ pkg/errors func WithPolicy func(error,string,string)(*CleanerError)
 pkg/errors func WithResource func(error,string,string)(*CleanerError)
 pkg/errors func Wrap func(error,string,string)(*CleanerError)
 pkg/errors func Wrapf func(error,string,string,...interface{})(*CleanerError)
-pkg/errors type CleanerError sdkerrors.ContextError
+pkg/errors type CleanerError cleanererrors.ContextError
 pkg/safety const ExclusionLabelKey (ast: <nil>)
 pkg/safety const ReasonActiveWorkload (ast: <nil>)
 pkg/safety const ReasonDeletesDisabled (ast: <nil>)

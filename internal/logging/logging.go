@@ -222,7 +222,7 @@ func getLogLevel(level string) zapcore.Level {
 // WithComponent adds component name to log context.
 func (l *Logger) WithComponent(component string) *Logger {
 	return &Logger{
-		Logger:        l.Logger.With(zap.String("component", component)),
+		Logger:        l.With(zap.String("component", component)),
 		componentName: component,
 	}
 }
@@ -230,7 +230,7 @@ func (l *Logger) WithComponent(component string) *Logger {
 // WithField adds a field to the log context.
 func (l *Logger) WithField(key string, value interface{}) *Logger {
 	return &Logger{
-		Logger:        l.Logger.With(zap.Any(key, value)),
+		Logger:        l.With(zap.Any(key, value)),
 		componentName: l.componentName,
 	}
 }
@@ -243,7 +243,7 @@ func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
 	}
 
 	return &Logger{
-		Logger:        l.Logger.With(zapFields...),
+		Logger:        l.With(zapFields...),
 		componentName: l.componentName,
 	}
 }
@@ -287,7 +287,7 @@ func (l *Logger) WithContext(ctx context.Context) *Logger {
 	}
 
 	return &Logger{
-		Logger:        l.Logger.With(fields...),
+		Logger:        l.With(fields...),
 		componentName: l.componentName,
 	}
 }

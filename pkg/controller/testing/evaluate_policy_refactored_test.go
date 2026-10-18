@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	sdklog "github.com/zenmesh/zen-cleaner/internal/logging"
+	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
 	"github.com/zenmesh/zen-cleaner/pkg/controller"
 )
@@ -109,7 +109,7 @@ func TestPolicyEvaluationService_EvaluatePolicy(t *testing.T) {
 		nil, // StatusUpdater (not needed for this test)
 		nil, // EventRecorder (not needed for this test)
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	// Evaluate policy - this is now testable without complex setup!
@@ -155,7 +155,7 @@ func TestPolicyEvaluationService_EvaluatePolicy_EmptyResources(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	ctx := context.Background()
@@ -200,7 +200,7 @@ func TestPolicyEvaluationService_EvaluatePolicy_ContextCanceled(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		sdklog.NewLogger("zen-cleaner"),
+		cleanerlog.NewLogger("zen-cleaner"),
 	)
 
 	// Cancel context immediately

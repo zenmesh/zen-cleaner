@@ -52,7 +52,7 @@ Real (non-dry-run) deletion validated across 4 TTL modes and 5 resource kinds on
 | Bug | Symptom | Fix |
 |-----|---------|-----|
 | BUG-001: Evaluation service singleton | Different-GVR policies got wrong `matched=0` | Key evaluation service cache by target resource (apiVersion/kind/namespace) |
-| BUG-002: Relative TTL never deletes | `ErrRelativeTTLExpired` returned `(false, ReasonNoTTL)` | Check `errors.Is(err, sdkttl.ErrRelativeTTLExpired)` return `(true, ReasonTTLExpired)` |
+| BUG-002: Relative TTL never deletes | `ErrRelativeTTLExpired` returned `(false, ReasonNoTTL)` | Check `errors.Is(err, cleanerttl.ErrRelativeTTLExpired)` return `(true, ReasonTTLExpired)` |
 | BUG-003: `parseFieldPath` breaks on dotted annotation keys | Annotation keys like `cleaner.zen-mesh.io/ttl-seconds` split incorrectly | Backslash-escaped dot support (`\.`) |
 
 All bugs have regression tests. See `pkg/controller/reconciler_test.go`, `should_delete_test.go`, `internal/ttl/evaluator_test.go`.
