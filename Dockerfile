@@ -28,7 +28,7 @@
 # no newer Alpine 1.27.2 build to move to: a future bump must re-verify the
 # base OS (cat /etc/os-release) and not just the Go version. This is also
 # why the release path is not merely a version bump.
-FROM golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS builder
+FROM golang@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8 AS builder
 
 WORKDIR /build
 
