@@ -1,159 +1,128 @@
-# THE SINGLE CONSISTENT PUBLIC RELEASE PATH (MON soft-launch closure
-# 2026-10-15): ghcr.io/zenmesh/zen-cleaner, published with the BUILT-IN
-# GITHUB_TOKEN (packages:write — no external registry credential, no token
-# proliferation). The previous thin caller delegated to the external
-# zen-mesh/zen-oss-standards reusable workflow (404/not publicly available,
-# secrets:inherit) and build-multiarch.yml set push=false on login failure —
-# a green build that silently published NOTHING. Both are gone: this
-# workflow FAILS VISIBLY on any login/build/push failure.
 name: Release Image
 
 on:
   push:
-    tags:
-      # Documented release tags. RELEASING.md ships PLAIN stable semver
-      # (0.1.1), which neither 'v*' nor '*.*.*-*' matched — so a plain
-      # stable release tag produced no run at all. Accept:
-      #   - v0.1.1 / v0.1.1-rc.1  (v-prefixed variants)
-      #   - 0.1.1 / 0.1.1-rc.1    (plain, as documented in RELEASING.md)
-      # NOTE: these are GLOBS, not regex. 'v*' misses a plain 0.1.1, and a
-      # regex-looking '[0-9]+.[0-9]+.[0-9]+' matches nothing at all because
-      # Actions has no '+' quantifier. Character classes and '*' are real glob
-      # features, so these accept v0.1.1 / 0.1.1 / 0.1.2-rc.1 while unrelated
-      # tags (nightly, docs, 0.1, 0.1.1.2) still do not match.
-      - 'v[0-9]*.[0-9]*.[0-9]*'
-      - 'v[0-9]*.[0-9]*.[0-9]*-*'
-      - '[0-9]*.[0-9]*.[0-9]*'
-      - '[0-9]*.[0-9]*.[0-9]*-*'
+    tags: ['[0-9]*.[0-9]*.[0-9]*', 'v[0-9]*.[0-9]*.[0-9]*']
   workflow_dispatch:
 
-# Least privilege for this workflow. The chart step attaches the packaged
-# chart to the GitHub Release, which legitimately needs contents:write; the
-# image/chart pushes use the built-in GITHUB_TOKEN's packages:write. No
-# personal token and no external registry credential is involved.
 permissions:
-  contents: write
-  packages: write
+  contents: read
+
+concurrency:
+  group: cleaner-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  release:
+  image:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
-
+        with:
+          persist-credentials: false
+      - name: Validate release version and chart binding
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          set -euo pipefail
+          test "$REF_TYPE" = tag
+          VERSION="${TAG#v}"
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]
+          test "$(awk '$1 == "version:" {print $2}' deploy/helm/zen-cleaner/Chart.yaml)" = "$VERSION"
+          test "$(awk '$1 == "appVersion:" {gsub(/"/, "", $2); print $2}' deploy/helm/zen-cleaner/Chart.yaml)" = "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@v4
-
-      - name: Log in to ghcr.io (built-in GITHUB_TOKEN)
-        uses: docker/login-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/zenmesh/zen-cleaner
-          tags: |
-            # Plain stable tags (0.1.1) are not v-prefixed, so semver
-            # parsing needs both forms plus the exact ref name.
-            type=semver,pattern={{version}}
-            type=semver,pattern=v{{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern=v{{major}}.{{minor}}
-            type=raw,value={{sha}}
-          labels: |
-            org.opencontainers.image.source=https://github.com/zenmesh/zen-cleaner
-
-      - name: Build and push (failure is visible)
+      - name: Build and push release image
         id: build
         uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ghcr.io/zenmesh/zen-cleaner:${{ steps.version.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/zenmesh/zen-cleaner
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VERSION=${{ github.ref_name }}
+            VERSION=${{ steps.version.outputs.version }}
             COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
+      - name: Verify published image manifest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          docker buildx imagetools inspect "ghcr.io/zenmesh/zen-cleaner@$DIGEST"
+          echo "Image: ghcr.io/zenmesh/zen-cleaner@$DIGEST" >> "$GITHUB_STEP_SUMMARY"
 
-      # ---- Packaged chart -------------------------------------------------
-      # The chart is a SEPARATE artifact from the image and is published under
-      # its own OCI name, so image and chart versions can never collide. The
-      # default helm registry is the project's GitHub Packages registry; the
-      # repo path follows the standard <owner>-<repo> convention because a
-      # chart and an image cannot share one package.
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
+  chart:
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      packages: write
+    env:
+      VERSION: ${{ needs.image.outputs.version }}
+      IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@v4
         with:
           version: v3.16.3
-
-      - name: Lint the chart
-        run: helm lint ./deploy/helm/zen-cleaner
-
-      - name: Render the chart (proves it templates, not just lints)
+      - name: Bind chart to the exact published image
         run: |
-          helm template zen-cleaner ./deploy/helm/zen-cleaner \
-            --namespace zen-cleaner-system \
-            --set image.tag=${{ github.ref_name }} \
-            --set rbac.targetKinds[1].resource=configmaps \
-            --set rbac.deleteNamespaces[0]=default > /tmp/rendered.yaml
-          test -s /tmp/rendered.yaml
-          echo "rendered $(grep -c '^kind:' /tmp/rendered.yaml) resources"
-
-      - name: Log in to the OCI registry for the chart (built-in GITHUB_TOKEN)
+          set -euo pipefail
+          python3 - <<'PYCODE'
+          import os, pathlib, re
+          p = pathlib.Path('deploy/helm/zen-cleaner/values.yaml')
+          s = p.read_text()
+          s, n = re.subn(r'(?m)^  digest: .*$', '  digest: "' + os.environ['IMAGE_DIGEST'] + '"', s, count=1)
+          assert n == 1
+          p.write_text(s)
+          PYCODE
+          helm lint ./deploy/helm/zen-cleaner
+          helm template zen-cleaner ./deploy/helm/zen-cleaner --namespace zen-cleaner-system > /tmp/rendered.yaml
+          grep -F "ghcr.io/zenmesh/zen-cleaner@$IMAGE_DIGEST" /tmp/rendered.yaml
+      - name: Package and publish public chart candidate
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | \
-            helm registry login oci://${{ github.repository_owner }}.pkg.github.com \
-            --username "${{ github.actor }}" --password-stdin
-
-      - name: Package and push the chart (separate chart name, not the image name)
-        id: chart
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          helm package ./deploy/helm/zen-cleaner -d /tmp/chart-out
+          helm push "/tmp/chart-out/zen-cleaner-$VERSION.tgz" oci://ghcr.io/zenmesh/charts
+          cd /tmp/chart-out
+          sha256sum "zen-cleaner-$VERSION.tgz" > "zen-cleaner-$VERSION.tgz.sha256"
+      - name: Create release and attach chart with checksum
         run: |
-          VERSION="${{ github.ref_name }}"
-          CHART_VERSION="$VERSION"
-          echo "chart version: $CHART_VERSION"
-          helm package ./deploy/helm/zen-cleaner \
-            --version "$CHART_VERSION" \
-            --app-version "$CHART_VERSION" \
-            -d /tmp/chart-out
-          helm push /tmp/chart-out/zen-cleaner-$CHART_VERSION.tgz \
-            "oci://${{ github.repository_owner }}.pkg.github.com/zenmesh-zen-cleaner"
-          DIGEST="$(sha256sum /tmp/chart-out/zen-cleaner-$CHART_VERSION.tgz | cut -d' ' -f1)"
-          echo "sha256:$DIGEST" > /tmp/chart-digest.txt
-          echo "Published chart: ghcr.io/zenmesh-zen-cleaner:$CHART_VERSION (tgz sha256:$DIGEST)"
-
-      - name: Upload chart tarball + checksum to the GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ github.ref_name }}"
-          if gh release view "$VERSION" >/dev/null 2>&1; then
-            gh release upload "$VERSION" /tmp/chart-out/zen-cleaner-$VERSION.tgz --clobber
-            sha256sum /tmp/chart-out/zen-cleaner-$VERSION.tgz > /tmp/chart-out/zen-cleaner-$VERSION.tgz.sha256
-            gh release upload "$VERSION" /tmp/chart-out/zen-cleaner-$VERSION.tgz.sha256 --clobber
-            echo "attached chart + checksum to release $VERSION"
-          else
-            echo "no GitHub Release named $VERSION; chart is still published to the OCI registry"
+          set -euo pipefail
+          printf '## Zen Cleaner %s\n\nImage: `ghcr.io/zenmesh/zen-cleaner@%s`\n\nChart: `oci://ghcr.io/zenmesh/charts/zen-cleaner` version `%s`\n\nIndependent Apache-2.0 Kubernetes cleanup controller. This is a 0.x release with a v1alpha1 policy API; review the repository install and safety guidance.\n' "$VERSION" "$IMAGE_DIGEST" "$VERSION" > /tmp/notes.md
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            if [[ "$VERSION" == *-* ]]; then
+              gh release create "$RELEASE_TAG" --verify-tag --prerelease --title "Zen Cleaner $VERSION" --notes-file /tmp/notes.md
+            else
+              gh release create "$RELEASE_TAG" --verify-tag --title "Zen Cleaner $VERSION" --notes-file /tmp/notes.md
+            fi
           fi
-
-      - name: Verify and record the published digest
-        env:
-          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
-        run: |
-          if ! [[ "$IMAGE_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]; then
-            echo "Build did not return a valid published image digest"
-            exit 1
-          fi
-          IMAGE_REF="ghcr.io/zenmesh/zen-cleaner@$IMAGE_DIGEST"
-          docker buildx imagetools inspect "$IMAGE_REF"
-          echo "Published: $IMAGE_REF"
-          echo "Published image: \`$IMAGE_REF\`" >> "$GITHUB_STEP_SUMMARY"
-# FIRST-PUBLISH NOTE: a package created by GITHUB_TOKEN defaults to PRIVATE.
-# The one-time visibility step (package settings -> public) is an owner
-# action recorded in RELEASING.md; anonymous pulls stay denied until then.
+          gh release upload "$RELEASE_TAG" "/tmp/chart-out/zen-cleaner-$VERSION.tgz" "/tmp/chart-out/zen-cleaner-$VERSION.tgz.sha256"
+          echo "Chart: oci://ghcr.io/zenmesh/charts/zen-cleaner version $VERSION" >> "$GITHUB_STEP_SUMMARY"

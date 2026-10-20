@@ -2,8 +2,8 @@ apiVersion: v2
 name: zen-cleaner
 description: Zen Cleaner - declarative Kubernetes garbage collection controller (policy-driven, dry-run first, default-deny RBAC)
 type: application
-version: 0.1.1
-appVersion: "0.1.1"
+version: 0.1.2
+appVersion: "0.1.2"
 # Truthful, public project metadata. No HA/SOC2/production-qualification claim
 # is made: this is a 0.x community project (see RELEASING.md).
 home: https://github.com/zenmesh/zen-cleaner
@@ -24,7 +24,7 @@ annotations:
   # Artifact Hub annotation (https://artifacthub.io/docs/topics/annotations/helm/)
   artifacthub.io/changes: |
     - kind: added
-      description: First public 0.1.0 release. Policy-driven cleanup with dry-run, default-deny RBAC, label/field selectors and per-class TTLs.
+      description: Release 0.1.2: published OCI chart, digest-bound image and dependency updates.
     - kind: changed
       description: Builder image updated to a newer pinned golang digest (go 1.27.2).
   artifacthub.io/license: Apache-2.0
