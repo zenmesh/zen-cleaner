@@ -113,6 +113,17 @@ jobs:
           helm push "/tmp/chart-out/zen-cleaner-$VERSION.tgz" oci://ghcr.io/zenmesh/charts
           cd /tmp/chart-out
           sha256sum "zen-cleaner-$VERSION.tgz" > "zen-cleaner-$VERSION.tgz.sha256"
+      - name: Build the public HTTP chart repository index
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG"
+          PREVIOUS="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/index.yaml"
+          if curl --fail --silent --show-error --location "$PREVIOUS" -o /tmp/previous-index.yaml; then
+            helm repo index /tmp/chart-out --url "$BASE" --merge /tmp/previous-index.yaml
+          else
+            helm repo index /tmp/chart-out --url "$BASE"
+          fi
+          printf 'owners:\n  - name: Zen Mesh\n    email: zen@zen-mesh.io\n' > /tmp/chart-out/artifacthub-repo.yml
       - name: Create release and attach chart with checksum
         run: |
           set -euo pipefail
@@ -124,5 +135,6 @@ jobs:
               gh release create "$RELEASE_TAG" --verify-tag --title "Zen Cleaner $VERSION" --notes-file /tmp/notes.md
             fi
           fi
-          gh release upload "$RELEASE_TAG" "/tmp/chart-out/zen-cleaner-$VERSION.tgz" "/tmp/chart-out/zen-cleaner-$VERSION.tgz.sha256"
+          gh release upload "$RELEASE_TAG" "/tmp/chart-out/zen-cleaner-$VERSION.tgz" "/tmp/chart-out/zen-cleaner-$VERSION.tgz.sha256" /tmp/chart-out/index.yaml /tmp/chart-out/artifacthub-repo.yml
+          echo "Public Helm repository: https://github.com/$GITHUB_REPOSITORY/releases/latest/download" >> "$GITHUB_STEP_SUMMARY"
           echo "Chart: oci://ghcr.io/zenmesh/charts/zen-cleaner version $VERSION" >> "$GITHUB_STEP_SUMMARY"
