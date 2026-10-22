@@ -84,11 +84,11 @@ func NewWebhookServer(addr, certFile, keyFile string) (*WebhookServer, error) {
 	mux := http.NewServeMux()
 	ws := &WebhookServer{}
 
-	// Register validation endpoint
-	mux.HandleFunc("/validate-cleanup-policy", ws.handleValidate)
+	// Register validation endpoint (instrumented: see metrics.go)
+	mux.Handle("/validate-cleanup-policy", instrument("validate", http.HandlerFunc(ws.handleValidate)))
 
-	// Register mutation endpoint
-	mux.HandleFunc("/mutate-cleanup-policy", ws.handleMutate)
+	// Register mutation endpoint (instrumented: see metrics.go)
+	mux.Handle("/mutate-cleanup-policy", instrument("mutate", http.HandlerFunc(ws.handleMutate)))
 
 	// Health check endpoint for webhook
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
