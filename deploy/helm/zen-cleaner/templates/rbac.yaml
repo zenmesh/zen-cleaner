@@ -1,5 +1,16 @@
 {{- $kinds := .Values.rbac.targetKinds }}
 {{- $scope := .Values.rbac.namespaceScope }}
+{{- /* Fail loudly on malformed allowlist entries. Helm's `--set
+rbac.targetKinds[N].resource=x` with an index beyond the current list length
+emits a NULL list element; rendering that silently produced an
+"?invalid-target" rule in a live ClusterRole/Role while dropping the real
+allowlist (found on the public install). Corrupt RBAC must never render —
+the install must stop with the corrected spelling instead. */}}
+{{- range $kinds }}
+{{- if or (not (kindIs "map" .)) (not .resource) }}
+{{- fail (printf "rbac.targetKinds entries must be maps with a non-empty resource field, e.g. {group: batch, resource: jobs}; offending entry: %v. Helm --set with an index beyond the current list length creates a null entry — set every index explicitly (rbac.targetKinds[0]... AND rbac.targetKinds[1]...)." .) }}
+{{- end }}
+{{- end }}
 # Read access: policies and target resource classes are read cluster-wide
 # (shared controller cache), while the dangerous verb -- delete -- is bounded
 # by namespaceScope below.
@@ -23,7 +34,7 @@ rules:
   # helm --set cannot express "" cleanly (null collapses the element), so a
   # missing/absent group field is the lawful core-group spelling.
   - apiGroups: [{{ $g | quote }}]
-    resources: [{{ if kindIs "map" . }}{{ .resource }}{{ else }}"?invalid-target"{{ end }}]
+    resources: [{{ .resource | quote }}]
     verbs: ["get", "list", "watch"]
   {{- end }}
   # Events: the controller emits policy evaluation/deletion events into the
@@ -72,7 +83,7 @@ rules:
   {{- $g = .group | default "" }}
   {{- end }}
   - apiGroups: [{{ $g | quote }}]
-    resources: [{{ if kindIs "map" . }}{{ .resource }}{{ else }}"?invalid-target"{{ end }}]
+    resources: [{{ .resource | quote }}]
     verbs: ["delete"]
   {{- end }}
 ---
@@ -103,7 +114,7 @@ rules:
   {{- $g = .group | default "" }}
   {{- end }}
   - apiGroups: [{{ $g | quote }}]
-    resources: [{{ if kindIs "map" . }}{{ .resource }}{{ else }}"?invalid-target"{{ end }}]
+    resources: [{{ .resource | quote }}]
     verbs: ["delete"]
   {{- end }}
 ---

@@ -233,3 +233,18 @@ func buildLabelSelectorFilter(policy *v1alpha1.ZenCleanerPolicy) func(options *m
 		}
 	}
 }
+
+// updateConditionReceipt writes an operator-visible condition onto the policy
+// status. The write is best-effort receipting, but a dropped receipt is never
+// silent: the failure is logged so operators know the condition was lost.
+func (r *PolicyReconciler) updateConditionReceipt(ctx context.Context, policy *v1alpha1.ZenCleanerPolicy, conditionType, reason, message string, permanent bool) {
+	if r.statusUpdater == nil {
+		return
+	}
+	if err := r.statusUpdater.UpdateTargetCondition(ctx, policy, conditionType, reason, message, permanent); err != nil {
+		r.logger.Warn("Failed to update policy condition",
+			cleanerlog.Operation("update_target_condition"),
+			cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+			cleanerlog.Error(err))
+	}
+}

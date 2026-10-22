@@ -6,6 +6,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
@@ -75,10 +76,7 @@ func (s *StatusUpdater) UpdateStatus(
 		Namespace(policy.Namespace).
 		Get(ctx, policy.Name, metav1.GetOptions{})
 	if err != nil {
-		cleanerErr := cleanererrors.Wrap(err, "status_get_failed", "failed to get ZenCleanerPolicy CRD")
-		cleanerErr = cleanerErr.WithContext("policy_namespace", policy.Namespace)
-		cleanerErr = cleanerErr.WithContext("policy_name", policy.Name)
-		return cleanerErr
+		return policyStatusError(err, "status_get_failed", "failed to get ZenCleanerPolicy CRD", policy)
 	}
 
 	// Build status object
@@ -100,32 +98,81 @@ func (s *StatusUpdater) UpdateStatus(
 	// REMOVED rather than refreshed. Active policies promise now + the
 	// policy's effective interval (its own evaluationInterval when set —
 	// not the controller default, which would misreport per-policy pacing).
-	if policy.Spec.Paused {
-		if existingStatus, ok := unstructuredPolicy.Object[statusSubresourceKey].(map[string]interface{}); ok {
-			delete(existingStatus, "nextGCRun")
-		}
-	} else {
-		nextRun := now.Add(EffectiveEvaluationInterval(policy, interval))
-		statusObj["nextGCRun"] = nextRun.Format(time.RFC3339)
-	}
+	applyNextGCRun(unstructuredPolicy, policy, statusObj, now, interval)
 
 	// SUPPORT2-033 §8: surface why matching objects were not deleted,
 	// keyed by bounded refusal reason class (capped at 8 entries).
 	if len(refusals) > 0 {
-		refusalStatus := map[string]interface{}{}
-		n := 0
-		for reason, count := range refusals {
-			if n >= 8 {
-				break
-			}
-			refusalStatus[reason] = count
-			n++
-		}
-		statusObj["lastCycleRefusals"] = refusalStatus
+		statusObj["lastCycleRefusals"] = cappedRefusals(refusals)
 	}
 
 	// Set phase based on spec.paused and evaluation state
 	// Phase is controller-owned output only, not user-settable
+	phase := statusPhaseFor(policy)
+	statusObj["phase"] = phase
+
+	statusObj["conditions"] = statusConditionsFor(phase, now.Format(time.RFC3339))
+
+	// Merge status (preserve existing fields, update only provided fields)
+	mergeStatus(unstructuredPolicy, statusObj)
+
+	// Update status subresource
+	_, err = s.dynClient.Resource(PolicyGVR).
+		Namespace(policy.Namespace).
+		UpdateStatus(ctx, unstructuredPolicy, metav1.UpdateOptions{})
+	if err != nil {
+		cleanerErr := policyStatusError(err, "status_update_failed", "failed to update ZenCleanerPolicy status", policy)
+		logger := cleanerlog.NewLogger("zen-cleaner")
+		logger.Warn("Failed to update ZenCleanerPolicy status", cleanerlog.Operation("update_status"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.Error(cleanerErr))
+		return cleanerErr
+	}
+
+	logger := cleanerlog.NewLogger("zen-cleaner")
+	logger.Debug("Updated ZenCleanerPolicy status", cleanerlog.Operation("update_status"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.Int64("matched", matched), cleanerlog.Int64("deleted", deleted), cleanerlog.Int64("pending", pending))
+
+	return nil
+}
+
+// policyStatusError wraps a status CRUD failure with the standard
+// policy-namespace/name context fields.
+func policyStatusError(err error, code, message string, policy *v1alpha1.ZenCleanerPolicy) error {
+	cleanerErr := cleanererrors.Wrap(err, code, message)
+	cleanerErr = cleanerErr.WithContext("policy_namespace", policy.Namespace)
+	cleanerErr = cleanerErr.WithContext("policy_name", policy.Name)
+	return cleanerErr
+}
+
+// applyNextGCRun sets or removes the status's nextGCRun promise.
+func applyNextGCRun(unstructuredPolicy *unstructured.Unstructured, policy *v1alpha1.ZenCleanerPolicy, statusObj map[string]interface{}, now metav1.Time, interval time.Duration) {
+	if policy.Spec.Paused {
+		if existingStatus, ok := unstructuredPolicy.Object[statusSubresourceKey].(map[string]interface{}); ok {
+			delete(existingStatus, "nextGCRun")
+		}
+		return
+	}
+	nextRun := now.Add(EffectiveEvaluationInterval(policy, interval))
+	statusObj["nextGCRun"] = nextRun.Format(time.RFC3339)
+}
+
+// cappedRefusals converts the refusal counts to status form, capped at the
+// first 8 entries.
+func cappedRefusals(refusals map[string]int64) map[string]interface{} {
+	refusalStatus := map[string]interface{}{}
+	n := 0
+	for reason, count := range refusals {
+		if n >= 8 {
+			break
+		}
+		refusalStatus[reason] = count
+		n++
+	}
+	return refusalStatus
+}
+
+// statusPhaseFor computes the controller-owned phase: paused wins over
+// active, and an existing Error phase is preserved until cleared by
+// successful evaluation.
+func statusPhaseFor(policy *v1alpha1.ZenCleanerPolicy) string {
 	phase := PolicyPhaseActive
 	if policy.Spec.Paused {
 		phase = PolicyPhasePaused
@@ -135,11 +182,13 @@ func (s *StatusUpdater) UpdateStatus(
 	if policy.Status.Phase == PolicyPhaseError {
 		phase = PolicyPhaseError // Preserve error state until cleared by successful evaluation
 	}
-	statusObj["phase"] = phase
+	return phase
+}
 
-	// Set status conditions
+// statusConditionsFor builds the Ready condition (plus an Error condition
+// when the phase is Error) from the computed phase.
+func statusConditionsFor(phase, nowStr string) []interface{} {
 	conditions := []map[string]interface{}{}
-	nowStr := now.Format(time.RFC3339)
 
 	// Ready condition
 	readyCondition := map[string]interface{}{
@@ -178,9 +227,12 @@ func (s *StatusUpdater) UpdateStatus(
 	for i, cond := range conditions {
 		conditionsInterface[i] = cond
 	}
-	statusObj["conditions"] = conditionsInterface
+	return conditionsInterface
+}
 
-	// Merge status (preserve existing fields, update only provided fields)
+// mergeStatus updates the policy's existing status with the provided fields,
+// keeping any fields not set here.
+func mergeStatus(unstructuredPolicy *unstructured.Unstructured, statusObj map[string]interface{}) {
 	if existingStatus, ok := unstructuredPolicy.Object[statusSubresourceKey].(map[string]interface{}); ok {
 		// Merge: update provided fields, keep others
 		for k, v := range statusObj {
@@ -191,24 +243,6 @@ func (s *StatusUpdater) UpdateStatus(
 		// No existing status, set new status
 		unstructuredPolicy.Object[statusSubresourceKey] = statusObj
 	}
-
-	// Update status subresource
-	_, err = s.dynClient.Resource(PolicyGVR).
-		Namespace(policy.Namespace).
-		UpdateStatus(ctx, unstructuredPolicy, metav1.UpdateOptions{})
-	if err != nil {
-		cleanerErr := cleanererrors.Wrap(err, "status_update_failed", "failed to update ZenCleanerPolicy status")
-		cleanerErr = cleanerErr.WithContext("policy_namespace", policy.Namespace)
-		cleanerErr = cleanerErr.WithContext("policy_name", policy.Name)
-		logger := cleanerlog.NewLogger("zen-cleaner")
-		logger.Warn("Failed to update ZenCleanerPolicy status", cleanerlog.Operation("update_status"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.Error(cleanerErr))
-		return cleanerErr
-	}
-
-	logger := cleanerlog.NewLogger("zen-cleaner")
-	logger.Debug("Updated ZenCleanerPolicy status", cleanerlog.Operation("update_status"), cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), cleanerlog.Int64("matched", matched), cleanerlog.Int64("deleted", deleted), cleanerlog.Int64("pending", pending))
-
-	return nil
 }
 
 // UpdateTargetCondition merges a single TargetReady condition into the

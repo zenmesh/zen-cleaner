@@ -260,15 +260,14 @@ func (r *PolicyReconciler) reconcileTargetCondition(ctx context.Context, policy 
 	if r.statusUpdater == nil {
 		return
 	}
-	_ = ctx
 	if tcErr == nil {
-		_ = r.statusUpdater.UpdateTargetCondition(ctx, policy,
+		r.updateConditionReceipt(ctx, policy,
 			"TargetReady", "TargetAvailable",
 			"target API/resource is served and listable", false)
 		return
 	}
 	permanent := tcErr.Type == TargetConfigurationInvalid
-	_ = r.statusUpdater.UpdateTargetCondition(ctx, policy,
+	r.updateConditionReceipt(ctx, policy,
 		"TargetReady", tcErr.ConditionReason(),
 		truncateConditionMessage(tcErr.Detail), permanent)
 }

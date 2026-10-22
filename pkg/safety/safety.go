@@ -129,8 +129,10 @@ func (g *Gate) IsProtectedNamespace(ns string) bool {
 	return g.protected[ns]
 }
 
-// ProtectedNamespaces returns the effective protected set (sorted by caller
-// for display purposes; map form here).
+// EffectiveProtectedNamespaces returns the effective protected-namespace set
+// (map form here; sort by the caller for display). Currently unreferenced in
+// this repo and across the fleet — kept because removal is an API-compat
+// break (GUARD-V7) that needs a deliberate baseline bump.
 func (g *Gate) EffectiveProtectedNamespaces() []string {
 	out := make([]string, 0, len(g.protected))
 	for ns := range g.protected {

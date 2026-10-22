@@ -60,69 +60,100 @@ func CalculateExpirationTime(resource *unstructured.Unstructured, spec *Spec) (t
 	}
 
 	// Option 1: Fixed TTL (seconds after creation)
-	if spec.SecondsAfterCreation != nil {
-		creationTime := resource.GetCreationTimestamp().Time
-		return creationTime.Add(time.Duration(*spec.SecondsAfterCreation) * time.Second), nil
+	if expiration, handled := fixedTTLExpiration(resource, spec); handled {
+		return expiration, nil
 	}
 
-	// Option 2: Dynamic TTL from field
-	if spec.FieldPath != "" {
-		fieldPath := parseFieldPath(spec.FieldPath)
-
-		// Try to get as int64 first
-		value, found, err := unstructured.NestedInt64(resource.Object, fieldPath...)
-		if err == nil && found {
-			creationTime := resource.GetCreationTimestamp().Time
-			return creationTime.Add(time.Duration(value) * time.Second), nil
-		}
-
-		// Try as string for mappings
-		strValue, found, err := unstructured.NestedString(resource.Object, fieldPath...)
-		if err == nil && found {
-			// Option 3: Mapped TTL
-			if len(spec.Mappings) > 0 {
-				var ttl int64
-				if mappedTTL, ok := spec.Mappings[strValue]; ok {
-					ttl = mappedTTL
-				} else if spec.Default != nil {
-					ttl = *spec.Default
-				} else {
-					return time.Time{}, fmt.Errorf("%w: %s", ErrNoMappingForFieldValue, strValue)
-				}
-				creationTime := resource.GetCreationTimestamp().Time
-				return creationTime.Add(time.Duration(ttl) * time.Second), nil
-			}
-		}
-
-		if !found && spec.Default != nil {
-			creationTime := resource.GetCreationTimestamp().Time
-			return creationTime.Add(time.Duration(*spec.Default) * time.Second), nil
-		}
-		return time.Time{}, fmt.Errorf("%w: %s", ErrFieldPathNotFound, spec.FieldPath)
+	// Options 2 and 3: Dynamic TTL from a field (int64 direct or mapped string)
+	if expiration, handled, err := fieldTTLExpiration(resource, spec); handled {
+		return expiration, err
 	}
 
 	// Option 4: Relative TTL (relative to another timestamp field)
-	if spec.RelativeTo != "" && spec.SecondsAfter != nil {
-		fieldPath := parseFieldPath(spec.RelativeTo)
-		timestampStr, found, err := unstructured.NestedString(resource.Object, fieldPath...)
-		if err != nil || !found {
-			return time.Time{}, fmt.Errorf("%w: %s", ErrRelativeTimestampFieldNotFound, spec.RelativeTo)
-		}
-
-		timestamp, err := time.Parse(time.RFC3339, timestampStr)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("%w: %w", ErrInvalidTimestampFormat, err)
-		}
-
-		// Calculate absolute expiration time from the relative timestamp
-		expirationTime := timestamp.Add(time.Duration(*spec.SecondsAfter) * time.Second)
-		if time.Now().After(expirationTime) {
-			return time.Time{}, fmt.Errorf("%w", ErrRelativeTTLExpired)
-		}
-		return expirationTime, nil
+	if expiration, handled, err := relativeTTLExpiration(resource, spec); handled {
+		return expiration, err
 	}
 
 	return time.Time{}, fmt.Errorf("%w", ErrNoValidTTLConfiguration)
+}
+
+// fixedTTLExpiration handles Option 1 (SecondsAfterCreation); handled reports
+// whether this TTL mode applies to the spec.
+func fixedTTLExpiration(resource *unstructured.Unstructured, spec *Spec) (time.Time, bool) {
+	if spec.SecondsAfterCreation == nil {
+		return time.Time{}, false
+	}
+	creationTime := resource.GetCreationTimestamp().Time
+	return creationTime.Add(time.Duration(*spec.SecondsAfterCreation) * time.Second), true
+}
+
+// fieldTTLExpiration handles Options 2 (int64 field) and 3 (mapped string
+// field); handled reports whether the FieldPath mode applies to the spec.
+func fieldTTLExpiration(resource *unstructured.Unstructured, spec *Spec) (time.Time, bool, error) {
+	if spec.FieldPath == "" {
+		return time.Time{}, false, nil
+	}
+	fieldPath := parseFieldPath(spec.FieldPath)
+	creationTime := resource.GetCreationTimestamp().Time
+
+	// Try to get as int64 first
+	value, found, err := unstructured.NestedInt64(resource.Object, fieldPath...)
+	if err == nil && found {
+		return creationTime.Add(time.Duration(value) * time.Second), true, nil
+	}
+
+	// Try as string for mappings
+	strValue, found, err := unstructured.NestedString(resource.Object, fieldPath...)
+	if err == nil && found && len(spec.Mappings) > 0 {
+		// Option 3: Mapped TTL
+		ttl, mapErr := mappedTTLForValue(spec, strValue)
+		if mapErr != nil {
+			return time.Time{}, true, mapErr
+		}
+		return creationTime.Add(time.Duration(ttl) * time.Second), true, nil
+	}
+
+	if !found && spec.Default != nil {
+		return creationTime.Add(time.Duration(*spec.Default) * time.Second), true, nil
+	}
+	return time.Time{}, true, fmt.Errorf("%w: %s", ErrFieldPathNotFound, spec.FieldPath)
+}
+
+// mappedTTLForValue resolves the TTL for a mapped string field value,
+// falling back to spec.Default when the value has no explicit mapping.
+func mappedTTLForValue(spec *Spec, strValue string) (int64, error) {
+	if mappedTTL, ok := spec.Mappings[strValue]; ok {
+		return mappedTTL, nil
+	}
+	if spec.Default != nil {
+		return *spec.Default, nil
+	}
+	return 0, fmt.Errorf("%w: %s", ErrNoMappingForFieldValue, strValue)
+}
+
+// relativeTTLExpiration handles Option 4 (RelativeTo + SecondsAfter);
+// handled reports whether this TTL mode applies to the spec.
+func relativeTTLExpiration(resource *unstructured.Unstructured, spec *Spec) (time.Time, bool, error) {
+	if spec.RelativeTo == "" || spec.SecondsAfter == nil {
+		return time.Time{}, false, nil
+	}
+	fieldPath := parseFieldPath(spec.RelativeTo)
+	timestampStr, found, err := unstructured.NestedString(resource.Object, fieldPath...)
+	if err != nil || !found {
+		return time.Time{}, true, fmt.Errorf("%w: %s", ErrRelativeTimestampFieldNotFound, spec.RelativeTo)
+	}
+
+	timestamp, err := time.Parse(time.RFC3339, timestampStr)
+	if err != nil {
+		return time.Time{}, true, fmt.Errorf("%w: %w", ErrInvalidTimestampFormat, err)
+	}
+
+	// Calculate absolute expiration time from the relative timestamp
+	expirationTime := timestamp.Add(time.Duration(*spec.SecondsAfter) * time.Second)
+	if time.Now().After(expirationTime) {
+		return time.Time{}, true, fmt.Errorf("%w", ErrRelativeTTLExpired)
+	}
+	return expirationTime, true, nil
 }
 
 // IsExpired checks if a resource has expired based on TTL spec.
