@@ -39,8 +39,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/zenmesh/zen-cleaner/internal/ratelimiter"
 	gcapi "github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
@@ -81,7 +81,7 @@ func (r *PolicyReconciler) ExecuteWithReceipt(
 
 	receipt := &ExecutionReceiptV2{
 		ExecutionReceipt: ExecutionReceipt{Version: ReceiptVersion, StartedAt: time.Now().UTC()},
-		PolicyRef: policyRef{Namespace: policy.Namespace, Name: policy.Name, UID: policy.UID},
+		PolicyRef:        policyRef{Namespace: policy.Namespace, Name: policy.Name, UID: policy.UID},
 	}
 	plannedUID := map[string]types.UID{}
 	prePresent := map[string]bool{} // object existed before execution
@@ -151,4 +151,3 @@ func objectKey(o *unstructured.Unstructured) string {
 func uidMismatch(planned, current types.UID) bool {
 	return planned != types.UID("") && current != planned
 }
-
