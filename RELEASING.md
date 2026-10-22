@@ -47,7 +47,7 @@ No HA, SOC2, or production-qualification claim is made for `0.x`.
   - [ ] `CHANGELOG.md`
 
   **`go.mod` is deliberately NOT a release-version file.** Its `go` directive
-  declares the required *language/toolchain* version (currently `go 1.27.2`);
+  declares the required *language/toolchain* version (currently `go 1.27.3`);
   editing it to match a release number would break builds and mean nothing.
   The binary version is stamped at build time from the git tag via the
   `VERSION` build arg (see `.github/workflows/release-image.yml`).

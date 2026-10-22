@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Stable plain-version tags trigger the release workflow; release versions must match chart metadata.
 - Chart publication uses the GitHub Container Registry and the repository's built-in Actions token.
+- Builder toolchain bumped to Go 1.27.3 (`golang:1.27.3-alpine`, digest-pinned after re-verifying the Alpine base), carrying the GO-2026-6809 `crypto/x509` fix; the `go.mod` language version is raised to match, so CI and the shipped image build on the fixed toolchain.
 
 ### Added
 - OCI Helm chart and release tarball/checksum, pinned to the exact published multi-architecture image digest.
