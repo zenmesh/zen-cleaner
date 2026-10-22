@@ -1,0 +1,19 @@
+# golangci-lint v2 configuration for zen-cleaner.
+# The "standard" default set (errcheck, govet, ineffassign, staticcheck, unused)
+# is kept; gofmt enforcement and the cyclop complexity gate are added on top.
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - cyclop
+  settings:
+    cyclop:
+      # Fleet census 2026-10-22: current production max is 29
+      # (internal/logging CategorizeError, by cyclop counting). Gate holds
+      # at 30; tighten as refactors land.
+      max-complexity: 30
+
+formatters:
+  enable:
+    - gofmt
