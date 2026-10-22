@@ -274,7 +274,7 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				cleanerlog.ErrorCode("POLICY_INVALID"))
 			if r.statusUpdater != nil {
 				policy.Status.Phase = "Error"
-				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "Ready", "PolicyInvalid", invalid.Error(), true)
+				r.updateConditionReceipt(ctx, policy, "Ready", "PolicyInvalid", invalid.Error(), true)
 			}
 			return ctrl.Result{RequeueAfter: time.Hour}, nil
 		}
@@ -297,12 +297,12 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				cleanerlog.String("detail", verdict.Detail))
 			if r.statusUpdater != nil {
 				policy.Status.Phase = "Error"
-				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "Ready", "PolicyIntegrityRefused", verdict.Detail, true)
+				r.updateConditionReceipt(ctx, policy, "Ready", "PolicyIntegrityRefused", verdict.Detail, true)
 			}
 			return ctrl.Result{RequeueAfter: time.Hour}, nil
 		case verdict.Drifted:
 			if r.statusUpdater != nil {
-				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "PolicyDrifted", "DeclaredDigestMismatch", verdict.Detail, false)
+				r.updateConditionReceipt(ctx, policy, "PolicyDrifted", "DeclaredDigestMismatch", verdict.Detail, false)
 			}
 			r.logger.Info("Policy drift receipted (visibility)",
 				cleanerlog.Operation("reconcile"),
@@ -310,7 +310,7 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				cleanerlog.String("detail", verdict.Detail))
 		default:
 			if r.statusUpdater != nil {
-				_ = r.statusUpdater.UpdateTargetCondition(ctx, policy, "PolicyDrifted", "InSync", verdict.Detail, false)
+				r.updateConditionReceipt(ctx, policy, "PolicyDrifted", "InSync", verdict.Detail, false)
 			}
 		}
 	}
