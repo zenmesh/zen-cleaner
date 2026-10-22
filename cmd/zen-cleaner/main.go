@@ -136,33 +136,16 @@ func runMain() int {
 	// Get config using controller-runtime (handles kubeconfig flag automatically)
 	restCfg := ctrl.GetConfigOrDie()
 
-	// Create dynamic client (still needed for resource informers)
-	dynamicClient, err := dynamic.NewForConfig(restCfg)
+	dynamicClient, kubeClient, err := buildKubernetesClients(restCfg)
 	if err != nil {
-		setupLog.Error(err, "Error building dynamic client", cleanerlog.ErrorCode("CLIENT_ERROR"))
-		return 1
-	}
-
-	// Create Kubernetes client for events + leader election
-	kubeClient, err := kubernetes.NewForConfig(restCfg)
-	if err != nil {
-		setupLog.Error(err, "Error building Kubernetes client", cleanerlog.ErrorCode("CLIENT_ERROR"))
 		return 1
 	}
 
 	// controller-runtime client for the reconciler (manager client is bound
 	// per-leader inside runController; this one serves construction-time use).
 	// SUPPORT2-003 §11: the reconciler is created for ALL replicas now.
-	// Create scheme and add ZenCleanerPolicy types
-	scheme := runtime.NewScheme()
-	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		setupLog.Error(err, "Error adding scheme", cleanerlog.ErrorCode("SCHEME_ERROR"))
-		return 1
-	}
-
-	crClient, err := client.New(restCfg, client.Options{Scheme: scheme})
+	scheme, crClient, err := buildSchemeAndClient(restCfg)
 	if err != nil {
-		setupLog.Error(err, "Error building controller client", cleanerlog.ErrorCode("CLIENT_ERROR"))
 		return 1
 	}
 
@@ -176,20 +159,7 @@ func runMain() int {
 	// override env. Flags not explicitly set must not clobber env-provided
 	// values, otherwise the documented ZEN_CLEANER_* contract is inert
 	// whenever a deployment passes the flag defaults verbatim (SUPPORT2-002).
-	setFlags := map[string]bool{}
-	flag.Visit(func(f *flag.Flag) { setFlags[f.Name] = true })
-	if setFlags["cleanup-interval"] {
-		controllerConfig.WithCleanupInterval(*cleanupInterval)
-	}
-	if setFlags["max-deletions-per-second"] {
-		controllerConfig.WithMaxDeletionsPerSecond(*maxDeletionsPerSecond)
-	}
-	if setFlags["batch-size"] {
-		controllerConfig.WithBatchSize(*batchSize)
-	}
-	if setFlags["max-concurrent-evaluations"] {
-		controllerConfig.WithMaxConcurrentEvaluations(*maxConcurrentEvaluations)
-	}
+	applyFlagOverrides(controllerConfig)
 
 	setupLog.Info("Controller configuration",
 		cleanerlog.String("cleanupInterval", controllerConfig.CleanupInterval.String()),
@@ -204,28 +174,7 @@ func runMain() int {
 	eventRecorder := controller.NewEventRecorder(kubeClient)
 
 	// Setup controller-runtime manager
-	baseOpts := ctrl.Options{
-		Scheme: scheme,
-		// SUPPORT2-042 observability law: the manager's metrics server is
-		// disabled because it starts only on the leader, which left standby
-		// replicas unscrapable. The always-on standalone server binds
-		// *metricsAddr on EVERY replica instead, gathering from the default
-		// and controller-runtime registries (see ServeMetricsAlwaysOn).
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
-		WebhookServer: webhook.NewServer(webhook.Options{
-			Port:    9443,
-			CertDir: "", // We'll handle webhook separately for now
-		}),
-		// SUPPORT2-003 §11: health endpoints are served by a standalone
-		// always-on server for ALL replicas (leader + standby). The manager
-		// does not bind its own probe port (avoids double-bind).
-		HealthProbeBindAddress: "0",
-	}
-
-	// Configure manager options (no leader election - we use client-go leader election)
-	mgrOpts := baseOpts
+	mgrOpts := newManagerOptions(scheme)
 
 	// Set up graceful shutdown context
 	ctx, cancel := election.ShutdownContext(context.Background(), "zen-cleaner")
@@ -241,13 +190,7 @@ func runMain() int {
 		Enable:     *leaderElection,
 	}
 
-	if *leaderElection {
-		setupLog.Info("Leader election enabled",
-			cleanerlog.String("electionID", *leaderElectionID),
-			cleanerlog.String("namespace", *leaderElectionNamespace))
-	} else {
-		setupLog.Warn("Leader election disabled - only safe for single replica")
-	}
+	logLeaderElectionMode()
 
 	// SUPPORT2-003 §11-§12: the reconciler and health checker are created
 	// for ALL replicas (leader + standby), and a standalone always-on health
@@ -284,33 +227,7 @@ func runMain() int {
 	healthChecker.SetLeaderState(leaderState)
 
 	// Standalone always-on health server (leader + standby).
-	healthMux := http.NewServeMux()
-	healthMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		if err := healthChecker.LivenessCheck(r); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(err.Error()))
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	})
-	healthMux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		if err := healthChecker.ReadinessCheck(r); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(err.Error()))
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	})
-	healthMux.HandleFunc("/startup", func(w http.ResponseWriter, r *http.Request) {
-		if err := healthChecker.StartupCheck(r); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(err.Error()))
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	})
-	healthMux.Handle("/leaderz", controller.LeaderzCheck(leaderState))
-	stopHealth, err := controller.ServeStandalone(ctx, *healthProbeAddr, healthMux)
+	stopHealth, err := controller.ServeStandalone(ctx, *healthProbeAddr, newHealthMux(healthChecker, leaderState))
 	if err != nil {
 		setupLog.Error(err, "Error starting standalone health server", cleanerlog.ErrorCode("HEALTH_SERVER_ERROR"))
 		return 1
@@ -320,15 +237,8 @@ func runMain() int {
 	// SUPPORT2-042 observability law: every replica serves /metrics on the
 	// canonical metrics port (the manager's own bind is disabled above).
 	// SUPPORT2-050: OTel tracing init (safe no-op default).
-	traceShutdown, traceErr := observability.InitTracing(ctx)
-	if traceErr != nil {
-		setupLog.Warn("Tracing init failed (non-fatal)", cleanerlog.Error(traceErr))
-	} else {
-		defer func() {
-			if sdErr := traceShutdown(context.Background()); sdErr != nil {
-				setupLog.Warn("Tracing shutdown error", cleanerlog.Error(sdErr))
-			}
-		}()
+	if stopTrace := initTracing(ctx); stopTrace != nil {
+		defer stopTrace()
 	}
 
 	stopMetrics, err := controller.ServeMetricsAlwaysOn(ctx, *metricsAddr)
@@ -360,6 +270,144 @@ func runMain() int {
 		return 1
 	}
 	return 0
+}
+
+// buildKubernetesClients creates the dynamic client (resource informers) and
+// the Kubernetes client (events + leader election).
+func buildKubernetesClients(restCfg *rest.Config) (*dynamic.DynamicClient, *kubernetes.Clientset, error) {
+	// Create dynamic client (still needed for resource informers)
+	dynamicClient, err := dynamic.NewForConfig(restCfg)
+	if err != nil {
+		setupLog.Error(err, "Error building dynamic client", cleanerlog.ErrorCode("CLIENT_ERROR"))
+		return nil, nil, err
+	}
+
+	// Create Kubernetes client for events + leader election
+	kubeClient, err := kubernetes.NewForConfig(restCfg)
+	if err != nil {
+		setupLog.Error(err, "Error building Kubernetes client", cleanerlog.ErrorCode("CLIENT_ERROR"))
+		return nil, nil, err
+	}
+	return dynamicClient, kubeClient, nil
+}
+
+// buildSchemeAndClient creates the scheme (with ZenCleanerPolicy types added)
+// and the construction-time controller-runtime client.
+func buildSchemeAndClient(restCfg *rest.Config) (*runtime.Scheme, client.Client, error) {
+	// Create scheme and add ZenCleanerPolicy types
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		setupLog.Error(err, "Error adding scheme", cleanerlog.ErrorCode("SCHEME_ERROR"))
+		return nil, nil, err
+	}
+
+	crClient, err := client.New(restCfg, client.Options{Scheme: scheme})
+	if err != nil {
+		setupLog.Error(err, "Error building controller client", cleanerlog.ErrorCode("CLIENT_ERROR"))
+		return nil, nil, err
+	}
+	return scheme, crClient, nil
+}
+
+// applyFlagOverrides applies explicitly-set flags over the env-loaded
+// controller configuration.
+func applyFlagOverrides(controllerConfig *config.ControllerConfig) {
+	setFlags := map[string]bool{}
+	flag.Visit(func(f *flag.Flag) { setFlags[f.Name] = true })
+	if setFlags["cleanup-interval"] {
+		controllerConfig.WithCleanupInterval(*cleanupInterval)
+	}
+	if setFlags["max-deletions-per-second"] {
+		controllerConfig.WithMaxDeletionsPerSecond(*maxDeletionsPerSecond)
+	}
+	if setFlags["batch-size"] {
+		controllerConfig.WithBatchSize(*batchSize)
+	}
+	if setFlags["max-concurrent-evaluations"] {
+		controllerConfig.WithMaxConcurrentEvaluations(*maxConcurrentEvaluations)
+	}
+}
+
+// newManagerOptions builds the controller-runtime manager options (no leader
+// election — we use client-go leader election).
+func newManagerOptions(scheme *runtime.Scheme) ctrl.Options {
+	return ctrl.Options{
+		Scheme: scheme,
+		// SUPPORT2-042 observability law: the manager's metrics server is
+		// disabled because it starts only on the leader, which left standby
+		// replicas unscrapable. The always-on standalone server binds
+		// *metricsAddr on EVERY replica instead, gathering from the default
+		// and controller-runtime registries (see ServeMetricsAlwaysOn).
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port:    9443,
+			CertDir: "", // We'll handle webhook separately for now
+		}),
+		// SUPPORT2-003 §11: health endpoints are served by a standalone
+		// always-on server for ALL replicas (leader + standby). The manager
+		// does not bind its own probe port (avoids double-bind).
+		HealthProbeBindAddress: "0",
+	}
+}
+
+// logLeaderElectionMode reports whether leader election is enabled.
+func logLeaderElectionMode() {
+	if *leaderElection {
+		setupLog.Info("Leader election enabled",
+			cleanerlog.String("electionID", *leaderElectionID),
+			cleanerlog.String("namespace", *leaderElectionNamespace))
+	} else {
+		setupLog.Warn("Leader election disabled - only safe for single replica")
+	}
+}
+
+// newHealthMux builds the standalone health mux serving /healthz, /readyz,
+// /startup and /leaderz.
+func newHealthMux(healthChecker *controller.HealthChecker, leaderState *controller.LeaderState) *http.ServeMux {
+	healthMux := http.NewServeMux()
+	healthMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		if err := healthChecker.LivenessCheck(r); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	healthMux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		if err := healthChecker.ReadinessCheck(r); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	healthMux.HandleFunc("/startup", func(w http.ResponseWriter, r *http.Request) {
+		if err := healthChecker.StartupCheck(r); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	healthMux.Handle("/leaderz", controller.LeaderzCheck(leaderState))
+	return healthMux
+}
+
+// initTracing initializes OTel tracing (non-fatal on failure) and returns
+// the shutdown function, or nil when tracing init failed.
+func initTracing(ctx context.Context) func() {
+	traceShutdown, traceErr := observability.InitTracing(ctx)
+	if traceErr != nil {
+		setupLog.Warn("Tracing init failed (non-fatal)", cleanerlog.Error(traceErr))
+		return nil
+	}
+	return func() {
+		if sdErr := traceShutdown(context.Background()); sdErr != nil {
+			setupLog.Warn("Tracing shutdown error", cleanerlog.Error(sdErr))
+		}
+	}
 }
 
 // startWebhookServer starts the admission webhook server on this replica

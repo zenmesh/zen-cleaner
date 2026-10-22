@@ -109,34 +109,13 @@ func ValidatePolicy(policy *gcapi.ZenCleanerPolicy) error {
 // validateTargetResource validates the target resource specification.
 func validateTargetResource(target *gcapi.TargetResourceSpec) error {
 	// Validate APIVersion
-	if target.APIVersion == "" {
-		return fmt.Errorf("%w", ErrAPIVersionRequired)
-	}
-	// APIVersion should not contain leading/trailing whitespace
-	if strings.TrimSpace(target.APIVersion) != target.APIVersion {
-		return fmt.Errorf("%w: contains leading or trailing whitespace", ErrInvalidAPIVersion)
-	}
-	// Basic format check: should contain at least one '/' or be a valid version
-	if !strings.Contains(target.APIVersion, "/") && !isValidVersion(target.APIVersion) {
-		// Allow simple versions like "v1" but validate format
-		if errs := validation.IsDNS1123Subdomain(target.APIVersion); len(errs) > 0 {
-			return fmt.Errorf("%w: %v", ErrInvalidAPIVersion, errs)
-		}
+	if err := validateAPIVersion(target.APIVersion); err != nil {
+		return err
 	}
 
 	// Validate Kind
-	if target.Kind == "" {
-		return fmt.Errorf("%w", ErrKindRequired)
-	}
-	// Kind should not contain leading/trailing whitespace
-	if strings.TrimSpace(target.Kind) != target.Kind {
-		return fmt.Errorf("%w: contains leading or trailing whitespace", ErrInvalidKind)
-	}
-
-	// Safety law (SUPPORT2-033 §2): hard-protected kinds can never be
-	// cleanup targets, at admission time or runtime.
-	if reason := safetyProtectedKind(target.Kind); reason {
-		return fmt.Errorf("%w: %s", ErrProtectedKind, target.Kind)
+	if err := validateKind(target.Kind); err != nil {
+		return err
 	}
 
 	// Validate Namespace
@@ -144,17 +123,9 @@ func validateTargetResource(target *gcapi.TargetResourceSpec) error {
 		return fmt.Errorf("invalid namespace: %w", err)
 	}
 
-	// Safety law: protected namespaces can never be cleanup targets.
-	if target.Namespace != "" && target.Namespace != "*" && ProtectedNamespaces[target.Namespace] {
-		return fmt.Errorf("%w: %s", ErrProtectedNamespace, target.Namespace)
-	}
-
-	// Safety law: a cluster-wide target must carry an explicit non-empty
-	// label selector. Without it nothing bounds what the policy matches.
-	hasSelector := target.LabelSelector != nil &&
-		(len(target.LabelSelector.MatchLabels) > 0 || len(target.LabelSelector.MatchExpressions) > 0)
-	if target.Namespace == "*" && !hasSelector {
-		return fmt.Errorf("%w", ErrUnsafeBroadScope)
+	// Safety laws (SUPPORT2-033 §2)
+	if err := validateNamespaceSafety(target); err != nil {
+		return err
 	}
 
 	// Validate LabelSelector if provided
@@ -164,6 +135,60 @@ func validateTargetResource(target *gcapi.TargetResourceSpec) error {
 		}
 	}
 
+	return nil
+}
+
+// validateAPIVersion validates the APIVersion field format.
+func validateAPIVersion(apiVersion string) error {
+	if apiVersion == "" {
+		return fmt.Errorf("%w", ErrAPIVersionRequired)
+	}
+	// APIVersion should not contain leading/trailing whitespace
+	if strings.TrimSpace(apiVersion) != apiVersion {
+		return fmt.Errorf("%w: contains leading or trailing whitespace", ErrInvalidAPIVersion)
+	}
+	// Basic format check: should contain at least one '/' or be a valid version
+	if !strings.Contains(apiVersion, "/") && !isValidVersion(apiVersion) {
+		// Allow simple versions like "v1" but validate format
+		if errs := validation.IsDNS1123Subdomain(apiVersion); len(errs) > 0 {
+			return fmt.Errorf("%w: %v", ErrInvalidAPIVersion, errs)
+		}
+	}
+	return nil
+}
+
+// validateKind validates the Kind field format and hard-protection.
+func validateKind(kind string) error {
+	if kind == "" {
+		return fmt.Errorf("%w", ErrKindRequired)
+	}
+	// Kind should not contain leading/trailing whitespace
+	if strings.TrimSpace(kind) != kind {
+		return fmt.Errorf("%w: contains leading or trailing whitespace", ErrInvalidKind)
+	}
+
+	// Safety law (SUPPORT2-033 §2): hard-protected kinds can never be
+	// cleanup targets, at admission time or runtime.
+	if reason := safetyProtectedKind(kind); reason {
+		return fmt.Errorf("%w: %s", ErrProtectedKind, kind)
+	}
+	return nil
+}
+
+// validateNamespaceSafety enforces the namespace safety laws: protected
+// namespaces can never be cleanup targets, and a cluster-wide target must
+// carry an explicit non-empty label selector — without it nothing bounds
+// what the policy matches.
+func validateNamespaceSafety(target *gcapi.TargetResourceSpec) error {
+	if target.Namespace != "" && target.Namespace != "*" && ProtectedNamespaces[target.Namespace] {
+		return fmt.Errorf("%w: %s", ErrProtectedNamespace, target.Namespace)
+	}
+
+	hasSelector := target.LabelSelector != nil &&
+		(len(target.LabelSelector.MatchLabels) > 0 || len(target.LabelSelector.MatchExpressions) > 0)
+	if target.Namespace == "*" && !hasSelector {
+		return fmt.Errorf("%w", ErrUnsafeBroadScope)
+	}
 	return nil
 }
 
