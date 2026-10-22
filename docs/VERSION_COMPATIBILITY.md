@@ -26,7 +26,7 @@ Kubernetes version.
 
 - **CRD API**: v1 (`apiextensions.k8s.io/v1`)
 - **RBAC**: v1 (`rbac.authorization.k8s.io/v1`)
-- **Go**: 1.26+ (see `go.mod`)
+- **Go**: 1.27+ (see `go.mod`)
 
 ## Version Support Policy
 

@@ -144,7 +144,11 @@ login, `push: true`).
 `GITHUB_TOKEN` defaults to PRIVATE. After the first tag release, set the
 package visibility to public (Package settings → Visibility) so anonymous
 readers can pull; anonymous pulls remain denied until then — the soft-launch
-install path stays blocked without it.
+install path stays blocked without it. This applies to BOTH packages: the
+image (`zenmesh/zen-cleaner`) and the chart package (`zenmesh/charts`,
+first created by the 0.1.2 chart publish) — anonymous `helm pull` /
+`helm upgrade --install oci://...` stays denied until the chart package is
+public too.
 
 **Digest law:** record the immutable digest in the release notes and pin it in
 the README/chart instructions; tags never move (the old `build-multiarch`

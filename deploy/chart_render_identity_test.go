@@ -115,23 +115,53 @@ func TestChartRenderIdentity_NoDuplicateIdentities(t *testing.T) {
 		}
 		return out
 	}
-	// THE NULL-GROUP LAW (found live on the public install): `helm --set
-	// rbac.targetKinds[1].resource=configmaps` (no group field — the natural
-	// reader spelling) must render the CORE API group, not crash the
-	// template: absent/null group == core.
-	t.Run("targetKind with absent group renders the core API group", func(t *testing.T) {
-		ids := render([]string{"--set", "rbac.targetKinds[1].resource=configmaps",
-			"--set", "rbac.deleteNamespaces[0]=a"}...)
-		assertNoDupes("absent-group", ids)
-		coreRules := 0
-		for _, id := range ids {
-			if id.kind != "ClusterRole" && id.kind != "Role" {
-				continue
+	// THE NULL-GROUP LAW, two halves (found live on the public install):
+	// (a) a targetKinds MAP with an absent/empty group field renders the
+	// CORE API group (RBAC "" convention) — the explicit two-index --set
+	// spelling is the supported extension form;
+	// (b) the naive reader spelling `--set rbac.targetKinds[1].resource=x`
+	// against the one-entry default list makes Helm emit a NULL list
+	// element, which previously rendered silently as an "?invalid-target"
+	// rule in a live ClusterRole and Role while dropping the real jobs
+	// allowlist. Corrupt RBAC must never render: the template now fails the
+	// install loudly instead.
+	t.Run("partial --set index fails loudly instead of shipping corrupt RBAC", func(t *testing.T) {
+		args := append([]string{"template", "identity-check", chartDir},
+			"--set", "rbac.targetKinds[1].resource=configmaps",
+			"--set", "rbac.deleteNamespaces[0]=a")
+		out, err := exec.Command(helm, args...).CombinedOutput()
+		if err == nil {
+			t.Fatalf("partial-index --set must fail the render; it produced manifests instead. Output:\n%s", out)
+		}
+		if !strings.Contains(string(out), "rbac.targetKinds entries must be maps") {
+			t.Fatalf("expected the explicit targetKinds guidance in the failure, got:\n%s", out)
+		}
+	})
+
+	t.Run("explicit two-index --set renders jobs and core-group configmaps", func(t *testing.T) {
+		extension := []string{
+			"--set", "rbac.targetKinds[0].group=batch", "--set", "rbac.targetKinds[0].resource=jobs",
+			"--set", "rbac.targetKinds[1].group=", "--set", "rbac.targetKinds[1].resource=configmaps",
+			"--set", "rbac.deleteNamespaces[0]=a"}
+		args := append([]string{"template", "identity-check", chartDir}, extension...)
+		out, err := exec.Command(helm, args...).Output()
+		if err != nil {
+			t.Fatalf("explicit two-index --set must render: %v", err)
+		}
+		rendered := string(out)
+		for _, want := range []string{
+			`apiGroups: ["batch"]`, // the jobs allowlist survives the extension
+			`resources: ["jobs"`,
+			`resources: ["configmaps"]`, // absent/empty group == core API group
+		} {
+			if !strings.Contains(rendered, want) {
+				t.Fatalf("rendered RBAC missing %s; output:\n%s", want, rendered)
 			}
 		}
-		_ = coreRules
-		// the render must simply succeed with the extension present; identity
-		// strictness is asserted above. A template crash fails in render().
+		if strings.Contains(rendered, "?invalid-target") {
+			t.Fatal("rendered RBAC contains the ?invalid-target sentinel")
+		}
+		assertNoDupes("explicit-two-index", render(extension...))
 	})
 
 	cases := []struct {

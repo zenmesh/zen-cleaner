@@ -103,7 +103,7 @@ install_crds() {
     else
         kubectl apply -f deploy/crds/
         log_info "Waiting for CRDs to be established..."
-        kubectl wait --for=condition=established --timeout=60s crd/zencleanerpolicies.gc.zen-mesh.io || true
+        kubectl wait --for=condition=established --timeout=60s crd/zencleanerpolicies.cleaner.zen-mesh.io || true
     fi
 }
 
@@ -160,8 +160,8 @@ install_kubectl() {
 install_helm() {
     log_info "Installing using Helm..."
     
-    if [ ! -d "charts/zen-cleaner" ]; then
-        log_error "Helm chart not found at charts/zen-cleaner"
+    if [ ! -d "deploy/helm/zen-cleaner" ]; then
+        log_error "Helm chart not found at deploy/helm/zen-cleaner"
         exit 1
     fi
     

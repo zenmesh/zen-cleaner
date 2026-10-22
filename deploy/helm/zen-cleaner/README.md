@@ -15,7 +15,9 @@ The defaults are deliberately conservative. An install with no overrides:
   `behavior.allowWorkloadDeletion: true`;
 - keeps existing namespace-scoped Role objects (the safety-protected release
   namespace) intact;
-- enables a NetworkPolicy limiting egress to the Kubernetes API and DNS.
+- enables a NetworkPolicy restricting egress to TCP/443 (any destination —
+  this covers the Kubernetes API but is not API-only) and cluster DNS
+  (UDP/TCP 53 to kube-system).
 
 Extend deliberately, from a clone of the repository:
 

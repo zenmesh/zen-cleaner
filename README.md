@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Version](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)](https://go.dev/)
 [![CI](https://github.com/zenmesh/zen-cleaner/workflows/CI/badge.svg)](https://github.com/zenmesh/zen-cleaner/actions)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.26+-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.34+-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 
 Kubernetes controller for **declarative resource cleanup**: define **`ZenCleanerPolicy`** objects (TTL, selectors, dry-run, rate limits) and let zen-cleaner delete matching resources safely.
 
@@ -25,32 +25,62 @@ Builds require **Go 1.27+** (see `go.mod`). Published container images are built
 ### Recommended: Helm (repository chart)
 
 The chart is the supported install path: it renders valid manifests (no shell
-placeholders), runs without the admission webhook TLS dependency, and accepts a
-pinned image. From a clone of this repo:
+placeholders), runs without the admission webhook TLS dependency, and pins the
+image by its immutable digest. Install release 0.1.2 straight from the
+published OCI chart — no repository clone needed:
 
 ```bash
-# The example policy cleans ConfigMaps in the `default` namespace; the RBAC
-# allowlist is Jobs-only by default and the release namespace is
-# safety-protected, so the install below extends the allowlist (an entry
-# without a `group` field is the core API group) and authorizes deletion:
-helm install zen-cleaner ./deploy/helm/zen-cleaner \
+helm upgrade --install zen-cleaner \
+  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.2 \
   --namespace zen-cleaner-system --create-namespace \
-  --set image.tag=0.1.1 \
-  --set rbac.targetKinds[1].resource=configmaps \
   --set rbac.deleteNamespaces[0]=default
-# Pin by digest once you have chosen one (tag is then ignored):
-#   --set image.digest=sha256:ABCD...
-# The chart bundles the ZenCleanerPolicy CRD (chart crds/): Helm installs it
-# on `helm install` and never deletes or upgrades it on uninstall/upgrade
-# (apply deploy/crds/ manually when a release adds CRD changes).
+# or, equivalently, from the plain-HTTP chart index (GitHub Releases):
+helm repo add zenmesh https://github.com/zenmesh/zen-cleaner/releases/latest/download
+helm repo update
+helm upgrade --install zen-cleaner zenmesh/zen-cleaner --version 0.1.2 \
+  --namespace zen-cleaner-system --create-namespace \
+  --set rbac.deleteNamespaces[0]=default
+```
+
+Both forms pin the exact released image digest inside the chart. The example
+policy below cleans ConfigMaps in the `default` namespace; the RBAC allowlist
+is Jobs-only by default and the release namespace is safety-protected, so the
+installs above authorize deletion in `default`. To also clean another resource
+kind, extend the allowlist with EVERY index spelled explicitly (a `group`-less
+entry is the core API group; a partially-set index produces a null entry and
+the chart refuses to render rather than ship corrupt RBAC):
+
+```bash
+helm upgrade --install zen-cleaner \
+  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.2 \
+  --namespace zen-cleaner-system --create-namespace \
+  --set rbac.targetKinds[0].group=batch --set rbac.targetKinds[0].resource=jobs \
+  --set rbac.targetKinds[1].group= --set rbac.targetKinds[1].resource=configmaps \
+  --set rbac.deleteNamespaces[0]=default
+```
+
+The chart bundles the ZenCleanerPolicy CRD (chart crds/): Helm installs it on
+`helm install` and never deletes or upgrades it on uninstall/upgrade. Then
+apply the example policy and watch it clean up:
+
+```bash
 kubectl apply -f examples/temp-configmap-cleanup.yaml
 ```
 
-No packaged chart archive is published yet — install from a repository
-clone (the chart directory itself is the artifact; ordinary Helm tooling,
-no private infrastructure required).
+### Install from a clone (development / air-gapped)
 
-### Install from source (no published image needed)
+From a clone of this repo you can install the chart directory directly:
+
+```bash
+helm install zen-cleaner ./deploy/helm/zen-cleaner \
+  --namespace zen-cleaner-system --create-namespace \
+  --set image.tag=0.1.2 \
+  --set rbac.deleteNamespaces[0]=default
+# Pin by digest once you have chosen one (tag is then ignored):
+#   --set image.digest=sha256:ABCD...
+```
+
+### Build the image from source (no published image needed)
 
 ```bash
 docker build -t zen-cleaner:local .
@@ -69,7 +99,7 @@ an image reference that `kubectl apply` does NOT substitute — use the install
 script (it renders them with `envsubst`), not raw `kubectl apply`:
 
 ```bash
-CLEANER_IMAGE=ghcr.io/zenmesh/zen-cleaner:0.1.1 \
+CLEANER_IMAGE=ghcr.io/zenmesh/zen-cleaner:0.1.2 \
 WEBHOOK_NAMESPACE=zen-cleaner-system bash deploy/install.sh
 ```
 
