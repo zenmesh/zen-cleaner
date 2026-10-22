@@ -69,6 +69,24 @@ type ErrorContext struct {
 	Fields     []zap.Field
 }
 
+// errorCategoryRules maps error-message substrings to categories, in
+// priority order: the first rule whose pattern matches wins.
+var errorCategoryRules = []struct {
+	category ErrorCategory
+	patterns []string
+}{
+	{ErrorCategoryNotFound, []string{"not found", "does not exist"}},
+	{ErrorCategoryConflict, []string{"already exists", "duplicate", "conflict"}},
+	{ErrorCategoryAuthentication, []string{"unauthorized", "authentication failed", "invalid token"}},
+	{ErrorCategoryAuthorization, []string{"forbidden", "permission denied", "access denied"}},
+	{ErrorCategoryValidation, []string{"invalid", "validation", "malformed"}},
+	{ErrorCategoryTimeout, []string{"timeout", "deadline exceeded"}},
+	{ErrorCategoryRateLimit, []string{"rate limit", "too many requests"}},
+	{ErrorCategoryNetwork, []string{"connection refused", "connection reset", "network"}},
+	{ErrorCategoryDatabase, []string{"database", "sql", "transaction"}},
+	{ErrorCategoryConfig, []string{"config", "configuration"}},
+}
+
 // CategorizeError attempts to categorize an error based on its message and type.
 func CategorizeError(err error) ErrorCategory {
 	if err == nil {
@@ -76,32 +94,14 @@ func CategorizeError(err error) ErrorCategory {
 	}
 
 	errMsg := strings.ToLower(err.Error())
-
-	// Check for common error patterns
-	switch {
-	case strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "does not exist"):
-		return ErrorCategoryNotFound
-	case strings.Contains(errMsg, "already exists") || strings.Contains(errMsg, "duplicate") || strings.Contains(errMsg, "conflict"):
-		return ErrorCategoryConflict
-	case strings.Contains(errMsg, "unauthorized") || strings.Contains(errMsg, "authentication failed") || strings.Contains(errMsg, "invalid token"):
-		return ErrorCategoryAuthentication
-	case strings.Contains(errMsg, "forbidden") || strings.Contains(errMsg, "permission denied") || strings.Contains(errMsg, "access denied"):
-		return ErrorCategoryAuthorization
-	case strings.Contains(errMsg, "invalid") || strings.Contains(errMsg, "validation") || strings.Contains(errMsg, "malformed"):
-		return ErrorCategoryValidation
-	case strings.Contains(errMsg, "timeout") || strings.Contains(errMsg, "deadline exceeded"):
-		return ErrorCategoryTimeout
-	case strings.Contains(errMsg, "rate limit") || strings.Contains(errMsg, "too many requests"):
-		return ErrorCategoryRateLimit
-	case strings.Contains(errMsg, "connection refused") || strings.Contains(errMsg, "connection reset") || strings.Contains(errMsg, "network"):
-		return ErrorCategoryNetwork
-	case strings.Contains(errMsg, "database") || strings.Contains(errMsg, "sql") || strings.Contains(errMsg, "transaction"):
-		return ErrorCategoryDatabase
-	case strings.Contains(errMsg, "config") || strings.Contains(errMsg, "configuration"):
-		return ErrorCategoryConfig
-	default:
-		return ErrorCategoryInternal
+	for _, rule := range errorCategoryRules {
+		for _, pattern := range rule.patterns {
+			if strings.Contains(errMsg, pattern) {
+				return rule.category
+			}
+		}
 	}
+	return ErrorCategoryInternal
 }
 
 // GetStackTrace returns the stack trace for the current goroutine

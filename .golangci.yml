@@ -9,10 +9,10 @@ linters:
     - cyclop
   settings:
     cyclop:
-      # Fleet census 2026-10-22: current production max is 29
-      # (internal/logging CategorizeError, by cyclop counting). Gate holds
-      # at 30; tighten as refactors land.
-      max-complexity: 30
+      # Fleet census 2026-10-22: current production max is 24
+      # (cmd/zen-cleaner runMain, by cyclop counting). Gate holds at 25;
+      # tighten as refactors land.
+      max-complexity: 25
 
 formatters:
   enable:
