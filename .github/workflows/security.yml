@@ -28,12 +28,34 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
-      
+
+      # GO-2026-6809 regression guard: govulncheck scans the MODULE with the
+      # go.mod-declared toolchain, but the RELEASED image is built by the
+      # Dockerfile's digest-pinned golang builder. If go.mod is bumped for a
+      # stdlib advisory and the builder pin lags, this gate stays green while
+      # the shipped binary stays vulnerable. The builder must therefore report
+      # a Go version >= the module toolchain (newer is fine; the directive is
+      # a minimum). Alpine base is part of the pin contract (Dockerfile).
+      - name: Verify builder toolchain is not older than the module toolchain
+        run: |
+          set -euo pipefail
+          MOD_GO="$(awk '$1 == "go" {print $2}' go.mod)"
+          BUILDER="$(awk '/^FROM golang@/ {print $2}' Dockerfile)"
+          test -n "$MOD_GO" || { echo "::error::go.mod has no 'go' directive"; exit 1; }
+          test -n "$BUILDER" || { echo "::error::Dockerfile has no 'FROM golang@<digest>' builder pin"; exit 1; }
+          BUILDER_GO="$(docker run --rm "$BUILDER" go version | sed -E 's/.*go([0-9.]+).*/\1/')"
+          echo "module toolchain: go$MOD_GO; builder image reports: go$BUILDER_GO"
+          LOWEST="$(printf '%s\n%s\n' "$MOD_GO" "$BUILDER_GO" | sort -V | head -1)"
+          if [ "$LOWEST" != "$MOD_GO" ]; then
+            echo "::error::builder toolchain (go$BUILDER_GO) is OLDER than the module toolchain (go$MOD_GO). Stdlib advisories fixed in the module toolchain are still live in the released image. Bump the Dockerfile golang pin (Alpine variant ONLY — verify /etc/os-release and /sbin/apk) to go$MOD_GO or newer."
+            exit 1
+          fi
+
       - name: Install dependencies
         run: go mod download
-      
+
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
-      
+
       - name: Run govulncheck
         run: govulncheck ./...
