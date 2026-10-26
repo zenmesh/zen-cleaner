@@ -13,8 +13,8 @@ require (
 	golang.org/x/text v0.42.0
 	golang.org/x/time v0.16.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.37.0
-	k8s.io/apimachinery v0.37.0
+	k8s.io/api v0.37.1
+	k8s.io/apimachinery v0.37.1
 	k8s.io/client-go v0.37.0
 	k8s.io/klog/v2 v2.140.0
 	sigs.k8s.io/controller-runtime v0.25.2
