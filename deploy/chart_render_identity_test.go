@@ -196,6 +196,28 @@ func TestChartRenderIdentity_NoDuplicateIdentities(t *testing.T) {
 	}
 }
 
+// 2026-10-29: the egress policy must allow BOTH 443 and 6443 (the embedded
+// kube-router netpol matches rules against the POST-DNAT endpoint port, so
+// the API path dials 6443) plus the DNS allowance — regression for the
+// NetworkPolicy-enforced API-lock failure class.
+func TestRenderEgressPolicyPorts(t *testing.T) {
+	helm, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm not installed; egress-port render test requires the helm CLI")
+	}
+	out, err := exec.Command(helm, "template", "egress-check",
+		filepath.Join("helm", "zen-cleaner"), "--namespace", "default").Output()
+	if err != nil {
+		t.Fatalf("helm template: %v", err)
+	}
+	rendered := string(out)
+	for _, want := range []string{"port: 443", "port: 6443", "port: 53"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("rendered NetworkPolicy missing %s", want)
+		}
+	}
+}
+
 func splitYAMLDocs(b []byte) [][]byte {
 	var docs [][]byte
 	start := -1

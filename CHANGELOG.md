@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] — 2026-10-29
+
+### Fixed
+- **Default egress NetworkPolicy now permits the Kubernetes API path under enforcement on k3s.** The embedded kube-router policy engine matches egress rules against the POST-DNAT endpoint tuple, so an API dial (ClusterIP:443) arrives at the policy chain as endpoint:6443 and a 443-only rule denied it — the controller stayed leaderless while the pod reported Ready (0.1.2/0.1.3 under enforcement). The rule now allows TCP/443 and TCP/6443 to any destination; enforcement of non-listed ports was re-verified unchanged by probe matrix on k3s v1.37.0 and v1.35.5.
+- `APIUnreachable` pod events fire without requiring `POD_NAME` to be projected (HOSTNAME fallback).
+
 ## [0.1.3] — 2026-10-29
 
 ### Added
