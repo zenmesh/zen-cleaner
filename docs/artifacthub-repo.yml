@@ -10,7 +10,7 @@
 #
 # repositoryID: The ID of the Artifact Hub repository where the packages will be published to
 # (optional, but enables verified publisher status)
-repositoryID: 932dd8e5-fce2-4781-b952-c3ecce7a5405
+repositoryID: b1179c76-d63c-4b89-971e-d00620dc58df
 
 # owners: List of owners to claim repository ownership (optional)
 owners:

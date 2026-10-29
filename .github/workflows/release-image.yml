@@ -120,6 +120,8 @@ jobs:
           helm lint ./deploy/helm/zen-cleaner
           helm template zen-cleaner ./deploy/helm/zen-cleaner --namespace zen-cleaner-system > /tmp/rendered.yaml
           grep -F "ghcr.io/zenmesh/zen-cleaner@$IMAGE_DIGEST" /tmp/rendered.yaml
+      - name: Install oras
+        uses: oras-project/setup-oras@v1.2.2
       - name: Package and publish public chart candidate
         run: |
           set -euo pipefail
@@ -128,6 +130,13 @@ jobs:
           helm push "/tmp/chart-out/zen-cleaner-$VERSION.tgz" oci://ghcr.io/zenmesh/charts
           cd /tmp/chart-out
           sha256sum "zen-cleaner-$VERSION.tgz" > "zen-cleaner-$VERSION.tgz.sha256"
+          # Artifact Hub reads repository metadata from an OCI artifact tagged
+          # artifacthub.io (config media type application/vnd.cncf.artifacthub.config.v1+yaml).
+          # Keep it aligned with every release so verified-publisher metadata
+          # tracks the registered repository (ID inside the file).
+          oras push --artifact-type application/vnd.cncf.artifacthub.config.v1+yaml \
+            ghcr.io/zenmesh/charts/zen-cleaner:artifacthub.io \
+            artifacthub-repo.yml:application/yaml
       - name: Build the public HTTP chart repository index
         run: |
           set -euo pipefail
