@@ -24,6 +24,7 @@ import (
 	"syscall"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"
@@ -257,9 +258,26 @@ type observedLock struct {
 }
 
 func (l *observedLock) report(err error) {
-	if l.onObservation != nil {
-		l.onObservation(err == nil, err)
+	if l.onObservation == nil {
+		return
 	}
+	// Reachability semantics (2026-10-29): "reachable" means the API SERVER
+	// RESPONDED. Object-level API errors (NotFound on the first lease GET of
+	// a fresh cluster, 401/403, conflict, ...) prove reachability — treating
+	// them as unreachable produced a false APIUnreachable event pair at
+	// every cold start. Only transport/unknown failures mean unreachable.
+	if err == nil {
+		l.onObservation(true, nil)
+		return
+	}
+	if apierrors.IsNotFound(err) || apierrors.IsForbidden(err) ||
+		apierrors.IsUnauthorized(err) || apierrors.IsInvalid(err) ||
+		apierrors.IsConflict(err) || apierrors.IsGone(err) ||
+		apierrors.IsMethodNotSupported(err) || apierrors.IsAlreadyExists(err) {
+		l.onObservation(true, err)
+		return
+	}
+	l.onObservation(false, err)
 }
 
 func (l *observedLock) Get(ctx context.Context) (*resourcelock.LeaderElectionRecord, []byte, error) {

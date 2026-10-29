@@ -2,8 +2,8 @@ apiVersion: v2
 name: zen-cleaner
 description: Zen Cleaner - declarative Kubernetes garbage collection controller (policy-driven, dry-run first, default-deny RBAC)
 type: application
-version: 0.1.5
-appVersion: "0.1.5"
+version: 0.1.6
+appVersion: "0.1.6"
 # Truthful, public project metadata. No HA/SOC2/production-qualification claim
 # is made: this is a 0.x community project (see RELEASING.md).
 home: https://github.com/zenmesh/zen-cleaner
@@ -39,6 +39,8 @@ annotations:
       description: Structured-log event sink retained on the broadcaster — APIUnreachable (and every other event) stays visible in kubectl logs while the API sink cannot deliver (NetworkPolicy-enforced egress rejection).
     - kind: added
       description: networkPolicy.egressCidr values knob — narrow the 443/6443 API allowance to the cluster network (default 0.0.0.0/0 unchanged).
+    - kind: fixed
+      description: Startup Lease-NotFound no longer emits a false APIUnreachable event pair — API-response errors classify as reachable; only transport failures mean unreachable.
   artifacthub.io/license: Apache-2.0
   artifacthub.io/links: |
     - name: source code

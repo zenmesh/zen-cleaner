@@ -3,6 +3,9 @@ package election
 import (
 	"context"
 	"errors"
+	"fmt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"os"
 	"strings"
@@ -306,6 +309,37 @@ func TestObservedLockReportsOutcomes(t *testing.T) {
 	}
 	if len(verdicts) != 2 || !strings.HasPrefix(verdicts[0], "unreachable:") || verdicts[1] != "reachable" {
 		t.Fatalf("observations wrong: %v", verdicts)
+	}
+}
+
+// 2026-10-29 launch-validation: the FIRST lease GET on a fresh cluster
+// returns NotFound (the lease object does not exist yet) — an API RESPONSE,
+// i.e. reachable. The previous observer classified any error as
+// unreachable, emitting a false APIUnreachable event pair at every cold
+// start. NotFound/401/403/conflict are server responses: reachable=true
+// with the error carried for context; only transport failures mean
+// unreachable.
+func TestObservedLockNotFoundIsReachable(t *testing.T) {
+	notFound := errors.New("leases.coordination.k8s.io \"zen-cleaner-leader-election\" not found")
+	// wrap with an apierrors-shaped error via the real constructor:
+	notFound = apierrors.NewNotFound(schema.GroupResource{Group: "coordination.k8s.io", Resource: "leases"}, "zen-cleaner-leader-election")
+	refused := errors.New("dial tcp 10.43.0.1:443: connect: connection refused")
+	delegate := &fakeLock{getErr: notFound}
+	var verdicts []string
+	ol := &observedLock{delegate: delegate, onObservation: func(reachable bool, err error) {
+		verdicts = append(verdicts, fmt.Sprintf("reachable=%v err=%v", reachable, err != nil))
+	}}
+	_, _, _ = ol.Get(context.Background())
+	delegate.getErr = refused
+	_, _, _ = ol.Get(context.Background())
+	if len(verdicts) != 2 {
+		t.Fatalf("expected 2 observations, got %d: %v", len(verdicts), verdicts)
+	}
+	if !strings.HasPrefix(verdicts[0], "reachable=true") {
+		t.Fatalf("NotFound must classify as reachable: %v", verdicts[0])
+	}
+	if !strings.HasPrefix(verdicts[1], "reachable=false") {
+		t.Fatalf("transport failure must classify as unreachable: %v", verdicts[1])
 	}
 }
 
