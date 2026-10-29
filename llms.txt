@@ -7,7 +7,7 @@
 **Source:** https://github.com/zenmesh/zen-cleaner  
 **Docs:** https://github.com/zenmesh/zen-cleaner/tree/main/docs  
 **License:** Apache-2.0  
-**Version:** 0.0.1-alpha  
+**Version:** 0.1.6 (Helm chart `0.1.6`, image digest-bound; released 2026-10-29)  
 
 ## Quick links
 
@@ -16,7 +16,9 @@
 - [Kubernetes compatibility](docs/compatibility/kubernetes.md) — evidenced version support
 - [K8s v1.36 kind evidence](docs/evidence/kubernetes/v1.36/kind.md) — kind v1.36.1
 - [K8s v1.36 k3d evidence](docs/evidence/kubernetes/v1.36/k3d.md) — K3s v1.36.2+k3s1
-- [K8s v1.36 kubeadm evidence](docs/evidence/kubernetes/v1.36/kubeadm.md) — kubeadm v1.36.2 PASS
+- [K8s v1.36 kubeadm evidence](docs/evidence/kubernetes/v1.36/kubeadm.md) — kubeadm v1.36.2 PASS (historical, pre-0.1.x packaging)
+- [K8s v1.36 kind + Calico — release 0.1.6 evidence](docs/evidence/kubernetes/v1.36/kind-calico-20261029.md) — enforced-NetworkPolicy matrix PASS (2026-10-29)
+- [K3s v1.37/v1.35 release validation](https://github.com/zenmesh/zen-cleaner/blob/main/README.md#supported-environments-and-the-default-networkpolicy) — enforced install + TTL cleanup verified (2026-10-29)
 - [Security policy](SECURITY.md) — vulnerability reporting
 - [Security (operations)](docs/security/threat-model.md) — threat model and RBAC assumptions
 - [Supply chain](docs/security/supply-chain.md) — build, scan, provenance status
@@ -29,7 +31,7 @@
 - zen-cleaner runs entirely in your cluster; there is no hosted service component
 - zen-cleaner is **not** a credential vault or secret store
 - zen-cleaner is **not** a replacement for Kubernetes RBAC or admission policy (OPA/Gatekeeper)
-- zen-cleaner is **not** production-live or product-launched — it is a community OSS project
+- zen-cleaner is a **community OSS project (0.x)**: released and validated on k3s and kind/Calico (see evidence links), but not product-launched and not claimed for EKS/GKE/AKS or every CNI
 
 ## AI instruction
 
