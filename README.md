@@ -298,6 +298,6 @@ zen-cleaner is a public repository available for community use, feedback, and co
 - **GitHub Repository**: [github.com/zenmesh/zen-cleaner](https://github.com/zenmesh/zen-cleaner)
 - **Documentation Index**: [docs/INDEX.md](docs/INDEX.md)
 - **Helm**: `deploy/helm/zen-cleaner` chart in this repository
-- **Quick overview video (~3 minutes)**: [How Zen Cleaner Fixes Kubernetes Resource Clutter](https://www.youtube.com/shorts/i4I0RDWZnFw) — a short overview published by Zen Mesh Inc. covering the resource-clutter problem Zen Cleaner addresses. *Note: this is the publisher's overview video, not a recorded run of the commands in this README; the install steps below are the authoritative instructions.*
+- **Quick overview video (1:16)**: [How Zen Cleaner Fixes Kubernetes Resource Clutter](https://www.youtube.com/shorts/i4I0RDWZnFw) — a short overview published by Zen Mesh Inc. covering the resource-clutter problem Zen Cleaner addresses. *Note: this is the publisher's overview video, not a recorded run of the commands in this README; the install steps below are the authoritative instructions.*
 - **Explainer video (~6 minutes)**: [zen-cleaner explainer](https://www.youtube.com/watch?v=7MgDgQ53zeU) — the longer walkthrough of what Zen Cleaner does and how it is deployed.
 - **Zen Mesh Inc.**: [zen-mesh.io](https://zen-mesh.io)
