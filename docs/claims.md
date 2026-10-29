@@ -48,7 +48,7 @@ See `docs/evidence/kubernetes/v1.36/kind.md` and `docs/evidence/kubernetes/v1.36
 | Attribute | Status | Evidence |
 |-----------|--------|----------|
 | API version | `v1alpha1` (may change) | CRD manifests |
-| Semantic version | `0.0.1-alpha` | git tags, Helm chart |
+| Semantic version | `0.1.6` | git tags, Helm chart |
 | Unit tests | ✅ 65%+ coverage gate | CI (`make coverage`) |
 | Integration tests | ✅ Run in CI | `test/integration/` |
 | E2E tests | ⚠️ Optional (`make e2e-kind`) | Not run in CI |
