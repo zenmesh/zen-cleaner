@@ -49,6 +49,17 @@ digest.)*
 - Constraints: single-node kind; ephemeral registry-free install by digest;
   no webhook; not EKS/GKE/AKS.
 
+## Explicitly NOT demonstrated in this run
+
+- **Admission webhook coverage**: the default install runs with the webhook
+  disabled (`--enable-webhook=false`; policy validation comes from the CRD
+  schema alone). The webhook path requires TLS (cert-manager + Secret) and
+  is documented separately — this validation does not cover it.
+- **Multi-node / HA**: single-node cluster; leader-failover with 2+
+  replicas is not exercised here.
+- **Non-ConfigMap resource kinds** in this run (the 0.1.2-era v1.36 evidence
+  covered Pod/ReplicaSet/Secret/Job TTL modes).
+
 ## Cleanup
 
 Probe pods, policies, and the disposable cluster were deleted after the

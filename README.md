@@ -106,8 +106,11 @@ controller's API access under enforcement (loudly signaled since 0.1.3:
 NOT-Ready `/readyz`, `APIUnreachable` events, `zen_cleaner_api_reachable=0`).
 0.1.4 allows 6443 and was **verified end-to-end under enforcement on both
 k3s versions**: API reach, leadership, TTL cleanup, dry-run, exclusion and
-RBAC denials all behave with the policy applied. Non-k3s CNIs (Calico,
-Cilium, ...) have not been validated by this project yet; if your CNI denies
+RBAC denials all behave with the policy applied. On **upstream Kubernetes
+v1.36.1 (kind) + Calico v3.28.2**, the same enforced-policy matrix passes
+(single-node cluster, webhook disabled in the default install — see the
+evidence in `docs/evidence/kubernetes/v1.36/kind-calico-20261029.md`).
+Cilium and other CNIs have not been validated; if your CNI denies
 policy-covered egress differently, set `networkPolicy.enabled=false`
 deliberately and say so in your issue reports.
 
@@ -243,7 +246,6 @@ ttl:
 
 - **[Webhook TLS (production)](docs/WEBHOOK_TLS.md)**: cert-manager vs manual CA — matches how we test on kind
 - **[Linting](docs/LINTING.md)**: golangci-lint scope and known debt
-- **[KEP-style design](docs/KEP_GENERIC_GARBAGE_COLLECTION.md)**: background and API notes
 - **[API Reference](docs/API_REFERENCE.md)**
 - **[User Guide](docs/USER_GUIDE.md)**
 - **[Operator Guide](docs/OPERATOR_GUIDE.md)**
