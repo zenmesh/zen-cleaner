@@ -2,8 +2,8 @@ apiVersion: v2
 name: zen-cleaner
 description: Zen Cleaner - declarative Kubernetes garbage collection controller (policy-driven, dry-run first, default-deny RBAC)
 type: application
-version: 0.1.6
-appVersion: "0.1.6"
+version: 0.1.7
+appVersion: "0.1.7"
 # Truthful, public project metadata. No HA/SOC2/production-qualification claim
 # is made: this is a 0.x community project (see RELEASING.md).
 home: https://github.com/zenmesh/zen-cleaner
