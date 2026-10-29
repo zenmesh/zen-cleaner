@@ -320,9 +320,7 @@ func TestObservedLockReportsOutcomes(t *testing.T) {
 // with the error carried for context; only transport failures mean
 // unreachable.
 func TestObservedLockNotFoundIsReachable(t *testing.T) {
-	notFound := errors.New("leases.coordination.k8s.io \"zen-cleaner-leader-election\" not found")
-	// wrap with an apierrors-shaped error via the real constructor:
-	notFound = apierrors.NewNotFound(schema.GroupResource{Group: "coordination.k8s.io", Resource: "leases"}, "zen-cleaner-leader-election")
+	notFound := apierrors.NewNotFound(schema.GroupResource{Group: "coordination.k8s.io", Resource: "leases"}, "zen-cleaner-leader-election")
 	refused := errors.New("dial tcp 10.43.0.1:443: connect: connection refused")
 	delegate := &fakeLock{getErr: notFound}
 	var verdicts []string
