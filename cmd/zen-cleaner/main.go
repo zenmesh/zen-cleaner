@@ -271,7 +271,14 @@ func runMain() int {
 			return
 		}
 		apiWasReachable = reachable
-		if podName := os.Getenv("POD_NAME"); podName != "" {
+		podName := os.Getenv("POD_NAME")
+		if podName == "" {
+			// The pod name is also the container hostname in Kubernetes;
+			// the fallback keeps APIUnreachable events working for
+			// installs that do not project POD_NAME explicitly.
+			podName = os.Getenv("HOSTNAME")
+		}
+		if podName != "" {
 			ref := &corev1.ObjectReference{Kind: "Pod", Name: podName,
 				Namespace: os.Getenv("POD_NAMESPACE")}
 			if reachable {

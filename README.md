@@ -94,23 +94,22 @@ Requires Go 1.27.3+ and a container build; see BUILD_REQUIREMENTS.md.
 
 ### Supported environments and the default NetworkPolicy
 
-The chart ships an **opt-out-able but default-on egress NetworkPolicy** that
-allows DNS (via a namespace selector) and TCP/443 (via an `ipBlock: 0.0.0.0/0`
-rule). On **k3s's embedded kube-router network-policy engine**, `ipBlock`
-egress rules are enforced against **pod destinations only** — service
-ClusterIP and host-network (node) destinations are rejected even when the
-rule covers them (verified by probe matrix on k3s v1.35.5 and v1.37.0,
-2026-10-29). Because the Kubernetes API server is a host-network endpoint,
-a policy-selected zen-cleaner pod on such clusters cannot reach the API and
-**stays leaderless**: as of 0.1.3 this failure is loud, not silent — the pod
-goes NOT-Ready (`API unreachable via leader-election lock`), emits
-`APIUnreachable` Warning events, and reports `zen_cleaner_api_reachable=0`.
+The chart ships an **opt-out-able but default-on egress NetworkPolicy** for
+the controller: DNS to kube-system (namespace selector) and TCP/443 + TCP/6443
+to any destination (`ipBlock: 0.0.0.0/0`).
 
-Options on affected clusters: set `networkPolicy.enabled=false` (accepting
-unrestricted egress for the controller — make this choice deliberately), use
-a CNI that honors `ipBlock` egress rules, or run a NetworkPolicy backend that
-implements them. CNIs other than the k3s-embedded kube-router engine have not
-been validated by this project yet; state your combination in issues.
+Platform note (verified by probe matrix, 2026-10-29, k3s v1.35.5 and v1.37.0):
+the k3s-embedded kube-router policy engine matches egress rules against the
+**post-DNAT endpoint tuple**, so the API path (ClusterIP:443 → endpoint:6443)
+requires TCP/6443 in the rule; 0.1.2/0.1.3 allowed 443 only and denied the
+controller's API access under enforcement (loudly signaled since 0.1.3:
+NOT-Ready `/readyz`, `APIUnreachable` events, `zen_cleaner_api_reachable=0`).
+0.1.4 allows 6443 and was **verified end-to-end under enforcement on both
+k3s versions**: API reach, leadership, TTL cleanup, dry-run, exclusion and
+RBAC denials all behave with the policy applied. Non-k3s CNIs (Calico,
+Cilium, ...) have not been validated by this project yet; if your CNI denies
+policy-covered egress differently, set `networkPolicy.enabled=false`
+deliberately and say so in your issue reports.
 
 ### kubectl from a clone (advanced)
 
