@@ -1,11 +1,11 @@
 {
   "project": "zen-cleaner",
   "description": "Declarative Kubernetes cleanup controller",
-  "version": "0.0.1-alpha",
+  "version": "0.1.6",
   "license": "Apache-2.0",
   "language": "Go",
-  "go_version": "1.26.4",
-  "maturity": "alpha",
+  "go_version": "1.27.3",
+  "maturity": "0.x community OSS (alpha); enforced-NetworkPolicy validated on k3s v1.35.5/v1.37.0 and kind/Calico v1.36.1 (2026-10-29)",
   "dry_run_semantics": "dry-run matches candidates and reports them; deletion counters/status reflect real deletions only",
   "api_stability": "v1alpha1 (may change)",
   "ci_status": {
@@ -19,9 +19,9 @@
     "vulnerability_scan_trivy": "configured_non_blocking"
   },
   "dependencies": {
-    "controller_runtime": "v0.19",
-    "client_go": "v0.35",
-    "kubernetes_api_target": "1.31.x"
+    "controller_runtime": "v0.25.2",
+    "client_go": "v0.37.0",
+    "kubernetes_api_target": "1.34+ (client-go v0.37)"
   },
   "security": {
     "vulnerability_reporting": "security@zen-mesh.io",
@@ -68,5 +68,15 @@
     "Not a credential vault or secret store",
     "Not a replacement for Kubernetes RBAC or admission policy",
     "Not production-live or publicly launched"
-  ]
+  ],
+  "release": {
+    "chart": "oci://ghcr.io/zenmesh/charts/zen-cleaner:0.1.6",
+    "image": "ghcr.io/zenmesh/zen-cleaner@sha256:e97477906748dcc3687843400745d191c50f93020b1985a131fd29e01e7241d8",
+    "release_date": "2026-10-29",
+    "validated_environments": [
+      "k3s v1.37.0 (kube-router netpol)",
+      "k3s v1.35.5 (kube-router netpol)",
+      "kind v1.36.1 + Calico v3.28.2"
+    ]
+  }
 }

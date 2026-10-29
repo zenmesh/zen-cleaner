@@ -14,6 +14,23 @@ zen-cleaner is built with:
 
 Build requirement: **Go 1.26+** (see `go.mod`).
 
+## Release-specific validation (0.1.6, 2026-10-29)
+
+Validated with the **released** chart/image (digest-bound) and the DEFAULT
+egress NetworkPolicy enforced, full safety matrix (TTL deletion, dry-run,
+exclusion, protected/foreign namespaces, RBAC denial, restart/lease,
+concurrent negative connectivity probe):
+
+| Environment | Kubernetes | CNI | Result |
+|---|---|---|---|
+| k3d | v1.37.0 (k3s) | kube-router (embedded) | PASS (API port 6443 allowance required — see README) |
+| k3d | v1.35.5 (k3s) | kube-router (embedded) | PASS |
+| kind | v1.36.1 (upstream) | Calico v3.28.2 | PASS |
+
+Historical tables below pre-date the default NetworkPolicy and the 0.1.x
+fixes; they are preserved as earlier-generation evidence, not as coverage
+of the current release. Non-k3s CNIs other than Calico are untested.
+
 ## Tested configurations
 
 | Configuration | CI | Notes |
