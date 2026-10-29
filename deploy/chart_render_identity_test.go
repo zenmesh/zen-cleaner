@@ -211,7 +211,7 @@ func TestRenderEgressPolicyPorts(t *testing.T) {
 		t.Fatalf("helm template: %v", err)
 	}
 	rendered := string(out)
-	for _, want := range []string{"port: 443", "port: 6443", "port: 53"} {
+	for _, want := range []string{"port: 443", "port: 6443", "port: 53", `cidr: "0.0.0.0/0"`} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("rendered NetworkPolicy missing %s", want)
 		}

@@ -30,7 +30,7 @@ spec:
     # verified by probe).
     - to:
         - ipBlock:
-            cidr: 0.0.0.0/0
+            cidr: {{ .Values.networkPolicy.egressCidr | quote }}
       ports:
         - port: 443
           protocol: TCP
