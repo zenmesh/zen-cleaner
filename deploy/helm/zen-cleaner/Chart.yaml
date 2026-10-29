@@ -2,8 +2,8 @@ apiVersion: v2
 name: zen-cleaner
 description: Zen Cleaner - declarative Kubernetes garbage collection controller (policy-driven, dry-run first, default-deny RBAC)
 type: application
-version: 0.1.4
-appVersion: "0.1.4"
+version: 0.1.5
+appVersion: "0.1.5"
 # Truthful, public project metadata. No HA/SOC2/production-qualification claim
 # is made: this is a 0.x community project (see RELEASING.md).
 home: https://github.com/zenmesh/zen-cleaner
@@ -35,6 +35,10 @@ annotations:
       description: The default egress NetworkPolicy now allows TCP/6443 alongside 443 — the kube-router policy engine (k3s) matches rules against the post-DNAT endpoint port, so the API path (ClusterIP:443 -> endpoint:6443) was denied under a 443-only rule, leaving the controller leaderless under enforcement. Enforcement of non-listed ports verified unchanged.
     - kind: fixed
       description: APIUnreachable pod events no longer require POD_NAME to be projected (HOSTNAME fallback).
+    - kind: added
+      description: Structured-log event sink retained on the broadcaster — APIUnreachable (and every other event) stays visible in kubectl logs while the API sink cannot deliver (NetworkPolicy-enforced egress rejection).
+    - kind: added
+      description: networkPolicy.egressCidr values knob — narrow the 443/6443 API allowance to the cluster network (default 0.0.0.0/0 unchanged).
   artifacthub.io/license: Apache-2.0
   artifacthub.io/links: |
     - name: source code

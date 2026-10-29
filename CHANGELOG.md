@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] — 2026-10-29
+
+### Added
+- The structured-logging event sink is retained on the broadcaster: every Kubernetes event (including `APIUnreachable`) is mirrored to the controller's structured log, so failure evidence remains visible in `kubectl logs` while the API event sink cannot deliver — the exact condition NetworkPolicy-enforced egress rejection produces.
+- `networkPolicy.egressCidr` (default `0.0.0.0/0`, unchanged behavior): narrow the 443/6443 API allowance to the cluster node/pod network for a tighter posture on clusters with known address ranges.
+
 ## [0.1.4] — 2026-10-29
 
 ### Fixed
