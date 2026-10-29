@@ -20,7 +20,9 @@ package events
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/zenmesh/zen-cleaner/internal/logging"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,6 +76,9 @@ type Recorder struct {
 	// locally (live H258 §59 evidence: zero events across a full
 	// evaluate+delete cycle).
 	sinkWatch watch.Interface
+	// logWatch retains the structured-log sink watcher for the same
+	// GC reason; it is the sink that still delivers when the API cannot.
+	logWatch watch.Interface
 }
 
 // NewRecorder creates a new event recorder.
@@ -81,8 +86,28 @@ type Recorder struct {
 func NewRecorder(client kubernetes.Interface, component string) *Recorder {
 	// Create event broadcaster
 	eventBroadcaster := record.NewBroadcaster()
-	// StartStructuredLogging is removed as it requires klog-compatible logger.
-	// Event logging is handled via StartRecordingToSink and we use cleanerlog for application logging.
+	// THE EVENT-WIRING LAW (2026-10-29, demo-discrepancy owner decision P2):
+	// the API sink cannot deliver events while the API is unreachable — the
+	// exact condition APIUnreachable reports (NetworkPolicy-enforced egress
+	// rejection, endpoint loss). The structured-logging sink was removed on
+	// a klog concern that does not apply to a direct watcher, leaving the
+	// failure invisible in `kubectl logs` precisely when it mattered. A
+	// log sink rides the SAME broadcaster so every event is observable in
+	// `kubectl logs` regardless of API reachability; the retained watcher
+	// below prevents the H258 §59 GC class (discarded watch => sink stops).
+	eventLogger := logging.NewLogger(component + "-events")
+	logWatch := eventBroadcaster.StartEventWatcher(func(e *corev1.Event) {
+		ev := e
+		if ev == nil {
+			return
+		}
+		eventLogger.Info("kubernetes event",
+			logging.String("type", ev.Type),
+			logging.String("reason", ev.Reason),
+			logging.String("object", fmt.Sprintf("%s/%s", ev.InvolvedObject.Namespace, ev.InvolvedObject.Name)),
+			logging.String("message", ev.Message),
+		)
+	})
 	var sinkWatch watch.Interface
 	if client != nil {
 		sinkWatch = eventBroadcaster.StartRecordingToSink(&eventSinkWrapper{
@@ -98,6 +123,7 @@ func NewRecorder(client kubernetes.Interface, component string) *Recorder {
 	return &Recorder{
 		recorder:  eventRecorder,
 		sinkWatch: sinkWatch,
+		logWatch:  logWatch,
 	}
 }
 
