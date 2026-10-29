@@ -70,7 +70,6 @@
 
 ## Meta
 
-- [KEP Design Document](KEP_GENERIC_GARBAGE_COLLECTION.md) — upstream KEP proposal
 - [Governance](../GOVERNANCE.md) — project governance
 - [Maintainers](../MAINTAINERS.md) — maintainers list
 - [Contributing](../CONTRIBUTING.md) — contribution guide
