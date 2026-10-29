@@ -6,6 +6,9 @@ internal/backoff method Backoff.Reset func()()
 internal/backoff method Backoff.Step func()(int)
 internal/backoff type Backoff struct{}
 internal/backoff type Config struct{Cap:time.Duration,Duration:time.Duration,Factor:float64,Jitter:float64,Steps:int}
+internal/clireadops func ReadHealthSummary func(string,string)(HealthSummary)
+internal/clireadops method HealthSummary.Render func()(string)
+internal/clireadops type HealthSummary struct{Commit:string,ProcessUptime:string,Version:string}
 internal/config func LoadIngesterRateLimitConfig func(string,CRDRateLimitConfig)(*IngesterRateLimitConfig)
 internal/config func NewServiceConfigValidator func(string)(*ServiceConfigValidator)
 internal/config func NewSourceConfigRateLimitAdapter func(int,int)(CRDRateLimitConfig)
@@ -83,7 +86,7 @@ internal/election func NewRunner func(LeaderElector,func(context.Context),func()
 internal/election func RunWithLeaderElection func(context.Context,*Config,kubernetes.Interface,func(context.Context))(error)
 internal/election func ShutdownContext func(context.Context,string)(context.Context,context.CancelFunc)
 internal/election method Runner.Run func(context.Context)(error)
-internal/election type Config struct{ElectionID:string,Enable:bool,GetIdentity:func() string,LeaseDuration:time.Duration,LeaseName:string,Namespace:string,OnLeadingChange:func(leading bool),RenewDeadline:time.Duration,RetryPeriod:time.Duration}
+internal/election type Config struct{ElectionID:string,Enable:bool,GetIdentity:func() string,LeaseDuration:time.Duration,LeaseName:string,Namespace:string,OnAPIObservation:func(reachable bool, err error),OnLeadingChange:func(leading bool),RenewDeadline:time.Duration,RetryPeriod:time.Duration}
 internal/election type LeaderElector iface{Run:func(context.Context)(error)}
 internal/election type Runner struct{ElectionID:string,Elector:LeaderElector,OnNewLeader:func(identity string),OnStartedLeading:func(ctx context.Context),OnStoppedLeading:func()}
 internal/errors const Permanent (ast: <nil>)
@@ -328,6 +331,39 @@ internal/logging type RateLimiterConfig struct{CleanupInterval:time.Duration,Max
 internal/logging type SampledLogger struct{}
 internal/logging type Sampler struct{}
 internal/logging type SamplerConfig struct{DebugSamplingRate:float64,ErrorSamplingRate:float64,InfoSamplingRate:float64,SuccessSamplingRate:float64,WarnSamplingRate:float64}
+internal/mcpserver const ActorEnv (ast: <nil>)
+internal/mcpserver const MCPModeStdio (ast: <nil>)
+internal/mcpserver const ModeEnv (ast: <nil>)
+internal/mcpserver func New func(EntitlementSummaryProvider,HealthSummaryProvider)(*Adapter)
+internal/mcpserver method Adapter.Actor func()(string)
+internal/mcpserver method Adapter.Enabled func()(bool)
+internal/mcpserver method Adapter.ListJSON func()(string,error)
+internal/mcpserver method Adapter.RunStdio func(io.Reader,io.Writer)(error)
+internal/mcpserver method Adapter.SummaryLines func()([]string)
+internal/mcpserver method Adapter.Tools func()([]Tool)
+internal/mcpserver type Adapter struct{}
+internal/mcpserver type EntitlementSummaryProvider iface{EntitlementSummary:func()(string)}
+internal/mcpserver type HealthSummaryProvider iface{HealthSummary:func()(string)}
+internal/mcpserver type Tool struct{Description:string,InputSchema:string,Name:string}
+internal/mcpserver var ErrNotEnabled (ast: <nil>)
+internal/ops const AbsentSurfacesNote (ast: <nil>)
+internal/ops const KindDryRun Kind
+internal/ops const KindMutation Kind
+internal/ops const KindRead Kind
+internal/ops const SurfaceAPI Surface
+internal/ops const SurfaceCLI Surface
+internal/ops const SurfaceK8s Surface
+internal/ops const SurfaceMCP Surface
+internal/ops const SurfaceUI Surface
+internal/ops func CanonicalDoc func()(Doc)
+internal/ops func CanonicalDocJSON func()([]byte,error)
+internal/ops method Operation.SurfaceBools func()(map[Surface]bool)
+internal/ops type Doc struct{Note:string,Operations:[]DocOperation,OperationsAbs:int,Product:string,Schema:string}
+internal/ops type DocOperation struct{AbsentSurfaces:map[Surface]string,AuthRequirement:string,Bindings:map[Surface]string,Consequence:string,ConsequenceClass:string,DestructiveCeremony:string,Domain:string,ID:string,Idempotency:string,Kind:Kind,OCC:string,Product:string,Summary:string,Surfaces:map[Surface]bool,TenantScope:string}
+internal/ops type Kind string
+internal/ops type Operation struct{AbsentSurfaces:map[Surface]string,Auth:string,Bindings:map[Surface]string,Consequence:string,ConsequenceClass:string,DestructiveCeremony:string,Domain:string,ID:string,Idempotency:string,Kind:Kind,OCC:string,Summary:string,TenantScope:string}
+internal/ops type Surface string
+internal/ops var Registry (ast: <nil>)
 internal/ratelimiter const DefaultMaxPerSecond (ast: <nil>)
 internal/ratelimiter func NewRateLimiter func(int)(*RateLimiter)
 internal/ratelimiter method RateLimiter.Allow func()(bool)
@@ -394,6 +430,18 @@ pkg/api/v1alpha1 type ZenCleanerPolicyStatus struct{Conditions:[]metav1.Conditio
 pkg/api/v1alpha1 var AddToScheme (ast: <nil>)
 pkg/api/v1alpha1 var SchemeBuilder (ast: <nil>)
 pkg/api/v1alpha1 var SchemeGroupVersion (ast: <nil>)
+pkg/attestation const EnforcementBestEffort Enforcement
+pkg/attestation const EnforcementRequired Enforcement
+pkg/attestation const StrategyAlways Strategy
+pkg/attestation const StrategyBudgeted Strategy
+pkg/attestation const StrategyConditional Strategy
+pkg/attestation const StrategyDeterministicSample Strategy
+pkg/attestation const StrategyOff Strategy
+pkg/attestation func ByName func(string)(Subject,bool)
+pkg/attestation type Enforcement string
+pkg/attestation type Strategy string
+pkg/attestation type Subject struct{Attestable:bool,DigestSource:string,Name:string,PrivacyNotes:string,RecommendedEnforcement:Enforcement,RecommendedStrategy:Strategy,RequiredCandidate:bool}
+pkg/attestation var Applicability (ast: <nil>)
 pkg/config const DefaultBatchSize (ast: <nil>)
 pkg/config const DefaultCleanupInterval (ast: <nil>)
 pkg/config const DefaultMaxConcurrentEvaluations (ast: <nil>)
@@ -405,6 +453,9 @@ pkg/config method ControllerConfig.WithCleanupInterval func(time.Duration)(*Cont
 pkg/config method ControllerConfig.WithMaxConcurrentEvaluations func(int)(*ControllerConfig)
 pkg/config method ControllerConfig.WithMaxDeletionsPerSecond func(int)(*ControllerConfig)
 pkg/config type ControllerConfig struct{BatchSize:int,CleanupInterval:time.Duration,DeleteEnabled:bool,MaxConcurrentEvaluations:int,MaxDeletionsPerSecond:int,OwnNamespace:string,ProtectedNamespaces:[]string}
+pkg/controller const AnnDeclaredDigest (ast: <nil>)
+pkg/controller const AnnPolicySignature (ast: <nil>)
+pkg/controller const AnnPolicySigner (ast: <nil>)
 pkg/controller const DefaultBatchSize (ast: <nil>)
 pkg/controller const DefaultCacheSyncTimeout (ast: <nil>)
 pkg/controller const DefaultCleanupInterval (ast: <nil>)
@@ -448,6 +499,7 @@ pkg/controller func NewHealthChecker func(*PolicyReconciler)(*HealthChecker)
 pkg/controller func NewInformerStoreResourceLister func(cache.Store)(ResourceLister)
 pkg/controller func NewLeaderState func(time.Duration,*cleanerlog.Logger)(*LeaderState)
 pkg/controller func NewPolicyEvaluationService func(ResourceLister,SelectorMatcher,ConditionMatcher,TTLCalculator,RateLimiterProvider,BatchDeleterCore,*StatusUpdater,*EventRecorder,*config.ControllerConfig,*cleanerlog.Logger)(*PolicyEvaluationService)
+pkg/controller func NewPolicyIntegrityVerifier func(ed25519.PublicKey)(*PolicyIntegrityVerifier)
 pkg/controller func NewPolicyReconciler func(client.Client,*runtime.Scheme,dynamic.Interface,*StatusUpdater,*EventRecorder,*config.ControllerConfig)(*PolicyReconciler)
 pkg/controller func NewPolicyReconcilerAdapter func(*PolicyReconciler)(*PolicyReconcilerAdapter)
 pkg/controller func NewPolicyReconcilerWithLeaderCheck func(client.Client,*runtime.Scheme,dynamic.Interface,*StatusUpdater,*EventRecorder,*config.ControllerConfig,func() bool)(*PolicyReconciler)
@@ -464,7 +516,9 @@ pkg/controller func RecordReconcileOutcome func(string)()
 pkg/controller func RecordSafetyRefusal func(string)()
 pkg/controller func ServeMetricsAlwaysOn func(context.Context,string)(func(),error)
 pkg/controller func ServeStandalone func(context.Context,string,*http.ServeMux)(func(),error)
+pkg/controller func SetAPIReachableGauge func(bool)()
 pkg/controller func SetLeadershipGauge func(bool)()
+pkg/controller func SpecDigest func(v1alpha1.ZenCleanerPolicySpec)(string,error)
 pkg/controller func TargetBackoffFor func(int)(time.Duration)
 pkg/controller method DefaultConditionMatcher.MeetsConditions func(*unstructured.Unstructured,*v1alpha1.ConditionsSpec)(bool)
 pkg/controller method DefaultRateLimiterProvider.GetOrCreateRateLimiter func(*v1alpha1.ZenCleanerPolicy)(*ratelimiter.RateLimiter)
@@ -492,11 +546,16 @@ pkg/controller method HealthChecker.SetMaxTimeSinceLastEvaluation func(time.Dura
 pkg/controller method HealthChecker.StartupCheck func(*http.Request)(error)
 pkg/controller method HealthChecker.UpdateLastEvaluationTime func()()
 pkg/controller method InformerStoreResourceLister.ListResources func(context.Context,schema.GroupVersionResource,string)([]*unstructured.Unstructured,error)
+pkg/controller method LeaderState.APIReachable func()(bool)
 pkg/controller method LeaderState.InStartupGrace func()(bool)
 pkg/controller method LeaderState.IsLeading func()(bool)
+pkg/controller method LeaderState.SetAPIReachable func(bool,error)()
 pkg/controller method LeaderState.SetLeading func(bool)()
 pkg/controller method PolicyEvaluationService.EvaluatePolicy func(context.Context,*v1alpha1.ZenCleanerPolicy)(error)
 pkg/controller method PolicyEvaluationService.SetSafetyGate func(*safety.Gate)()
+pkg/controller method PolicyIntegrityVerifier.CheckIntegrity func(*v1alpha1.ZenCleanerPolicy)(IntegrityVerdict)
+pkg/controller method PolicyIntegrityVerifier.Enabled func()(bool)
+pkg/controller method PolicyIntegrityVerifier.Verify func(string,string)(error)
 pkg/controller method PolicyReconciler.DeleteResourceWithBackoff func(context.Context,*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter)(error)
 pkg/controller method PolicyReconciler.DeleteResourceWithContext func(context.Context,*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter)(error)
 pkg/controller method PolicyReconciler.EvaluatePolicyForTesting func(context.Context,*v1alpha1.ZenCleanerPolicy,*PolicyEvaluationService)(error)
@@ -537,6 +596,7 @@ pkg/controller type ExecutionReceiptV2 struct{ExecutionReceipt,PolicyRef:policyR
 pkg/controller type GVRResolver struct{}
 pkg/controller type HealthChecker struct{}
 pkg/controller type InformerStoreResourceLister struct{}
+pkg/controller type IntegrityVerdict struct{Declared:string,Detail:string,Digest:string,Drifted:bool,Refuses:bool}
 pkg/controller type LeaderState struct{}
 pkg/controller type ObjectResult struct{Class:ObjectResultClass,Detail:string,Kind:string,Name:string,Namespace:string,UID:types.UID}
 pkg/controller type ObjectResultClass string
@@ -544,6 +604,7 @@ pkg/controller type PolicyEvaluationResult struct{DeletedCount:int64,MatchedCoun
 pkg/controller type PolicyEvaluationService struct{}
 pkg/controller type PolicyEvaluator iface{GetEventRecorder:func()(*EventRecorder),deleteBatch:func(context.Context,[]*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy,*ratelimiter.RateLimiter,map[string]string)(int64,[]error),getBatchSize:func(*v1alpha1.ZenCleanerPolicy)(int),getOrCreateRateLimiter:func(*v1alpha1.ZenCleanerPolicy)(*ratelimiter.RateLimiter),getOrCreateResourceInformer:func(context.Context,*v1alpha1.ZenCleanerPolicy)(cache.SharedInformer,error),getStatusUpdater:func()(*StatusUpdater),matchesSelectors:func(*unstructured.Unstructured,*v1alpha1.TargetResourceSpec)(bool),shouldDelete:func(*unstructured.Unstructured,*v1alpha1.ZenCleanerPolicy)(bool,string)}
 pkg/controller type PolicyEvaluatorCore iface{BatchDeleterCore,ConditionMatcher,RateLimiterProvider,ResourceLister,SelectorMatcher}
+pkg/controller type PolicyIntegrityVerifier struct{}
 pkg/controller type PolicyReconciler struct{Scheme:*runtime.Scheme,client.Client}
 pkg/controller type PolicyReconcilerAdapter struct{}
 pkg/controller type PolicyReconcilerBatchDeleter struct{}

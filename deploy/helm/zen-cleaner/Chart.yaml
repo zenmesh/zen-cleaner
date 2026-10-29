@@ -2,8 +2,8 @@ apiVersion: v2
 name: zen-cleaner
 description: Zen Cleaner - declarative Kubernetes garbage collection controller (policy-driven, dry-run first, default-deny RBAC)
 type: application
-version: 0.1.2
-appVersion: "0.1.2"
+version: 0.1.3
+appVersion: "0.1.3"
 # Truthful, public project metadata. No HA/SOC2/production-qualification claim
 # is made: this is a 0.x community project (see RELEASING.md).
 home: https://github.com/zenmesh/zen-cleaner
@@ -27,6 +27,10 @@ annotations:
       description: Release 0.1.2: published OCI chart, digest-bound image and dependency updates.
     - kind: changed
       description: Builder image pinned to golang:1.27.3-alpine — the Go 1.27.3 toolchain carries the GO-2026-6809 crypto/x509 fix.
+    - kind: added
+      description: API-reachability observation on the leader-election lock — unreachable states surface as Warning events (APIUnreachable), a zen_cleaner_api_reachable metric, /leaderz detail and a NOT-Ready /readyz, without conflating follower status with failure.
+    - kind: fixed
+      description: The readiness probe now targets the leadership-aware /readyz law; probing the process-level liveness endpoint left pods reporting Ready while unable to reach the API (observed under NetworkPolicy enforcement on k3s).
   artifacthub.io/license: Apache-2.0
   artifacthub.io/links: |
     - name: source code

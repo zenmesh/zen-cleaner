@@ -26,18 +26,18 @@ Builds require **Go 1.27+** (see `go.mod`). Published container images are built
 
 The chart is the supported install path: it renders valid manifests (no shell
 placeholders), runs without the admission webhook TLS dependency, and pins the
-image by its immutable digest. Install release 0.1.2 straight from the
+image by its immutable digest. Install release 0.1.3 straight from the
 published OCI chart — no repository clone needed:
 
 ```bash
 helm upgrade --install zen-cleaner \
-  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.2 \
+  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.3 \
   --namespace zen-cleaner-system --create-namespace \
   --set rbac.deleteNamespaces[0]=default
 # or, equivalently, from the plain-HTTP chart index (GitHub Releases):
 helm repo add zenmesh https://github.com/zenmesh/zen-cleaner/releases/latest/download
 helm repo update
-helm upgrade --install zen-cleaner zenmesh/zen-cleaner --version 0.1.2 \
+helm upgrade --install zen-cleaner zenmesh/zen-cleaner --version 0.1.3 \
   --namespace zen-cleaner-system --create-namespace \
   --set rbac.deleteNamespaces[0]=default
 ```
@@ -52,7 +52,7 @@ the chart refuses to render rather than ship corrupt RBAC):
 
 ```bash
 helm upgrade --install zen-cleaner \
-  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.2 \
+  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.3 \
   --namespace zen-cleaner-system --create-namespace \
   --set rbac.targetKinds[0].group=batch --set rbac.targetKinds[0].resource=jobs \
   --set rbac.targetKinds[1].group= --set rbac.targetKinds[1].resource=configmaps \
@@ -74,7 +74,7 @@ From a clone of this repo you can install the chart directory directly:
 ```bash
 helm install zen-cleaner ./deploy/helm/zen-cleaner \
   --namespace zen-cleaner-system --create-namespace \
-  --set image.tag=0.1.2 \
+  --set image.tag=0.1.3 \
   --set rbac.deleteNamespaces[0]=default
 # Pin by digest once you have chosen one (tag is then ignored):
 #   --set image.digest=sha256:ABCD...
@@ -92,6 +92,26 @@ helm install zen-cleaner ./deploy/helm/zen-cleaner \
 
 Requires Go 1.27.3+ and a container build; see BUILD_REQUIREMENTS.md.
 
+### Supported environments and the default NetworkPolicy
+
+The chart ships an **opt-out-able but default-on egress NetworkPolicy** that
+allows DNS (via a namespace selector) and TCP/443 (via an `ipBlock: 0.0.0.0/0`
+rule). On **k3s's embedded kube-router network-policy engine**, `ipBlock`
+egress rules are enforced against **pod destinations only** — service
+ClusterIP and host-network (node) destinations are rejected even when the
+rule covers them (verified by probe matrix on k3s v1.35.5 and v1.37.0,
+2026-10-29). Because the Kubernetes API server is a host-network endpoint,
+a policy-selected zen-cleaner pod on such clusters cannot reach the API and
+**stays leaderless**: as of 0.1.3 this failure is loud, not silent — the pod
+goes NOT-Ready (`API unreachable via leader-election lock`), emits
+`APIUnreachable` Warning events, and reports `zen_cleaner_api_reachable=0`.
+
+Options on affected clusters: set `networkPolicy.enabled=false` (accepting
+unrestricted egress for the controller — make this choice deliberately), use
+a CNI that honors `ipBlock` egress rules, or run a NetworkPolicy backend that
+implements them. CNIs other than the k3s-embedded kube-router engine have not
+been validated by this project yet; state your combination in issues.
+
 ### kubectl from a clone (advanced)
 
 The raw manifests under `deploy/manifests/` contain `${WEBHOOK_NAMESPACE}` and
@@ -99,7 +119,7 @@ an image reference that `kubectl apply` does NOT substitute — use the install
 script (it renders them with `envsubst`), not raw `kubectl apply`:
 
 ```bash
-CLEANER_IMAGE=ghcr.io/zenmesh/zen-cleaner:0.1.2 \
+CLEANER_IMAGE=ghcr.io/zenmesh/zen-cleaner:0.1.3 \
 WEBHOOK_NAMESPACE=zen-cleaner-system bash deploy/install.sh
 ```
 

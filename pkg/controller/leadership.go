@@ -28,6 +28,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync/atomic"
@@ -40,6 +41,7 @@ import (
 // grace window during which a not-yet-started controller is not penalized.
 type LeaderState struct {
 	leading      atomic.Bool
+	apiReachable atomic.Bool
 	startedAt    time.Time
 	logger       *cleanerlog.Logger
 	startupGrace time.Duration
@@ -47,11 +49,18 @@ type LeaderState struct {
 
 // NewLeaderState creates the tracker with a startup grace period.
 func NewLeaderState(startupGrace time.Duration, logger *cleanerlog.Logger) *LeaderState {
-	return &LeaderState{
+	s := &LeaderState{
 		startedAt:    time.Now(),
 		logger:       logger,
 		startupGrace: startupGrace,
 	}
+	// Optimistic default: the API was reachable during client construction.
+	// The election lock observer corrects this on the first failure
+	// (2026-10-29 launch-validation: the enforcement-failure mode was a pod
+	// reporting Ready while its API dial was refused and NOTHING measured
+	// the unreachable state).
+	s.apiReachable.Store(true)
+	return s
 }
 
 // SetLeading records a leadership transition.
@@ -59,6 +68,19 @@ func (l *LeaderState) SetLeading(v bool) { l.leading.Store(v) }
 
 // IsLeading reports current leadership.
 func (l *LeaderState) IsLeading() bool { return l.leading.Load() }
+
+// SetAPIReachable records the latest leader-election lock observation
+// (reachable=true on successful lease read/write, false with the terminal
+// API error otherwise).
+func (l *LeaderState) SetAPIReachable(reachable bool, err error) {
+	l.apiReachable.Store(reachable)
+	if !reachable && l.logger != nil {
+		l.logger.Error(err, "API unreachable via leader-election lock")
+	}
+}
+
+// APIReachable reports whether the latest lock observation succeeded.
+func (l *LeaderState) APIReachable() bool { return l.apiReachable.Load() }
 
 // InStartupGrace reports whether the process is still inside its startup
 // grace window.
@@ -76,9 +98,20 @@ func (l *LeaderState) InStartupGrace() bool {
 //     reconciliation.
 func (h *HealthChecker) LeadershipAwareReadinessCheck(leader *LeaderState) func(req *http.Request) error {
 	return func(req *http.Request) error {
-		if leader != nil && !leader.IsLeading() {
-			// Standby: process can serve; reconciliation is lease-gated.
-			return nil
+		if leader != nil {
+			// API-reachability failure law (2026-10-29 launch validation):
+			// §11-§12 defines a healthy standby as one that CAN reach the
+			// API, so unreachability is its own failure class — reported
+			// distinctly and never conflated with follower status, which is
+			// not a failure.
+			if !leader.APIReachable() {
+				return errors.New("API unreachable via leader-election lock (egress policy / RBAC / endpoint)")
+			}
+			if !leader.IsLeading() {
+				// Reachable standby: process can serve; reconciliation is
+				// lease-gated — not a failure.
+				return nil
+			}
 		}
 		// Leader (or election disabled): full readiness law.
 		return h.ReadinessCheck(req)
@@ -98,6 +131,9 @@ func (h *HealthChecker) LeadershipAwareLivenessCheck(leader *LeaderState) func(r
 }
 
 // LeaderzCheck reports the current leadership state as an HTTP check body.
+// API-reachability failures are appended as a distinct line so the
+// enforcement-failure mode (2026-10-29: Ready pod, API dial refused under
+// NetworkPolicy) is visible on the leadership endpoint too.
 func LeaderzCheck(leader *LeaderState) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		if leader == nil {
@@ -109,6 +145,9 @@ func LeaderzCheck(leader *LeaderState) http.HandlerFunc {
 		state := "standby"
 		if leader.IsLeading() {
 			state = "leader"
+		}
+		if !leader.APIReachable() {
+			state += "\nAPI unreachable via leader-election lock"
 		}
 		_, _ = fmt.Fprint(w, state)
 	}

@@ -48,6 +48,15 @@ type Config struct {
 	// OnLeadingChange is invoked on leadership transitions (SUPPORT2-003
 	// §11: feeds the leadership-aware health server). Optional.
 	OnLeadingChange func(leading bool)
+
+	// OnAPIObservation is invoked after every leader-election lock
+	// operation with the resulting reachability verdict (2026-10-29
+	// launch-validation law): reachable=true means the lease was read or
+	// written; reachable=false carries the terminal API error (dial
+	// refused, RBAC denial, ...). This is the failure-observability seam
+	// for cases like NetworkPolicy-enforced API egress rejection, where
+	// client-go otherwise only logs and the pod reports Ready. Optional.
+	OnAPIObservation func(reachable bool, err error)
 }
 
 // LeaderElector is implemented by types that run leader election until cancel.
@@ -179,7 +188,7 @@ func RunWithLeaderElection(ctx context.Context, cfg *Config, client kubernetes.I
 		identity = getPodName
 	}
 
-	lock := &resourcelock.LeaseLock{
+	var lock resourcelock.Interface = &resourcelock.LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
 			Name:      cfg.LeaseName,
 			Namespace: cfg.Namespace,
@@ -188,6 +197,9 @@ func RunWithLeaderElection(ctx context.Context, cfg *Config, client kubernetes.I
 		LockConfig: resourcelock.ResourceLockConfig{
 			Identity: identity(),
 		},
+	}
+	if cfg.OnAPIObservation != nil {
+		lock = &observedLock{delegate: lock, onObservation: cfg.OnAPIObservation}
 	}
 
 	leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
@@ -233,3 +245,43 @@ func getPodName() string {
 func ShutdownContext(ctx context.Context, name string) (context.Context, context.CancelFunc) {
 	return signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 }
+
+// observedLock wraps a resourcelock.Interface and reports every Get/Update
+// outcome to OnAPIObservation. Leader-election failures are the earliest and
+// most precise signal of API unreachability (connection refused under
+// NetworkPolicy enforcement, RBAC denial, ...); client-go only klog-logs
+// them, so without this seam the pod reports Ready while dead.
+type observedLock struct {
+	delegate      resourcelock.Interface
+	onObservation func(reachable bool, err error)
+}
+
+func (l *observedLock) report(err error) {
+	if l.onObservation != nil {
+		l.onObservation(err == nil, err)
+	}
+}
+
+func (l *observedLock) Get(ctx context.Context) (*resourcelock.LeaderElectionRecord, []byte, error) {
+	record, raw, err := l.delegate.Get(ctx)
+	l.report(err)
+	return record, raw, err
+}
+
+func (l *observedLock) Create(ctx context.Context, ler resourcelock.LeaderElectionRecord) error {
+	err := l.delegate.Create(ctx, ler)
+	l.report(err)
+	return err
+}
+
+func (l *observedLock) Update(ctx context.Context, ler resourcelock.LeaderElectionRecord) error {
+	err := l.delegate.Update(ctx, ler)
+	l.report(err)
+	return err
+}
+
+func (l *observedLock) RecordEvent(s string) { l.delegate.RecordEvent(s) }
+
+func (l *observedLock) Describe() string { return l.delegate.Describe() }
+
+func (l *observedLock) Identity() string { return l.delegate.Identity() }

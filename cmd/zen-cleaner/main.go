@@ -22,6 +22,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"net/http"
 	"os"
 	"time"
@@ -256,6 +257,37 @@ func runMain() int {
 		controller.SetLeadershipGauge(leading)
 	}
 
+	// API-reachability observation (2026-10-29 launch validation): every
+	// leader-election lock operation reports whether the API was reached.
+	// Unreachable is a distinct failure class (NetworkPolicy-enforced egress
+	// rejection, RBAC denial, endpoint loss) surfaced as pod Events, a
+	// metric, /leaderz detail and NOT-Ready /readyz — without conflating it
+	// with follower status, which is never a failure.
+	apiWasReachable := true
+	leConfig.OnAPIObservation = func(reachable bool, err error) {
+		leaderState.SetAPIReachable(reachable, err)
+		controller.SetAPIReachableGauge(reachable)
+		if reachable == apiWasReachable {
+			return
+		}
+		apiWasReachable = reachable
+		if podName := os.Getenv("POD_NAME"); podName != "" {
+			ref := &corev1.ObjectReference{Kind: "Pod", Name: podName,
+				Namespace: os.Getenv("POD_NAMESPACE")}
+			if reachable {
+				eventRecorder.Eventf(ref, corev1.EventTypeNormal, "APIReachable",
+					"leader-election lock reachable again; API observation recovered")
+			} else {
+				detail := ""
+				if err != nil {
+					detail = err.Error()
+				}
+				eventRecorder.Eventf(ref, corev1.EventTypeWarning, "APIUnreachable",
+					"leader-election lock unreachable; controller cannot reach the API: %s", detail)
+			}
+		}
+	}
+
 	// SUPPORT2-032R: admission is stateless and the webhook Service routes
 	// to every ready replica, so every replica serves the webhook — not
 	// only the leader (a leader-only webhook 502s whenever the apiserver's
@@ -375,8 +407,12 @@ func newHealthMux(healthChecker *controller.HealthChecker, leaderState *controll
 		}
 		w.WriteHeader(http.StatusOK)
 	})
+	// /readyz serves the LEADERSHIP-AWARE readiness law (§11-§12 plus the
+	// 2026-10-29 API-reachability failure class). The chart readiness probe
+	// points here; probing /healthz (liveness) instead is what left the
+	// enforcement-failure mode of 0.1.2 reporting Ready while dead.
 	healthMux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		if err := healthChecker.ReadinessCheck(r); err != nil {
+		if err := healthChecker.LeadershipAwareReadinessCheck(leaderState)(r); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			_, _ = w.Write([]byte(err.Error()))
 			return
