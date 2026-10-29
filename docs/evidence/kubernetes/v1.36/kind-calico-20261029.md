@@ -29,6 +29,14 @@ which predates the default NetworkPolicy and all 0.1.x fixes.
 | Safety-protected namespace + excluded object survived | PASS |
 | **Concurrent negative probe** (policy-selected pod, non-listed port): denied 10/10 samples during the cleanup window | PASS |
 | Uninstall/removal left only owned disposable resources | PASS |
+| RBAC denial: non-allowlisted target (Secret) → typed capability-validation denial with bounded backoff (4 log receipts) | PASS |
+| Restart: rollout restart → pod Running, leader lease re-acquired by the new pod | PASS |
+
+*(Checks marked "completed 2026-10-29 second pass": the first run covered
+the full deletion/dry-run/protection matrix and the concurrent negative
+probe; the RBAC-denial and restart checks above were completed on a fresh
+kind/Calico cluster of the same specification against the same released
+digest.)*
 
 ## Interpretation
 
