@@ -47,7 +47,11 @@ func TestChartRenderIdentity_NoDuplicateIdentities(t *testing.T) {
 
 	type objID struct{ kind, name, ns string }
 	render := func(extra ...string) []objID {
-		args := append([]string{"template", "identity-check", chartDir}, extra...)
+		// Pin the namespace: helm template otherwise inherits the kubeconfig
+		// CONTEXT namespace, making this test environment-dependent (observed
+		// 2026-10-29: a shared-cluster context namespace silently flipped
+		// every rendered namespace and failed the identity law).
+		args := append([]string{"template", "identity-check", chartDir, "--namespace", "default"}, extra...)
 		cmd := exec.Command(helm, args...)
 		out, err := cmd.Output()
 		if err != nil {

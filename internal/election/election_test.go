@@ -3,7 +3,9 @@ package election
 import (
 	"context"
 	"errors"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -277,3 +279,52 @@ func TestNewLeaseLock_defaultIdentity(t *testing.T) {
 		t.Fatal("expected lease lock")
 	}
 }
+
+// 2026-10-29 launch validation: observedLock must report every lock
+// operation to OnAPIObservation (reachable on success, false with the
+// terminal error on failure) — the failure-observability seam for
+// NetworkPolicy-enforced API rejection.
+func TestObservedLockReportsOutcomes(t *testing.T) {
+	var verdicts []string
+	delegate := &fakeLock{getErr: errors.New("dial tcp 10.43.0.1:443: connect: connection refused")}
+	ol := &observedLock{delegate: delegate, onObservation: func(reachable bool, err error) {
+		if reachable {
+			verdicts = append(verdicts, "reachable")
+		} else {
+			verdicts = append(verdicts, "unreachable:"+err.Error())
+		}
+	}}
+	if _, _, err := ol.Get(context.Background()); err == nil {
+		t.Fatal("delegate error must propagate")
+	}
+	if d := ol.Describe(); d != "fake" {
+		t.Fatalf("Describe must delegate, got: %q", d)
+	}
+	delegate.getErr = nil
+	if _, _, err := ol.Get(context.Background()); err != nil {
+		t.Fatalf("success must not error: %v", err)
+	}
+	if len(verdicts) != 2 || !strings.HasPrefix(verdicts[0], "unreachable:") || verdicts[1] != "reachable" {
+		t.Fatalf("observations wrong: %v", verdicts)
+	}
+}
+
+type fakeLock struct {
+	getErr error
+}
+
+func (f *fakeLock) Get(ctx context.Context) (*resourcelock.LeaderElectionRecord, []byte, error) {
+	if f.getErr != nil {
+		return nil, nil, f.getErr
+	}
+	return &resourcelock.LeaderElectionRecord{}, []byte("{}"), nil
+}
+func (f *fakeLock) Create(ctx context.Context, ler resourcelock.LeaderElectionRecord) error {
+	return nil
+}
+func (f *fakeLock) Update(ctx context.Context, ler resourcelock.LeaderElectionRecord) error {
+	return nil
+}
+func (f *fakeLock) RecordEvent(string) {}
+func (f *fakeLock) Describe() string   { return "fake" }
+func (f *fakeLock) Identity() string   { return "test" }

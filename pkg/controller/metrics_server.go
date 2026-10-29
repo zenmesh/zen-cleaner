@@ -28,6 +28,11 @@ import (
 // zen_cleaner_leadership_state (1 = leader, 0 = standby); singleton
 // reconciliation work is still leader-only (client-go lease), unchanged.
 
+var apiReachableState = prometheus.NewGauge(prometheus.GaugeOpts{
+	Name: "zen_cleaner_api_reachable",
+	Help: "1 when the latest leader-election lock operation reached the API, 0 otherwise (2026-10-29 launch validation: NetworkPolicy-enforced API rejection is invisible without this signal)",
+})
+
 var leadershipState = prometheus.NewGauge(prometheus.GaugeOpts{
 	Name: "zen_cleaner_leadership_state",
 	Help: "1 when this replica holds the leader lease, 0 when it is a standby.",
@@ -36,10 +41,22 @@ var leadershipState = prometheus.NewGauge(prometheus.GaugeOpts{
 func init() {
 	ctrlmetrics.Registry.MustRegister(leadershipState)
 	leadershipState.Set(0)
+	ctrlmetrics.Registry.MustRegister(apiReachableState)
+	apiReachableState.Set(1)
 }
 
 // SetLeadershipGauge records a leadership transition in the metrics surface.
 // Wired alongside LeaderState.SetLeading via OnLeadingChange.
+// SetAPIReachableGauge records the latest leader-election lock reachability
+// verdict (1 = reached the API, 0 = refused/unauthorized/otherwise failed).
+func SetAPIReachableGauge(reachable bool) {
+	if reachable {
+		apiReachableState.Set(1)
+		return
+	}
+	apiReachableState.Set(0)
+}
+
 func SetLeadershipGauge(leading bool) {
 	if leading {
 		leadershipState.Set(1)

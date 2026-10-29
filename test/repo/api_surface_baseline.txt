@@ -377,6 +377,7 @@ pkg/controller func RecordReconcileOutcome
 pkg/controller func RecordSafetyRefusal
 pkg/controller func ServeMetricsAlwaysOn
 pkg/controller func ServeStandalone
+pkg/controller func SetAPIReachableGauge
 pkg/controller func SetLeadershipGauge
 pkg/controller func SpecDigest
 pkg/controller func TargetBackoffFor

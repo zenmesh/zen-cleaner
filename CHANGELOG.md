@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] — 2026-10-29
+
+### Added
+- API-reachability observation on the leader-election lock: unreachable states surface as `APIUnreachable` Warning events on the pod, a `zen_cleaner_api_reachable` metric, `/leaderz` detail, and a NOT-Ready `/readyz`. Follower (standby) status is never conflated with failure — a reachable standby stays Ready per the §11-§12 health law.
+
+### Fixed
+- The readiness probe now targets `/readyz` (the leadership-aware readiness law). 0.1.2 probed `/healthz` — the always-OK process-level liveness endpoint — which left pods reporting Ready while unable to reach the Kubernetes API (observed under egress NetworkPolicy enforcement on k3s; see the supported-environments note in README).
+
 ## [0.1.2] — 2026-10-20
 
 ### Fixed

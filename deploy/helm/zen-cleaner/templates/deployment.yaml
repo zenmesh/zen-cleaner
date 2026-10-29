@@ -56,7 +56,10 @@ spec:
               containerPort: 8081
           readinessProbe:
             httpGet:
-              path: /healthz
+              # /readyz is the LEADERSHIP-AWARE readiness law (§11-§12 plus
+              # API-reachability). /healthz is liveness (process-level) and
+              # would leave a NetworkPolicy-blocked pod reporting Ready.
+              path: /readyz
               port: health
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
