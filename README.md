@@ -74,7 +74,7 @@ From a clone of this repo you can install the chart directory directly:
 ```bash
 helm install zen-cleaner ./deploy/helm/zen-cleaner \
   --namespace zen-cleaner-system --create-namespace \
-  --set image.tag=0.1.3 \
+  --set image.tag=0.1.4 \
   --set rbac.deleteNamespaces[0]=default
 # Pin by digest once you have chosen one (tag is then ignored):
 #   --set image.digest=sha256:ABCD...
