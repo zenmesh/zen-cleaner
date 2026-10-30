@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] — 2026-10-30
+
+### Fixed
+- Release-workflow chart job: the AH metadata artifact push now runs after the metadata file lands and uses the correct artifact CONFIG media type. (Tag 0.1.8 was created with mismatched chart metadata and produced no artifacts — version burned per the immutable-tag policy; 0.1.7's OCI chart artifact exists but has no GitHub release.)
+
 ## [0.1.7] — 2026-10-29
 
 ### Added
