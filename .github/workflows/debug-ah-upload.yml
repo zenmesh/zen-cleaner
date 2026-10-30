@@ -1,0 +1,27 @@
+name: Debug AH upload session
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Probe GHCR upload session semantics (redacted output)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/debug-ghcr-upload-session.py \
+            ghcr.io/zenmesh/charts/zen-cleaner docs/artifacthub-repo.yml \
+            "$GITHUB_ACTOR" "$GH_TOKEN"
