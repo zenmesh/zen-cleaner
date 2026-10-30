@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.17] — 2026-10-30
+
+### Fixed
+- Completes 0.1.16's release chain: the Artifact Hub metadata artifact push opened two registry blob-upload sessions and finalized the same blob twice; GHCR consumes the session on the first PUT and answers 404 on the second (0.1.16's chart job failed after the OCI chart push). The script now opens one session and PUTs once (the manifest legally references the single blob as both config and layer), and the behavioral battery enforces GHCR's single-use session semantics.
+
 ## [0.1.16] — 2026-10-30
 
 ### Fixed

@@ -50,25 +50,25 @@ content = open(file, "rb").read()
 digest = sha256(content)
 size = len(content)
 
-uploads = []
-for _ in range(2):
-    st, headers, _ = req(f"{base}/blobs/uploads/", "POST", headers=dict(auth))
-    if st not in (200, 202):
-        sys.exit(f"FATAL: blob upload POST {st}")
-    loc = headers.get("Location") or headers.get("location")
-    if not loc:
-        sys.exit("FATAL: blob upload POST returned no Location")
-    if loc.startswith("/"):
-        loc = base + loc
-    uploads.append(loc)
-
-for loc in uploads:
-    dl = loc + ("&" if "?" in loc else "?") + "digest=" + digest
-    put_headers = {"Content-Type": "application/octet-stream", "Content-Length": str(size)}
-    put_headers.update(auth)
-    st, headers, _ = req(dl, "PUT", content, put_headers)
-    if st not in (200, 201):
-        sys.exit(f"FATAL: blob PUT {st}")
+# ONE upload session, ONE finalizing PUT. GHCR returns the SAME session
+# Location for repeated POSTs and consumes it on the first PUT, so a second
+# PUT of the same blob answers 404 (the 0.1.16 chart-job failure). The
+# manifest below legally references this single blob for both config and
+# layer (identical digests), so there is nothing else to upload.
+st, headers, _ = req(f"{base}/blobs/uploads/", "POST", headers=dict(auth))
+if st not in (200, 202):
+    sys.exit(f"FATAL: blob upload POST {st}")
+loc = headers.get("Location") or headers.get("location")
+if not loc:
+    sys.exit("FATAL: blob upload POST returned no Location")
+if loc.startswith("/"):
+    loc = base + loc
+dl = loc + ("&" if "?" in loc else "?") + "digest=" + digest
+put_headers = {"Content-Type": "application/octet-stream", "Content-Length": str(size)}
+put_headers.update(auth)
+st, headers, body = req(dl, "PUT", content, put_headers)
+if st not in (200, 201):
+    sys.exit(f"FATAL: blob PUT {st}: {body[:200]}")
 
 manifest = {
     "schemaVersion": 2,
