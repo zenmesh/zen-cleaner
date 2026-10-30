@@ -149,7 +149,7 @@ jobs:
           # tracks the registered repository (ID inside the file).
           oras push --artifact-type application/vnd.cncf.artifacthub.config.v1+yaml \
             ghcr.io/zenmesh/charts/zen-cleaner:artifacthub.io \
-            --config artifacthub-repo.yml:application/vnd.cncf.artifacthub.config.v1+yaml
+            --config docs/artifacthub-repo.yml:application/vnd.cncf.artifacthub.config.v1+yaml
       - name: Create release and attach chart with checksum
         run: |
           set -euo pipefail
