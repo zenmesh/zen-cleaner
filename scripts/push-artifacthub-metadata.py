@@ -13,9 +13,11 @@ proto = "http" if repo.startswith(("localhost:", "127.0.0.1:")) else "https"
 base = f"{proto}://{repo.split('/')[0]}/v2/{repo.split('/', 1)[1]}"
 
 def req(url, method="GET", data=None, headers=None):
+    # Headers are passed through EXACTLY as given: the caller decides the
+    # authorization (Basic for the token exchange, Bearer for registry
+    # operations). Injecting Basic here overwrote the exchanged Bearer on
+    # blob/manifest calls (the P0 defect).
     h = dict(headers or {})
-    if user and token:
-        h["Authorization"] = "Basic " + base64.b64encode(f"{user}:{token}".encode()).decode()
     r = urllib.request.Request(url, data=data, method=method, headers=h)
     try:
         resp = urllib.request.urlopen(r)
@@ -26,29 +28,31 @@ def req(url, method="GET", data=None, headers=None):
 def sha256(b): return "sha256:" + hashlib.sha256(b).hexdigest()
 
 def ghcr_headers():
-    # GHCR: exchange the Basic actor:token credential for a repository-scoped
-    # bearer, then use it on every API call (Basic alone is rejected on blob
-    # uploads with 401).
-    import base64
-    if user and token:
-        import base64 as b64
-        basic = "Basic " + b64.b64encode(f"{user}:{token}".encode()).decode()
-        st, _, body = req(f"https://ghcr.io/token?scope=repository:{repo}:push,pull&service=ghcr.io", auth=False,
-                          headers={"Authorization": basic})
-        if st == 200:
-            tok = json.loads(body).get("token")
-            if tok:
-                return {"Authorization": f"Bearer {tok}"}
-    return {}
+    # Exchange the Basic actor:token credential at the REGISTRY's own /token
+    # endpoint (Docker registry token-auth spec; for ghcr.io this is
+    # ghcr.io/token) and use the returned repository-scoped Bearer on every
+    # API call. Basic alone is rejected on blob uploads with 401.
+    if not (user and token):
+        return {}
+    host = repo.split("/")[0]
+    token_url = f"{proto}://{host}/token?scope=repository:{repo}:push,pull&service={host}"
+    basic = "Basic " + base64.b64encode(f"{user}:{token}".encode()).decode()
+    st, _, body = req(token_url, headers={"Authorization": basic})
+    if st != 200:
+        sys.exit(f"FATAL: registry token exchange failed ({st})")
+    tok = json.loads(body).get("token")
+    if not tok:
+        sys.exit("FATAL: registry token exchange returned no token")
+    return {"Authorization": f"Bearer {tok}"}
 
-hh = ghcr_headers()
+auth = ghcr_headers()
 content = open(file, "rb").read()
 digest = sha256(content)
 size = len(content)
 
 uploads = []
 for _ in range(2):
-    st, headers, _ = req(f"{base}/blobs/uploads/", "POST", headers=hh)
+    st, headers, _ = req(f"{base}/blobs/uploads/", "POST", headers=dict(auth))
     if st not in (200, 202):
         sys.exit(f"FATAL: blob upload POST {st}")
     loc = headers.get("Location") or headers.get("location")
@@ -60,7 +64,9 @@ for _ in range(2):
 
 for loc in uploads:
     dl = loc + ("&" if "?" in loc else "?") + "digest=" + digest
-    st, headers, _ = req(dl, "PUT", content, {"Content-Type": "application/octet-stream", "Content-Length": str(size)})
+    put_headers = {"Content-Type": "application/octet-stream", "Content-Length": str(size)}
+    put_headers.update(auth)
+    st, headers, _ = req(dl, "PUT", content, put_headers)
     if st not in (200, 201):
         sys.exit(f"FATAL: blob PUT {st}")
 
@@ -71,8 +77,9 @@ manifest = {
     "layers": [{"mediaType": "application/yaml", "digest": digest, "size": size}],
 }
 mbytes = json.dumps(manifest).encode()
-st, headers, body = req(f"{base}/manifests/artifacthub.io", "PUT", mbytes,
-                        {"Content-Type": "application/vnd.oci.image.manifest.v1+json", "Content-Length": str(len(mbytes))})
+put_headers = {"Content-Type": "application/vnd.oci.image.manifest.v1+json", "Content-Length": str(len(mbytes))}
+put_headers.update(auth)
+st, headers, body = req(f"{base}/manifests/artifacthub.io", "PUT", mbytes, put_headers)
 if st not in (200, 201):
     sys.exit(f"FATAL: manifest PUT {st}: {body[:200]}")
 print(f"PUSHED: {repo}:artifacthub.io (config {digest}, {size} bytes)")
