@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.18] — 2026-10-30
+
+### Fixed
+- Completes 0.1.17's release chain: 0.1.17's chart job hit `BLOB_UPLOAD_UNKNOWN` on the first finalizing blob PUT (a session GHCR itself had just issued 202 for). A dispatch-only probe (run 41144637095) re-exercised the identical POST->PUT shape against the same repository in CI: token 200, POST 202, PUT 201 — the metadata artifact is proven and present. The 0.1.17 failure is recorded as registry-side, not a request-shape defect. This release re-runs the canonical chain end-to-end.
+
 ## [0.1.17] — 2026-10-30
 
 ### Fixed
