@@ -25,15 +25,23 @@ def req(url, method="GET", data=None, headers=None):
 
 def sha256(b): return "sha256:" + hashlib.sha256(b).hexdigest()
 
-def bearer():
-    # GHCR: Basic actor:token on every API call (the registry issues a bearer
-    # on /token, but push scope must come from the passed credential itself).
+def ghcr_headers():
+    # GHCR: exchange the Basic actor:token credential for a repository-scoped
+    # bearer, then use it on every API call (Basic alone is rejected on blob
+    # uploads with 401).
     import base64
     if user and token:
-        return {"Authorization": "Basic " + base64.b64encode(f"{user}:{token}".encode()).decode()}
+        import base64 as b64
+        basic = "Basic " + b64.b64encode(f"{user}:{token}".encode()).decode()
+        st, _, body = req(f"https://ghcr.io/token?scope=repository:{repo}:push,pull&service=ghcr.io", auth=False,
+                          headers={"Authorization": basic})
+        if st == 200:
+            tok = json.loads(body).get("token")
+            if tok:
+                return {"Authorization": f"Bearer {tok}"}
     return {}
 
-hh = bearer()
+hh = ghcr_headers()
 content = open(file, "rb").read()
 digest = sha256(content)
 size = len(content)
