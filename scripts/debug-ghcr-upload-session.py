@@ -30,7 +30,7 @@ def redact_loc(loc):
     q = ("?" + "&".join(k + "=<redacted>" for k in keys)) if keys else ""
     return f"{sp.scheme}://{sp.netloc}{sp.path}{q}"
 
-def call(url, method, data=None, headers=None):
+def call(url, method="GET", data=None, headers=None):
     r = urllib.request.Request(url, data=data, method=method,
                                headers=dict(headers or {}))
     try:
