@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.11] — 2026-10-30
+
+### Fixed
+- Release chart job: the Artifact Hub metadata artifact push uses the correct config path and runs after the metadata file lands (0.1.9's chart job failed on the relative path). Tag 0.1.10 was burned (tagged before the version bump — validator refused, no artifacts).
+
 ## [0.1.9] — 2026-10-30
 
 ### Fixed
