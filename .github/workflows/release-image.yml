@@ -120,8 +120,6 @@ jobs:
           helm lint ./deploy/helm/zen-cleaner
           helm template zen-cleaner ./deploy/helm/zen-cleaner --namespace zen-cleaner-system > /tmp/rendered.yaml
           grep -F "ghcr.io/zenmesh/zen-cleaner@$IMAGE_DIGEST" /tmp/rendered.yaml
-      - name: Install oras
-        uses: oras-project/setup-oras@v1.2.2
       - name: Package and publish public chart candidate
         run: |
           set -euo pipefail
@@ -147,9 +145,11 @@ jobs:
           # artifacthub.io (config media type application/vnd.cncf.artifacthub.config.v1+yaml).
           # Keep it aligned with every release so verified-publisher metadata
           # tracks the registered repository (ID inside the file).
-          oras push --artifact-type application/vnd.cncf.artifacthub.config.v1+yaml \
-            ghcr.io/zenmesh/charts/zen-cleaner:artifacthub.io \
-            --config docs/artifacthub-repo.yml:application/vnd.cncf.artifacthub.config.v1+yaml
+          # Deterministic registry-API push (no HEAD-before-push: GHCR answers
+          # DENIED for nonexistent tags, which broke the oras form).
+          python3 scripts/push-artifacthub-metadata.py \
+            ghcr.io/zenmesh/charts/zen-cleaner docs/artifacthub-repo.yml \
+            "$GITHUB_ACTOR" "$GH_TOKEN"
       - name: Create release and attach chart with checksum
         run: |
           set -euo pipefail

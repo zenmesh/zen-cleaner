@@ -1,7 +1,7 @@
 {
   "project": "zen-cleaner",
   "description": "Declarative Kubernetes cleanup controller",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "license": "Apache-2.0",
   "language": "Go",
   "go_version": "1.27.3",
