@@ -11,6 +11,9 @@ Contract (P0):
    partial-success output.
 4. The Basic secret and the exchanged bearer never appear in output.
 5. No HEAD requests are ever sent (GHCR DENIED before-push broke oras).
+6. ONE blob-upload session, ONE finalizing PUT (GHCR hands the same session
+   Location for repeated POSTs and consumes it on first PUT; the second PUT
+   404s — the 0.1.16 chart-job failure).
 """
 import base64
 import json
@@ -59,7 +62,8 @@ class Stub(BaseHTTPRequestHandler):
         self.rfile.read(n)
         self._record("POST")
         if self.path.endswith("/blobs/uploads/"):
-            # Registry behavior: 202 + ABSOLUTE Location for the follow-up PUT.
+            # GHCR behavior: 202 + ABSOLUTE Location, and repeated POSTs hand
+            # back the SAME session URL (it is one upload session).
             self.send_response(202)
             self.send_header("Location",
                              "http://127.0.0.1:" + str(self.server.server_port)
@@ -79,7 +83,18 @@ class Stub(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length", 0))
         self.rfile.read(n)
         self._record("PUT")
-        self._json(201, {})
+        if "digest=" in self.path and "/blobs/uploads/" in self.path:
+            # GHCR behavior: a finalizing PUT consumes the upload session;
+            # any second finalizing PUT against it answers 404.
+            if getattr(self.server, "blob_finalized", False):
+                self._json(404, {"message": "upload session consumed"})
+            else:
+                self.server.blob_finalized = True
+                self.send_response(201)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+        else:
+            self._json(201, {})
 
     def do_HEAD(self):
         self._record("HEAD")
@@ -92,6 +107,7 @@ class TestPushArtifacthubMetadata(unittest.TestCase):
         self.recorded = []
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Stub)
         self.httpd.recorded = self.recorded
+        self.httpd.blob_finalized = False
         self.port = self.httpd.server_address[1]
         t = threading.Thread(target=self.httpd.serve_forever, daemon=True)
         t.start()
@@ -151,6 +167,22 @@ class TestPushArtifacthubMetadata(unittest.TestCase):
         for sink in (out, err):
             self.assertNotIn(SECRET, sink)
             self.assertNotIn(BEARER, sink)
+
+    def test_single_upload_session_and_single_finalizing_put(self):
+        # GHCR: the upload session is consumed by the first finalizing PUT;
+        # a second PUT of the same blob answers 404 and fails the chart job
+        # (the 0.1.16 release failure). The stub enforces that semantics, so
+        # a double-PUT script cannot pass this test.
+        rc, out, err = self.run_push()
+        self.assertEqual(rc, 0, out + err)
+        posts = [p for (m, p, a) in self.recorded
+                 if m == "POST" and p.endswith("/blobs/uploads/")]
+        blob_puts = [p for (m, p, a) in self.recorded
+                     if m == "PUT" and "/blobs/uploads/" in p]
+        self.assertEqual(len(posts), 1,
+                         "must open exactly ONE blob-upload session")
+        self.assertEqual(len(blob_puts), 1,
+                         "must finalize the blob with exactly ONE PUT")
 
 
 if __name__ == "__main__":
