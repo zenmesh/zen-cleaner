@@ -26,18 +26,18 @@ Builds require **Go 1.27+** (see `go.mod`). Published container images are built
 
 The chart is the supported install path: it renders valid manifests (no shell
 placeholders), runs without the admission webhook TLS dependency, and pins the
-image by its immutable digest. Install release 0.1.13 straight from the
+image by its immutable digest. Install release 0.1.15 straight from the
 published OCI chart — no repository clone needed:
 
 ```bash
 helm upgrade --install zen-cleaner \
-  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.13 \
+  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.15 \
   --namespace zen-cleaner-system --create-namespace \
   --set rbac.deleteNamespaces[0]=default
 # or, equivalently, from the plain-HTTP chart index (GitHub Releases):
 helm repo add zenmesh https://github.com/zenmesh/zen-cleaner/releases/latest/download
 helm repo update
-helm upgrade --install zen-cleaner zenmesh/zen-cleaner --version 0.1.13 \
+helm upgrade --install zen-cleaner zenmesh/zen-cleaner --version 0.1.15 \
   --namespace zen-cleaner-system --create-namespace \
   --set rbac.deleteNamespaces[0]=default
 ```
@@ -52,7 +52,7 @@ the chart refuses to render rather than ship corrupt RBAC):
 
 ```bash
 helm upgrade --install zen-cleaner \
-  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.13 \
+  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.15 \
   --namespace zen-cleaner-system --create-namespace \
   --set rbac.targetKinds[0].group=batch --set rbac.targetKinds[0].resource=jobs \
   --set rbac.targetKinds[1].group= --set rbac.targetKinds[1].resource=configmaps \
@@ -74,7 +74,7 @@ From a clone of this repo you can install the chart directory directly:
 ```bash
 helm install zen-cleaner ./deploy/helm/zen-cleaner \
   --namespace zen-cleaner-system --create-namespace \
-  --set image.tag=0.1.13 \
+  --set image.tag=0.1.15 \
   --set rbac.deleteNamespaces[0]=default
 # Pin by digest once you have chosen one (tag is then ignored):
 #   --set image.digest=sha256:ABCD...
