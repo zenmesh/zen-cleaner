@@ -21,7 +21,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          echo "=== REAL RELEASE SCRIPT (exact artifact CI executes) ==="
+          if python3 scripts/push-artifacthub-metadata.py \
+              ghcr.io/zenmesh/charts/zen-cleaner docs/artifacthub-repo.yml \
+              "$GITHUB_ACTOR" "$GH_TOKEN"; then
+            echo "RESULT: release script SUCCEEDED in probe context"
+            exit 0
+          fi
+          echo "=== release script FAILED here too — shape battery follows ==="
           python3 scripts/debug-ghcr-upload-session.py \
             ghcr.io/zenmesh/charts/zen-cleaner docs/artifacthub-repo.yml \
             "$GITHUB_ACTOR" "$GH_TOKEN"
