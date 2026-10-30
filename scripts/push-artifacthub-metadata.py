@@ -29,11 +29,9 @@ def ghcr_headers():
     # GHCR: exchange the Basic actor:token credential for a repository-scoped
     # bearer, then use it on every API call (Basic alone is rejected on blob
     # uploads with 401).
-    import base64
     if user and token:
-        import base64 as b64
-        basic = "Basic " + b64.b64encode(f"{user}:{token}".encode()).decode()
-        st, _, body = req(f"https://ghcr.io/token?scope=repository:{repo}:push,pull&service=ghcr.io", auth=False,
+        basic = "Basic " + base64.b64encode(f"{user}:{token}".encode()).decode()
+        st, _, body = req(f"https://ghcr.io/token?scope=repository:{repo}:push,pull&service=ghcr.io",
                           headers={"Authorization": basic})
         if st == 200:
             tok = json.loads(body).get("token")
