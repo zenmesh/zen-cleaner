@@ -6,7 +6,7 @@ image:
   # digest was Debian, not Alpine), so a default of 0.1.0 installs a tag that
   # resolves to nothing. The release workflow rebinds BOTH `tag` and `digest`
   # at package time; when `digest` is set it wins over `tag`.
-  tag: "0.1.13"
+  tag: "0.1.14"
   digest: ""
   pullPolicy: IfNotPresent
 
