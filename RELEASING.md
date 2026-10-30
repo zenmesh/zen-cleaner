@@ -52,7 +52,46 @@ No HA, SOC2, or production-qualification claim is made for `0.x`.
   The binary version is stamped at build time from the git tag via the
   `VERSION` build arg (see `.github/workflows/release-image.yml`).
 
-### Creating a Release
+### CI health protocol (required for every change, 2026-10-29)
+
+Treat CI health as part of every change — never a merge-time surprise.
+
+**Before editing or pushing**
+
+1. Refresh the GitHub state: open PRs, required checks, recent failed or
+   cancelled runs, and the latest successful run on `main`.
+2. Record the baseline commit, PR head SHAs, check conclusions, and every
+   existing failure. Separate pre-existing failures from failures your
+   change introduces. Never describe a failure as transient or external
+   without evidence.
+3. If the GitHub API or Actions is unavailable, record the exact failed
+   query and context, continue independent work, and never claim checks
+   are green.
+
+**After every push**
+
+1. Verify the run is for the EXACT pushed SHA and the expected
+   event/workflow, and that every required check reached a terminal
+   successful state.
+2. For each failure: inspect the failed job and logs, fix the root cause in
+   the owning change, push, and repeat against the new exact SHA. Do not
+   leave known failures as unexplained noise.
+3. If workflow events are missing (verified via the Actions runs API: no
+   run for your head SHA), keep the PR open and protected, document the
+   delivery gap with evidence, and retry via a fresh branch/PR (a new head
+   SHA re-fires `pull_request` events). Never merge on a different
+   commit's green run and never bypass protection.
+
+**Before merging**: re-check the PR head and all required checks. After
+merging: confirm the merged `main` SHA has the expected green checks.
+
+**Before tagging or publishing**: confirm the release commit is the
+intended merged-main commit, the chart version matches the tag, and
+validate the FULL release workflow — both the image and the chart
+publication. A failed chart job means the release is incomplete even if
+the image exists.
+
+## Creating a Release
 
 **`main` is the only long-lived branch.** There is no permanent
 `release/vX.Y.Z` branch: version-bump work happens on a short-lived branch and
