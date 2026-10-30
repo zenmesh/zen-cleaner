@@ -130,13 +130,6 @@ jobs:
           helm push "/tmp/chart-out/zen-cleaner-$VERSION.tgz" oci://ghcr.io/zenmesh/charts
           cd /tmp/chart-out
           sha256sum "zen-cleaner-$VERSION.tgz" > "zen-cleaner-$VERSION.tgz.sha256"
-          # Artifact Hub reads repository metadata from an OCI artifact tagged
-          # artifacthub.io (config media type application/vnd.cncf.artifacthub.config.v1+yaml).
-          # Keep it aligned with every release so verified-publisher metadata
-          # tracks the registered repository (ID inside the file).
-          oras push --artifact-type application/vnd.cncf.artifacthub.config.v1+yaml \
-            ghcr.io/zenmesh/charts/zen-cleaner:artifacthub.io \
-            artifacthub-repo.yml:application/yaml
       - name: Build the public HTTP chart repository index
         run: |
           set -euo pipefail
@@ -150,6 +143,13 @@ jobs:
           # Ship the repo's canonical metadata file (carries repositoryID
           # for verified-publisher binding), not a regenerated bare copy.
           cp docs/artifacthub-repo.yml /tmp/chart-out/artifacthub-repo.yml
+          # Artifact Hub reads repository metadata from an OCI artifact tagged
+          # artifacthub.io (config media type application/vnd.cncf.artifacthub.config.v1+yaml).
+          # Keep it aligned with every release so verified-publisher metadata
+          # tracks the registered repository (ID inside the file).
+          oras push --artifact-type application/vnd.cncf.artifacthub.config.v1+yaml \
+            ghcr.io/zenmesh/charts/zen-cleaner:artifacthub.io \
+            --config artifacthub-repo.yml:application/vnd.cncf.artifacthub.config.v1+yaml
       - name: Create release and attach chart with checksum
         run: |
           set -euo pipefail
