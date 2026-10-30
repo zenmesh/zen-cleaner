@@ -5,7 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.13] — 2026-10-30
+## [0.1.15] — 2026-10-30
+
+### Fixed
+- The Artifact Hub metadata artifact push exchanges the workflow credential for a repository-scoped GHCR bearer before the blob uploads (Basic actor:token alone is rejected with 401 on blob POST). 0.1.14's chart job failed at this push; the controller binary is unchanged from 0.1.14.
+
+### Added
+- `networkPolicy.egressCidr` (default `0.0.0.0/0`, unchanged behavior) and the retained structured-log event sink release with this version; both landed on main after 0.1.14.
+
+## [0.1.14] — 2026-10-30
 
 ### Added
 - The release chart job now publishes the Artifact Hub repository-metadata OCI artifact (tag `artifacthub.io`, config media type `application/vnd.cncf.artifacthub.config.v1+yaml`, content = `docs/artifacthub-repo.yml` with repository ID `b1179c76…`) via a deterministic registry-API push.

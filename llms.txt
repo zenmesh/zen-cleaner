@@ -7,7 +7,7 @@
 **Source:** https://github.com/zenmesh/zen-cleaner  
 **Docs:** https://github.com/zenmesh/zen-cleaner/tree/main/docs  
 **License:** Apache-2.0  
-**Version:** 0.1.14 (Helm chart `0.1.6`, image digest-bound; released 2026-10-29)  
+**Version:** 0.1.15 (Helm chart `0.1.6`, image digest-bound; released 2026-10-29)  
 
 ## Quick links
 
