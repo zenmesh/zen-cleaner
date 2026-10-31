@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.19] — 2026-10-31
+
+### Fixed
+- Root cause of the chart-job failures since 0.1.16: the registry token scope carried the registry host (`scope=repository:ghcr.io/<ns>/<name>`). GHCR minted a Bearer for a nonexistent resource — session POST tolerated it, the finalizing blob PUT answered `404 BLOB_UPLOAD_UNKNOWN`. 0.1.18's changelog called this transient; that attribution was wrong. Isolated by dispatch probes (runs 41144637095, 41148521050): the release script failed in the probe context while the identical request shape with a host-free scope PUT 201 in the same runner seconds later. The scope is now the repo path only, with a battery contract (`token scope must be repository:<path>:push,pull`) and a mutation check. Controller binary unchanged since 0.1.6.
+
 ## [0.1.18] — 2026-10-30
 
 ### Fixed

@@ -35,7 +35,14 @@ def ghcr_headers():
     if not (user and token):
         return {}
     host = repo.split("/")[0]
-    token_url = f"{proto}://{host}/token?scope=repository:{repo}:push,pull&service={host}"
+    # The scope's repository field is the repo PATH ONLY. Passing the full
+    # <registry>/<namespace>/<name> minted a Bearer for a resource that does
+    # not exist: GHCR tolerates it on the session POST but the finalizing
+    # blob PUT answers 404 BLOB_UPLOAD_UNKNOWN — every chart job since 0.1.16
+    # — while the identical shape with a host-free scope PUT 201 in the same
+    # runner seconds later (dispatch probes 41144637095 / 41148521050).
+    repo_path = repo.split("/", 1)[1]
+    token_url = f"{proto}://{host}/token?scope=repository:{repo_path}:push,pull&service={host}"
     basic = "Basic " + base64.b64encode(f"{user}:{token}".encode()).decode()
     st, _, body = req(token_url, headers={"Authorization": basic})
     if st != 200:
@@ -50,11 +57,9 @@ content = open(file, "rb").read()
 digest = sha256(content)
 size = len(content)
 
-# ONE upload session, ONE finalizing PUT. GHCR returns the SAME session
-# Location for repeated POSTs and consumes it on the first PUT, so a second
-# PUT of the same blob answers 404 (the 0.1.16 chart-job failure). The
-# manifest below legally references this single blob for both config and
-# layer (identical digests), so there is nothing else to upload.
+# ONE upload session, ONE finalizing PUT: the manifest below legally
+# references the same blob for both config and layer (identical digests),
+# so there is exactly one blob to upload. No second session, no retries.
 st, headers, _ = req(f"{base}/blobs/uploads/", "POST", headers=dict(auth))
 if st not in (200, 202):
     sys.exit(f"FATAL: blob upload POST {st}")

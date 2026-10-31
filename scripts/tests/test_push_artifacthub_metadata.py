@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 import threading
+import urllib.parse
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -53,6 +54,7 @@ class Stub(BaseHTTPRequestHandler):
     def do_GET(self):
         self._record("GET")
         if self.path.startswith("/token"):
+            self.server.token_path = self.path
             self._json(200, {"token": BEARER})
         else:
             self._json(404, {"message": "nf"})
@@ -86,10 +88,11 @@ class Stub(BaseHTTPRequestHandler):
         if "digest=" in self.path and "/blobs/uploads/" in self.path:
             # GHCR behavior: a finalizing PUT consumes the upload session;
             # any second finalizing PUT against it answers 404.
-            if getattr(self.server, "blob_finalized", False):
+            self.server.blob_put_cl = self.headers.get("Content-length")
+            if self.server.blob_put_seen:
                 self._json(404, {"message": "upload session consumed"})
             else:
-                self.server.blob_finalized = True
+                self.server.blob_put_seen = True
                 self.send_response(201)
                 self.send_header("Content-Length", "0")
                 self.end_headers()
@@ -107,7 +110,9 @@ class TestPushArtifacthubMetadata(unittest.TestCase):
         self.recorded = []
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Stub)
         self.httpd.recorded = self.recorded
-        self.httpd.blob_finalized = False
+        self.httpd.blob_put_seen = False
+        self.httpd.blob_put_cl = None
+        self.httpd.token_path = None
         self.port = self.httpd.server_address[1]
         t = threading.Thread(target=self.httpd.serve_forever, daemon=True)
         t.start()
@@ -183,6 +188,23 @@ class TestPushArtifacthubMetadata(unittest.TestCase):
                          "must open exactly ONE blob-upload session")
         self.assertEqual(len(blob_puts), 1,
                          "must finalize the blob with exactly ONE PUT")
+
+    def test_token_scope_is_registry_host_free(self):
+        # Root cause of the BLOB_UPLOAD_UNKNOWN chart-job failures
+        # (0.1.16-0.1.18): the scope was built from the FULL argv repo
+        # (ghcr.io/ns/name), minting a Bearer for a resource that does not
+        # exist. GHCR tolerated it on the session POST but answered the
+        # finalizing blob PUT with 404. The scope must carry the repo PATH
+        # ONLY.
+        rc, out, err = self.run_push()
+        self.assertEqual(rc, 0, out + err)
+        self.assertIsNotNone(self.httpd.token_path, "token never exchanged")
+        q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.httpd.token_path).query)
+        scope = q["scope"][0]
+        self.assertEqual(scope, "repository:" + REPO + ":push,pull",
+                         "token scope must be repository:<path>:push,pull "
+                         "without the registry host")
+        self.assertNotIn("127.0.0.1", scope)
 
 
 if __name__ == "__main__":
