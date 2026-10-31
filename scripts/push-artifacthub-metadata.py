@@ -4,7 +4,33 @@
 Usage: push-artifacthub-metadata.py <registry/repo> <metadata-file> [user] [token]
 Pure urllib; no HEAD-before-push (GHCR answers DENIED for nonexistent tags,
 which breaks oras's existence check for the first metadata artifact)."""
-import base64, hashlib, json, sys, urllib.request
+import base64, hashlib, json, os, sys, urllib.parse, urllib.request
+
+TRACE = os.environ.get("AH_PUSH_TRACE") == "1"
+
+def _trace(method, url, headers, data):
+    if not TRACE:
+        return
+    sp = urllib.parse.urlsplit(url)
+    red = {k: (v.split(" ")[0] + " <redacted>" if k.lower() == "authorization" else v)
+           for k, v in (headers or {}).items()}
+    q = urllib.parse.parse_qsl(sp.query, keep_blank_values=True)
+    rq = "&".join(f"{k}={'<redacted>' if k == 'digest' else v}" for k, v in q)
+    print(f"TRACE {method} {sp.scheme}://{sp.netloc}{sp.path}"
+          f"{'?' + rq if rq else ''} hdrs={red} data={len(data) if data else 0}b",
+          file=sys.stderr, flush=True)
+
+def _trace(method, url, headers, data):
+    if not TRACE:
+        return
+    sp = urllib.parse.urlsplit(url)
+    red = {k: (v.split(" ")[0] + " <redacted>" if k.lower() == "authorization" else v)
+           for k, v in (headers or {}).items()}
+    q = urllib.parse.parse_qsl(sp.query, keep_blank_values=True)
+    rq = "&".join(f"{k}={'<redacted>' if k == 'digest' else v}" for k, v in q)
+    print(f"TRACE {method} {sp.scheme}://{sp.netloc}{sp.path}"
+          f"{'?' + rq if rq else ''} hdrs={red} data={len(data) if data else 0}b",
+          file=sys.stderr, flush=True)
 
 repo, file = sys.argv[1], sys.argv[2]
 user = sys.argv[3] if len(sys.argv) > 3 else None
@@ -18,6 +44,7 @@ def req(url, method="GET", data=None, headers=None):
     # operations). Injecting Basic here overwrote the exchanged Bearer on
     # blob/manifest calls (the P0 defect).
     h = dict(headers or {})
+    _trace(method, url, h, data)
     r = urllib.request.Request(url, data=data, method=method, headers=h)
     try:
         resp = urllib.request.urlopen(r)

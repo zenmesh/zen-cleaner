@@ -20,6 +20,7 @@ jobs:
       - name: Probe GHCR upload session semantics (redacted output)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AH_PUSH_TRACE: "1"
         run: |
           set -uo pipefail
           echo "=== REAL RELEASE SCRIPT (exact artifact CI executes) ==="
