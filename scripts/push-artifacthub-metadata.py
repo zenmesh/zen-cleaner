@@ -4,7 +4,33 @@
 Usage: push-artifacthub-metadata.py <registry/repo> <metadata-file> [user] [token]
 Pure urllib; no HEAD-before-push (GHCR answers DENIED for nonexistent tags,
 which breaks oras's existence check for the first metadata artifact)."""
-import base64, hashlib, json, sys, urllib.request
+import base64, hashlib, json, os, sys, urllib.parse, urllib.request
+
+TRACE = os.environ.get("AH_PUSH_TRACE") == "1"
+
+def _trace(method, url, headers, data):
+    if not TRACE:
+        return
+    sp = urllib.parse.urlsplit(url)
+    red = {k: (v.split(" ")[0] + " <redacted>" if k.lower() == "authorization" else v)
+           for k, v in (headers or {}).items()}
+    q = urllib.parse.parse_qsl(sp.query, keep_blank_values=True)
+    rq = "&".join(f"{k}={'<redacted>' if k == 'digest' else v}" for k, v in q)
+    print(f"TRACE {method} {sp.scheme}://{sp.netloc}{sp.path}"
+          f"{'?' + rq if rq else ''} hdrs={red} data={len(data) if data else 0}b",
+          file=sys.stderr, flush=True)
+
+def _trace(method, url, headers, data):
+    if not TRACE:
+        return
+    sp = urllib.parse.urlsplit(url)
+    red = {k: (v.split(" ")[0] + " <redacted>" if k.lower() == "authorization" else v)
+           for k, v in (headers or {}).items()}
+    q = urllib.parse.parse_qsl(sp.query, keep_blank_values=True)
+    rq = "&".join(f"{k}={'<redacted>' if k == 'digest' else v}" for k, v in q)
+    print(f"TRACE {method} {sp.scheme}://{sp.netloc}{sp.path}"
+          f"{'?' + rq if rq else ''} hdrs={red} data={len(data) if data else 0}b",
+          file=sys.stderr, flush=True)
 
 repo, file = sys.argv[1], sys.argv[2]
 user = sys.argv[3] if len(sys.argv) > 3 else None
@@ -18,6 +44,7 @@ def req(url, method="GET", data=None, headers=None):
     # operations). Injecting Basic here overwrote the exchanged Bearer on
     # blob/manifest calls (the P0 defect).
     h = dict(headers or {})
+    _trace(method, url, h, data)
     r = urllib.request.Request(url, data=data, method=method, headers=h)
     try:
         resp = urllib.request.urlopen(r)
@@ -35,7 +62,14 @@ def ghcr_headers():
     if not (user and token):
         return {}
     host = repo.split("/")[0]
-    token_url = f"{proto}://{host}/token?scope=repository:{repo}:push,pull&service={host}"
+    # The scope's repository field is the repo PATH ONLY. Passing the full
+    # <registry>/<namespace>/<name> minted a Bearer for a resource that does
+    # not exist: GHCR tolerates it on the session POST but the finalizing
+    # blob PUT answers 404 BLOB_UPLOAD_UNKNOWN — every chart job since 0.1.16
+    # — while the identical shape with a host-free scope PUT 201 in the same
+    # runner seconds later (dispatch probes 41144637095 / 41148521050).
+    repo_path = repo.split("/", 1)[1]
+    token_url = f"{proto}://{host}/token?scope=repository:{repo_path}:push,pull&service={host}"
     basic = "Basic " + base64.b64encode(f"{user}:{token}".encode()).decode()
     st, _, body = req(token_url, headers={"Authorization": basic})
     if st != 200:
@@ -50,19 +84,25 @@ content = open(file, "rb").read()
 digest = sha256(content)
 size = len(content)
 
-# ONE upload session, ONE finalizing PUT. GHCR returns the SAME session
-# Location for repeated POSTs and consumes it on the first PUT, so a second
-# PUT of the same blob answers 404 (the 0.1.16 chart-job failure). The
-# manifest below legally references this single blob for both config and
-# layer (identical digests), so there is nothing else to upload.
+# ONE upload session, ONE finalizing PUT: the manifest below legally
+# references the same blob for both config and layer (identical digests),
+# so there is exactly one blob to upload. No second session, no retries.
 st, headers, _ = req(f"{base}/blobs/uploads/", "POST", headers=dict(auth))
 if st not in (200, 202):
     sys.exit(f"FATAL: blob upload POST {st}")
 loc = headers.get("Location") or headers.get("location")
 if not loc:
     sys.exit("FATAL: blob upload POST returned no Location")
-if loc.startswith("/"):
-    loc = base + loc
+# GHCR returns a REPO-ROOTED path (/v2/<repo>/blobs/upload/<uuid>). It must
+# be joined to scheme://host ONLY — prefixing it with the /v2/<repo> API
+# root doubles the path and the registry answers 404 BLOB_UPLOAD_UNKNOWN
+# for the nonexistent session (every chart job 0.1.16–0.1.18; exposed by
+# the wire trace in dispatch run 41151834411). A //host/... form is joined
+# to the scheme; a full URL is used verbatim.
+if loc.startswith("//"):
+    loc = proto + ":" + loc
+elif loc.startswith("/"):
+    loc = f"{proto}://{repo.split('/')[0]}" + loc
 dl = loc + ("&" if "?" in loc else "?") + "digest=" + digest
 put_headers = {"Content-Type": "application/octet-stream", "Content-Length": str(size)}
 put_headers.update(auth)

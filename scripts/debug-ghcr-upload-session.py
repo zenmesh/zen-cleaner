@@ -31,6 +31,13 @@ def redact_loc(loc):
     return f"{sp.scheme}://{sp.netloc}{sp.path}{q}"
 
 def call(url, method="GET", data=None, headers=None):
+    sp = urlsplit(url)
+    red = {k: (v.split(" ")[0] + " <redacted>" if k.lower() == "authorization" else v)
+           for k, v in (headers or {}).items()}
+    keys = "&".join(kv.split("=", 1)[0] for kv in sp.query.split("&") if kv)
+    print(f"WIRE {method} {sp.scheme}://{sp.netloc}{sp.path}"
+          f"{'?' + keys if keys else ''} hdrs={red} data={len(data) if data else 0}b",
+          flush=True)
     r = urllib.request.Request(url, data=data, method=method,
                                headers=dict(headers or {}))
     try:
