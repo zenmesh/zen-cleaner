@@ -64,12 +64,13 @@ class Stub(BaseHTTPRequestHandler):
         self.rfile.read(n)
         self._record("POST")
         if self.path.endswith("/blobs/uploads/"):
-            # GHCR behavior: 202 + ABSOLUTE Location, and repeated POSTs hand
-            # back the SAME session URL (it is one upload session).
+            # GHCR behavior: 202 + REPO-ROOTED path Location — no scheme, no
+            # host, no query. Joining it to anything except scheme://host
+            # doubles the path and the registry answers BLOB_UPLOAD_UNKNOWN
+            # (the 0.1.16-0.1.18 chart-job failure).
+            self.server.session_path = self.path + "blob-upload-uuid"
             self.send_response(202)
-            self.send_header("Location",
-                             "http://127.0.0.1:" + str(self.server.server_port)
-                             + self.path + "blob-upload-uuid")
+            self.send_header("Location", self.server.session_path)
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
@@ -188,6 +189,23 @@ class TestPushArtifacthubMetadata(unittest.TestCase):
                          "must open exactly ONE blob-upload session")
         self.assertEqual(len(blob_puts), 1,
                          "must finalize the blob with exactly ONE PUT")
+
+    def test_blob_put_targets_issued_session_path(self):
+        # The finalizing PUT must go to the EXACT session path GHCR issued
+        # (repo-rooted), joined to scheme://host — never re-joined to the
+        # /v2/<repo> API root (which doubles the path and yields
+        # BLOB_UPLOAD_UNKNOWN; 0.1.16-0.1.18, exposed by wire trace in
+        # dispatch run 41151834411).
+        rc, out, err = self.run_push()
+        self.assertEqual(rc, 0, out + err)
+        issued = getattr(self.httpd, "session_path", None)
+        self.assertIsNotNone(issued, "no upload session was issued")
+        puts = [p for (m, p, a) in self.recorded
+                if m == "PUT" and p.startswith(issued)]
+        self.assertEqual(len(puts), 1,
+                         "PUT must target scheme://host + the issued session "
+                         "path; got: %r" % [p for (m, p, a) in self.recorded
+                                            if m == "PUT"])
 
     def test_token_scope_is_registry_host_free(self):
         # Root cause of the BLOB_UPLOAD_UNKNOWN chart-job failures

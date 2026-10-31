@@ -93,8 +93,16 @@ if st not in (200, 202):
 loc = headers.get("Location") or headers.get("location")
 if not loc:
     sys.exit("FATAL: blob upload POST returned no Location")
-if loc.startswith("/"):
-    loc = base + loc
+# GHCR returns a REPO-ROOTED path (/v2/<repo>/blobs/upload/<uuid>). It must
+# be joined to scheme://host ONLY — prefixing it with the /v2/<repo> API
+# root doubles the path and the registry answers 404 BLOB_UPLOAD_UNKNOWN
+# for the nonexistent session (every chart job 0.1.16–0.1.18; exposed by
+# the wire trace in dispatch run 41151834411). A //host/... form is joined
+# to the scheme; a full URL is used verbatim.
+if loc.startswith("//"):
+    loc = proto + ":" + loc
+elif loc.startswith("/"):
+    loc = f"{proto}://{repo.split('/')[0]}" + loc
 dl = loc + ("&" if "?" in loc else "?") + "digest=" + digest
 put_headers = {"Content-Type": "application/octet-stream", "Content-Length": str(size)}
 put_headers.update(auth)
