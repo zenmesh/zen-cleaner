@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
 	"github.com/zenmesh/zen-cleaner/pkg/api/v1alpha1"
@@ -34,6 +35,16 @@ import (
 // capability gate still classifies via the list probe.
 func (r *PolicyReconciler) SetDiscoveryClient(dc discovery.DiscoveryInterface) {
 	r.discoveryClient = dc
+}
+
+// SetAPIReader wires the UNCACHED reader (manager.GetAPIReader()) used by
+// the delete-time policy-freshness check: the confirmation that the
+// governing policy is still the live one immediately before an irreversible
+// DELETE must bypass the informer cache. Production wiring in
+// cmd/zen-cleaner/main.go always sets it; nil (tests) means the check is
+// skipped when no fallback reader is available either.
+func (r *PolicyReconciler) SetAPIReader(reader client.Reader) {
+	r.apiReader = reader
 }
 
 // getOrCreateResourceInformer gets or creates a resource informer for a policy.

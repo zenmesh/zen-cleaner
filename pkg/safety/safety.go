@@ -72,6 +72,13 @@ const (
 	ReasonDeletesDisabled = "deletes_disabled"
 	// ReasonPolicyInvalid: the driving policy failed runtime validation.
 	ReasonPolicyInvalid = "policy_invalid"
+	// ReasonPolicyChanged: the GOVERNING policy is no longer the live one at
+	// deletion time — deleted, deleted-and-recreated (UID changed), or
+	// spec-edited (metadata.generation moved) — discovered by the uncached
+	// delete-time freshness re-read. The snapshot a batch decision was made
+	// on must never execute an irreversible DELETE for a policy that no
+	// longer exists or no longer says what the snapshot says.
+	ReasonPolicyChanged = "policy_changed"
 	// ReasonUnknown: fail-safe bucket for any unrecognized situation.
 	ReasonUnknown = "unknown"
 )

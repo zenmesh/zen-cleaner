@@ -465,6 +465,7 @@ pkg/safety const ReasonExcludedLabel
 pkg/safety const ReasonMissingResourceVersion
 pkg/safety const ReasonMissingUID
 pkg/safety const ReasonNoLongerEligible
+pkg/safety const ReasonPolicyChanged
 pkg/safety const ReasonPolicyInvalid
 pkg/safety const ReasonPreconditionConflict
 pkg/safety const ReasonProtectedKind

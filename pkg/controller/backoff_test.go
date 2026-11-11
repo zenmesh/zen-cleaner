@@ -19,8 +19,10 @@ package controller
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -208,4 +210,87 @@ func TestDeleteResourceWithBackoff_NotFound(t *testing.T) {
 	if !errors.Is(err, ErrAlreadyAbsent) {
 		t.Errorf("deleteResourceWithBackoff() must return the typed absence signal without retry, got: %v", err)
 	}
+}
+
+// ── Retry-law coverage (deletion retry loop, previously uncovered) ────────
+
+type retrySequenceDeleter struct {
+	attempts int
+	errors   []error // returned in order; nil = success
+}
+
+func (d *retrySequenceDeleter) DeleteResourceWithContext(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.ZenCleanerPolicy, rateLimiter *ratelimiter.RateLimiter) error {
+	i := d.attempts
+	d.attempts++
+	if i < len(d.errors) {
+		return d.errors[i]
+	}
+	return nil
+}
+
+func retryTestPolicy() *v1alpha1.ZenCleanerPolicy {
+	return &v1alpha1.ZenCleanerPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "p"},
+		Spec: v1alpha1.ZenCleanerPolicySpec{
+			TargetResource: v1alpha1.TargetResourceSpec{APIVersion: "v1", Kind: "ConfigMap"},
+		},
+	}
+}
+
+// Retryable API failures (429/503/timeouts) are retried with backoff until
+// success; the resource is deleted on the first non-retryable outcome.
+func TestDeleteResourceWithBackoffShared_RetryableErrorRetriedUntilSuccess(t *testing.T) {
+	tooMany := k8serrors.NewTooManyRequests("slow down", 1)
+	d := &retrySequenceDeleter{errors: []error{tooMany, k8serrors.NewServiceUnavailable("overloaded")}}
+	err := deleteResourceWithBackoffShared(context.Background(), &unstructured.Unstructured{}, retryTestPolicy(), ratelimiter.NewRateLimiter(100), d, nil)
+	if err != nil {
+		t.Fatalf("retry-until-success failed: %v", err)
+	}
+	if d.attempts != 3 {
+		t.Fatalf("attempts = %d, want 3 (two retryable failures then success)", d.attempts)
+	}
+}
+
+// Exhaustion is honest: after the configured steps the error surfaces as a
+// retry-exhaustion failure naming the last cause (never a silent no-op).
+func TestDeleteResourceWithBackoffShared_RetryableErrorExhausts(t *testing.T) {
+	deleter := &alwaysTooManyDeleter{}
+	err := deleteResourceWithBackoffShared(context.Background(), &unstructured.Unstructured{}, retryTestPolicy(), ratelimiter.NewRateLimiter(100), deleter, nil)
+	if err == nil {
+		t.Fatal("exhausted retries must surface an error")
+	}
+	if !strings.Contains(err.Error(), "deletion failed after retries") {
+		t.Fatalf("exhaustion error must name the retry exhaustion: %v", err)
+	}
+	if deleter.attempts == 1 {
+		t.Fatal("exhaustion requires more than one attempt")
+	}
+}
+
+type alwaysTooManyDeleter struct{ attempts int }
+
+func (d *alwaysTooManyDeleter) DeleteResourceWithContext(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.ZenCleanerPolicy, rateLimiter *ratelimiter.RateLimiter) error {
+	d.attempts++
+	return k8serrors.NewTooManyRequests("slow down", 1)
+}
+
+// The legacy without-context deleter branch still reaches the same laws.
+func TestDeleteResourceWithBackoffShared_WithoutContextDeleter(t *testing.T) {
+	calls := 0
+	stub := &withoutCtxDeleter{onCall: func() error { calls++; return nil }}
+	err := deleteResourceWithBackoffShared(context.Background(), &unstructured.Unstructured{}, retryTestPolicy(), ratelimiter.NewRateLimiter(100), nil, stub)
+	if err != nil {
+		t.Fatalf("got: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("without-context deleter calls = %d, want 1", calls)
+	}
+}
+
+type withoutCtxDeleter struct {
+	onCall func() error
+}
+
+func (d *withoutCtxDeleter) DeleteResourceWithoutContext(resource *unstructured.Unstructured, policy *v1alpha1.ZenCleanerPolicy, rateLimiter *ratelimiter.RateLimiter) error {
+	return d.onCall()
 }

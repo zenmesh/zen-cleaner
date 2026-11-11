@@ -49,6 +49,14 @@ type PolicyReconciler struct {
 	Scheme        *runtime.Scheme
 	dynamicClient dynamic.Interface
 
+	// apiReader is the UNCACHED reader (manager.GetAPIReader()) used by the
+	// delete-time policy-freshness check: the reconciler.Client reads are
+	// cache-backed and eventually consistent, which is acceptable for
+	// evaluation but NOT for the last-line check that the governing policy
+	// is still the live one right before an irreversible DELETE. Nil in
+	// tests; the production wiring in cmd/zen-cleaner/main.go always sets it.
+	apiReader client.Reader
+
 	// Controller configuration.
 	config *config.ControllerConfig
 
