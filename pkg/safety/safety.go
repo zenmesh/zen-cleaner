@@ -47,6 +47,20 @@ const (
 	// ReasonStaleUID: the live object's UID differs from the observation the
 	// decision was made on (stale-cache protection).
 	ReasonStaleUID = "stale_uid"
+	// ReasonMissingUID: the observation the deletion decision was made on
+	// carries no UID, so no UID precondition can be attached — deletion by
+	// bare name is refused rather than silently degraded to.
+	ReasonMissingUID = "missing_uid"
+	// ReasonPreconditionConflict: the API server rejected the UID or
+	// resourceVersion delete precondition (the object was replaced or updated
+	// between the deletion evaluation and the DELETE call). The object
+	// survives and the outcome is reported as a non-deletion.
+	ReasonPreconditionConflict = "precondition_conflict"
+	// ReasonNoLongerEligible: re-evaluation of the CURRENT object at deletion
+	// time no longer satisfies the policy's selectors, conditions, or TTL —
+	// the earlier decision no longer applies, so the object survives and is
+	// requeued under current policy.
+	ReasonNoLongerEligible = "no_longer_eligible"
 	// ReasonDeletesDisabled: the emergency stop is engaged.
 	ReasonDeletesDisabled = "deletes_disabled"
 	// ReasonPolicyInvalid: the driving policy failed runtime validation.

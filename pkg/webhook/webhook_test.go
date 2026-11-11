@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -697,5 +698,87 @@ func TestWebhookServer_StartTLS_InvalidCertFile(t *testing.T) {
 	err = server.StartTLS(ctx, certFile, keyFile)
 	if err == nil {
 		t.Error("StartTLS() should return error with invalid cert file")
+	}
+}
+
+// SUPPORT2-033 §5: a policy with a semantically invalid label selector must
+// be DENIED at admission (the CRD schema types operator as a plain string,
+// so the webhook is the API-path enforcement point; the reconciler repeats
+// the same validation at runtime).
+func TestWebhookServer_handleValidate_MalformedSelectorFailsClosed(t *testing.T) {
+	server, err := NewWebhookServer(":0", "", "")
+	if err != nil {
+		t.Fatalf("Failed to create webhook server: %v", err)
+	}
+
+	mk := func(selector *metav1.LabelSelector) admissionv1.AdmissionReview {
+		return admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				UID: "sel-uid",
+				Kind: metav1.GroupVersionKind{
+					Group:   "cleaner.zen-mesh.io",
+					Version: "v1alpha1",
+					Kind:    "ZenCleanerPolicy",
+				},
+				Operation: admissionv1.Create,
+				Object: runtime.RawExtension{
+					Raw: marshalPolicy(t, &v1alpha1.ZenCleanerPolicy{
+						Spec: v1alpha1.ZenCleanerPolicySpec{
+							TargetResource: v1alpha1.TargetResourceSpec{
+								APIVersion:    "v1",
+								Kind:          "ConfigMap",
+								Namespace:     "default",
+								LabelSelector: selector,
+							},
+							TTL: v1alpha1.TTLSpec{
+								SecondsAfterCreation: int64Ptr(3600),
+							},
+						},
+					}),
+				},
+			},
+		}
+	}
+
+	for _, tc := range []struct {
+		name     string
+		selector *metav1.LabelSelector
+	}{
+		{"unknown operator", &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{Key: "app", Operator: "Between", Values: []string{"a", "b"}},
+			},
+		}},
+		{"empty operator", &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{Key: "app"},
+			},
+		}},
+		{"In without values", &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{Key: "app", Operator: metav1.LabelSelectorOpIn},
+			},
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body, err := json.Marshal(mk(tc.selector))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req := httptest.NewRequest(http.MethodPost, "/validate-cleanup-policy", bytes.NewReader(body))
+			rec := httptest.NewRecorder()
+			server.handleValidate(rec, req)
+
+			var review admissionv1.AdmissionReview
+			if err := json.NewDecoder(rec.Body).Decode(&review); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if review.Response == nil || review.Response.Allowed {
+				t.Fatalf("malformed selector must be denied, got %+v", review.Response)
+			}
+			if review.Response.Result == nil || !strings.Contains(review.Response.Result.Message, "labelSelector") {
+				t.Fatalf("denial must name the selector problem, got %+v", review.Response.Result)
+			}
+		})
 	}
 }

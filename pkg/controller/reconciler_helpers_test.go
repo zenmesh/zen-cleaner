@@ -145,7 +145,10 @@ func TestResolveGVRForDeletion(t *testing.T) {
 	}
 }
 
-// TestBuildLabelSelectorFilter tests label selector filter building.
+// TestBuildLabelSelectorFilter tests label selector filter building
+// (SUPPORT2-033 §5 fail-closed law): a valid selector sets the filter, an
+// INVALID selector is an ERROR (never a silently unfiltered filter), and an
+// intentionally absent selector is a no-op that pushes nothing down.
 func TestBuildLabelSelectorFilter(t *testing.T) {
 	policy := &v1alpha1.ZenCleanerPolicy{
 		Spec: v1alpha1.ZenCleanerPolicySpec{
@@ -159,11 +162,62 @@ func TestBuildLabelSelectorFilter(t *testing.T) {
 		},
 	}
 
-	filter := buildLabelSelectorFilter(policy)
+	filter, err := buildLabelSelectorFilter(policy)
+	if err != nil {
+		t.Fatalf("valid selector must build: %v", err)
+	}
 	options := &metav1.ListOptions{}
 	filter(options)
 
 	if options.LabelSelector == "" {
 		t.Error("buildLabelSelectorFilter() should set LabelSelector")
+	}
+	if options.LabelSelector != "app=test" {
+		t.Errorf("LabelSelector = %q, want app=test", options.LabelSelector)
+	}
+
+	// Invalid selector: fail closed with an error instead of silently
+	// dropping the filter (which would broaden the observed scope).
+	invalid := &v1alpha1.ZenCleanerPolicy{
+		Spec: v1alpha1.ZenCleanerPolicySpec{
+			TargetResource: v1alpha1.TargetResourceSpec{
+				LabelSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{Key: "app", Operator: "Between", Values: []string{"a", "b"}},
+					},
+				},
+			},
+		},
+	}
+	if _, err := buildLabelSelectorFilter(invalid); err == nil {
+		t.Fatal("invalid selector must return an error (fail closed), got nil")
+	}
+
+	// In/NotIn with empty values is also an invalid selector.
+	emptyValues := &v1alpha1.ZenCleanerPolicy{
+		Spec: v1alpha1.ZenCleanerPolicySpec{
+			TargetResource: v1alpha1.TargetResourceSpec{
+				LabelSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{Key: "app", Operator: "In"},
+					},
+				},
+			},
+		},
+	}
+	if _, err := buildLabelSelectorFilter(emptyValues); err == nil {
+		t.Fatal("In-without-values selector must return an error (fail closed), got nil")
+	}
+
+	// Intentionally absent selector: no-op filter that pushes nothing down.
+	absent := &v1alpha1.ZenCleanerPolicy{}
+	noOp, err := buildLabelSelectorFilter(absent)
+	if err != nil {
+		t.Fatalf("absent selector must be a valid no-op: %v", err)
+	}
+	opts := &metav1.ListOptions{}
+	noOp(opts)
+	if opts.LabelSelector != "" {
+		t.Errorf("absent selector must not push a selector down, got %q", opts.LabelSelector)
 	}
 }

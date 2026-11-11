@@ -169,6 +169,13 @@ type BatchDeleter interface {
 }
 
 // deleteBatchShared is a shared implementation for deleting a batch of resources.
+//
+// SUPPORT2-033 §4 (truthful accounting): a deliberate non-deletion
+// (safety/policy refusal, stale observation, missing UID, or an API-server
+// precondition conflict) is reported through the outcomes map when collected,
+// logged, and NOT counted as a deletion nor surfaced as a deletion failure —
+// the object survived by design. outcomes may be nil when no per-object
+// outcome record is needed.
 func deleteBatchShared(
 	ctx context.Context,
 	batch []*unstructured.Unstructured,
@@ -176,6 +183,7 @@ func deleteBatchShared(
 	rateLimiter *ratelimiter.RateLimiter,
 	reasons map[string]string,
 	deleter BatchDeleter,
+	outcomes map[string]DeletionOutcomeRecord,
 ) (int64, []error) {
 	deletedCount := int64(0)
 	// Pre-allocate errs slice with batch size (worst case: all deletions fail)
@@ -204,6 +212,22 @@ func deleteBatchShared(
 		// Delete the resource with exponential backoff
 		deleteStart := time.Now()
 		if err := deleter.DeleteResourceWithBackoff(ctx, resource, policy, rateLimiter); err != nil {
+			// Truthful non-deletion: the delete mechanism did not fail — a
+			// safety/policy/UID check refused or the API server rejected the
+			// preconditions. The object survives by design; never a count and
+			// never a deletion failure.
+			if refused, isRefusal := isDeletionRefused(err); isRefusal {
+				recordRefusedOutcome(outcomes, objectKey(resource), refused)
+				logger := cleanerlog.NewLogger("zen-cleaner")
+				logger.Info("Resource deletion refused (object survives)",
+					cleanerlog.Operation("delete_batch"),
+					cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())),
+					cleanerlog.String("reason", refused.Reason),
+					cleanerlog.String("detail", refused.Detail),
+					cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+					cleanerlog.String("policyUID", string(policy.UID)))
+				continue
+			}
 			cleanerErr := cleanererrors.WithResource(
 				cleanererrors.WithPolicy(err, policy.Namespace, policy.Name),
 				resource.GetNamespace(),

@@ -25,8 +25,14 @@ package controller
 //   effect classification by OBSERVED state, never by requested action:
 //     SUCCEEDED                        object absent after the delete path
 //     ALREADY_ABSENT                   absent before the delete path ran
-//     SKIPPED_PRECONDITION_MISMATCH    UID changed since planning
+//     SKIPPED_PRECONDITION_MISMATCH    UID changed since planning, OR the
+//                                      delete was deliberately refused
+//                                      (safety/policy gate, missing UID, or
+//                                      an API-server UID/RV precondition
+//                                      conflict) and the object survives
 //     FAILED                           still present with the planned UID
+//                                      after an unrefused delete path, or
+//                                      the post-execution read failed
 //   dry-run law         a dry-run emits NO receipt (no fake success)
 //   restart law         a re-planned run classifies already-deleted objects
 //                       as ALREADY_ABSENT — exactly one SUCCEEDED receipt
@@ -62,7 +68,9 @@ type ExecutionReceiptV2 struct {
 
 // ExecuteWithReceipt runs the existing batch delete path (rate limiting,
 // backoff, events, dry-run accounting unchanged) and emits a receipt whose
-// per-object outcomes are classified from OBSERVED state.
+// per-object outcomes are classified from OBSERVED state plus the recorded
+// deletion outcome of the batch path (refusals and precondition conflicts
+// are skipped non-deletions, never FAILED and never SUCCEEDED).
 //
 // DRY-RUN LAW: when the policy is dry-run, this function returns a nil
 // receipt — a dry-run must never emit a (fake) successful effect receipt.
@@ -75,7 +83,7 @@ func (r *PolicyReconciler) ExecuteWithReceipt(
 ) (int64, []error, *ExecutionReceiptV2) {
 	if policy.Spec.Behavior.DryRun {
 		// Delegate for identical dry-run accounting/events, emit NO receipt.
-		n, errs := deleteBatchShared(ctx, batch, policy, rateLimiter, reasons, r)
+		n, errs := deleteBatchShared(ctx, batch, policy, rateLimiter, reasons, r, nil)
 		return n, errs, nil
 	}
 
@@ -102,11 +110,15 @@ func (r *PolicyReconciler) ExecuteWithReceipt(
 	}
 	receipt.PlanDigest = PlanDigest(planned)
 
-	deleted, errs := deleteBatchShared(ctx, batch, policy, rateLimiter, reasons, r)
+	outcomes := make(map[string]DeletionOutcomeRecord, len(batch))
+	deleted, errs := deleteBatchShared(ctx, batch, policy, rateLimiter, reasons, r, outcomes)
 
 	// Classify from OBSERVED state (effect took effect vs did not), one
 	// result per planned object. The read uses the SAME dynamic client the
-	// delete path acted on — never a different authority view.
+	// delete path acted on — never a different authority view. A recorded
+	// refusal/precondition conflict from the batch path takes precedence:
+	// the surviving object is a SKIPPED outcome by decision, not a FAILED
+	// effect and never a fake success.
 	for _, o := range batch {
 		res := ObjectResult{Namespace: o.GetNamespace(), Kind: o.GetKind(), Name: o.GetName(), UID: o.GetUID()}
 		gvr := r.resolveGVRForDeletion(o)
@@ -116,6 +128,16 @@ func (r *PolicyReconciler) ExecuteWithReceipt(
 			current, err = r.dynamicClient.Resource(gvr).Get(ctx, o.GetName(), metav1.GetOptions{})
 		} else {
 			current, err = r.dynamicClient.Resource(gvr).Namespace(o.GetNamespace()).Get(ctx, o.GetName(), metav1.GetOptions{})
+		}
+		if recorded, ok := outcomes[objectKey(o)]; ok && !recorded.Deleted() &&
+			(recorded.Outcome == OutcomeRefused || recorded.Outcome == OutcomePreconditionConflict) {
+			res.Class = ResultSkippedPreconditionMismatch
+			res.Detail = "deletion refused, object survives: " + recorded.Reason
+			if recorded.Detail != "" {
+				res.Detail += " (" + recorded.Detail + ")"
+			}
+			receipt.Results = append(receipt.Results, res)
+			continue
 		}
 		switch {
 		case errors.IsNotFound(err):

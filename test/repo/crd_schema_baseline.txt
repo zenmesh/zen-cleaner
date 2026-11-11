@@ -49,6 +49,7 @@
 .spec.targetResource.labelSelector.matchExpressions type=array
 .spec.targetResource.labelSelector.matchExpressions.<items> type=object
 .spec.targetResource.labelSelector.matchExpressions.<items>.key type=string
+.spec.targetResource.labelSelector.matchExpressions.<items>.operator enum=[DoesNotExist,Exists,In,NotIn]
 .spec.targetResource.labelSelector.matchExpressions.<items>.operator type=string
 .spec.targetResource.labelSelector.matchExpressions.<items>.values items=schema
 .spec.targetResource.labelSelector.matchExpressions.<items>.values type=array

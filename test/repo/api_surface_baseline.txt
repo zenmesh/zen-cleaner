@@ -324,6 +324,11 @@ pkg/controller const DefaultMaxDeletionsPerSecond
 pkg/controller const ErrorTypeEvaluationFailed
 pkg/controller const ExecutionIsVerification
 pkg/controller const OperatorNotIn
+pkg/controller const OutcomeAlreadyAbsent
+pkg/controller const OutcomeDeleted
+pkg/controller const OutcomeFailed
+pkg/controller const OutcomePreconditionConflict
+pkg/controller const OutcomeRefused
 pkg/controller const PolicyPhaseActive
 pkg/controller const PolicyPhaseError
 pkg/controller const PolicyPhasePaused
@@ -390,6 +395,9 @@ pkg/controller type DefaultResourceInformer
 pkg/controller type DefaultResourceInformerFactory
 pkg/controller type DefaultResourceLister
 pkg/controller type DefaultSelectorMatcher
+pkg/controller type DeletionOutcome
+pkg/controller type DeletionOutcomeRecord
+pkg/controller type DeletionRefusedError
 pkg/controller type EventRecorder
 pkg/controller type ExecutionReceipt
 pkg/controller type ExecutionReceiptV2
@@ -453,7 +461,10 @@ pkg/safety const ExclusionLabelKey
 pkg/safety const ReasonActiveWorkload
 pkg/safety const ReasonDeletesDisabled
 pkg/safety const ReasonExcludedLabel
+pkg/safety const ReasonMissingUID
+pkg/safety const ReasonNoLongerEligible
 pkg/safety const ReasonPolicyInvalid
+pkg/safety const ReasonPreconditionConflict
 pkg/safety const ReasonProtectedKind
 pkg/safety const ReasonProtectedNamespace
 pkg/safety const ReasonStaleUID

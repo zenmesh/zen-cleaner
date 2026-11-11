@@ -38,19 +38,37 @@ import (
 )
 
 func testConfigMap(ns, name, uid string) *unstructured.Unstructured {
-	o := &unstructured.Unstructured{}
-	o.SetAPIVersion("v1")
-	o.SetKind("ConfigMap")
-	o.SetNamespace(ns)
-	o.SetName(name)
+	o := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":              name,
+				"namespace":         ns,
+				"uid":               string(uid),
+				"creationTimestamp": "2020-01-01T00:00:00Z", // TTL anchor (fixed past date)
+			},
+		},
+	}
 	o.SetUID(types.UID(uid))
 	return o
 }
 
 func testPolicy(dryRun bool) *gcapi.ZenCleanerPolicy {
+	// The policy carries a real (relative) TTL: an object can only reach the
+	// deletion plan through a TTL-expired decision, and the delete-time
+	// re-evaluation in performResourceDeletion re-checks the SAME conditions
+	// on the live object. ttlExpired helper: unexpired-on-creation fixtures
+	// would never be eligible; the zero creationTimestamp of the test
+	// fixtures makes completedAt+1h already past (delete-now law).
 	p := &gcapi.ZenCleanerPolicy{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "pol-ns", Name: "pol", UID: "policy-uid-1"},
-		Spec:       gcapi.ZenCleanerPolicySpec{},
+		Spec: gcapi.ZenCleanerPolicySpec{
+			TTL: gcapi.TTLSpec{
+				RelativeTo:   "metadata.creationTimestamp",
+				SecondsAfter: int64Ptr(3600),
+			},
+		},
 	}
 	p.Spec.Behavior.DryRun = dryRun
 	return p
@@ -70,8 +88,8 @@ func reconcilerFor(t *testing.T, objs ...runtime.Object) *PolicyReconciler {
 	r := NewPolicyReconcilerWithRESTMapper(c, sch, dyn, nil, NewStatusUpdater(dyn), NewEventRecorder(nil), config.NewControllerConfig())
 	// H2 isolates the RECEIPT path: the constructor's default safety gate
 	// silently refuses (product law) and would mask receipt classification.
-	// Safety-gate refusal classification is exercised separately (the
-	// still-present-after-path law covers refused deletes as FAILED).
+	// Refusal/conflict classification (SKIPPED, never FAILED, never a fake
+	// success) is exercised in uid_precondition_test.go with the gate wired.
 	r.safetyGate = nil
 	return r
 }
