@@ -75,7 +75,7 @@ func init() {
 		"pkg/api/v1alpha1", "pkg/attestation", "pkg/config", "pkg/controller",
 		"pkg/controller/testing", "pkg/errors", "pkg/safety",
 		"pkg/validation", "pkg/webhook",
-		"test/integration", "test/repo", "test/e2e",
+		"test/integration", "test/repo", "test/e2e", "test/apiserver",
 		"deploy", "deploy/manifests",
 	} {
 		allowedFirstPartyPackages[normalizeIdent(p)] = true

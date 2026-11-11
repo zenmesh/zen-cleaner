@@ -519,6 +519,13 @@ func runController(ctx context.Context, restCfg *rest.Config, mgrOpts *ctrl.Opti
 	reconciler.Client = mgr.GetClient()
 	reconciler.Scheme = mgr.GetScheme()
 
+	// Wire the UNCACHED reader for the delete-time policy-freshness check:
+	// the last-line confirmation that the governing policy is still the live
+	// one must bypass the informer cache (cache-backed reads are eventually
+	// consistent, which is acceptable for evaluation but not for the check
+	// immediately preceding an irreversible DELETE).
+	reconciler.SetAPIReader(mgr.GetAPIReader())
+
 	// Setup reconciler with manager
 	if err := reconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Error setting up reconciler", cleanerlog.ErrorCode("RECONCILER_SETUP_ERROR"))
