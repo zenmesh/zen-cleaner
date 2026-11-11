@@ -51,6 +51,13 @@ const (
 	// carries no UID, so no UID precondition can be attached — deletion by
 	// bare name is refused rather than silently degraded to.
 	ReasonMissingUID = "missing_uid"
+	// ReasonMissingResourceVersion: the live object re-read for the
+	// precondition carries no resourceVersion, so the evaluated safety/policy
+	// state cannot be bound to a version — the deletion refuses instead of
+	// sending a precondition that cannot be enforced. (Real API-server
+	// objects always carry a resourceVersion; this refuses broken or
+	// non-real backends.)
+	ReasonMissingResourceVersion = "missing_resource_version"
 	// ReasonPreconditionConflict: the API server rejected the UID or
 	// resourceVersion delete precondition (the object was replaced or updated
 	// between the deletion evaluation and the DELETE call). The object

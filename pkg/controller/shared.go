@@ -212,6 +212,21 @@ func deleteBatchShared(
 		// Delete the resource with exponential backoff
 		deleteStart := time.Now()
 		if err := deleter.DeleteResourceWithBackoff(ctx, resource, policy, rateLimiter); err != nil {
+			// Truthful absence: the object was already gone; nothing was
+			// deleted by this path. Never counted, never a "deleted" event or
+			// metric, never a failure — an honest non-event.
+			if errors.Is(err, ErrAlreadyAbsent) {
+				if outcomes != nil {
+					outcomes[objectKey(resource)] = DeletionOutcomeRecord{Outcome: OutcomeAlreadyAbsent}
+				}
+				logger := cleanerlog.NewLogger("zen-cleaner")
+				logger.Debug("Object already absent; not counted as a deletion",
+					cleanerlog.Operation("delete_batch"),
+					cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())),
+					cleanerlog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)),
+					cleanerlog.String("policyUID", string(policy.UID)))
+				continue
+			}
 			// Truthful non-deletion: the delete mechanism did not fail — a
 			// safety/policy/UID check refused or the API server rejected the
 			// preconditions. The object survives by design; never a count and
@@ -369,9 +384,12 @@ func deleteResourceWithBackoffShared(
 			continue
 		}
 
-		// For NotFound errors, consider it success (already deleted)
+		// For NotFound errors, absence is terminal and non-retryable — but it
+		// must surface as the TYPED absence signal, never as a bare nil (a
+		// nil from this wrapper would be counted by the batch layer as a
+		// performed deletion, with event and metric).
 		if k8serrors.IsNotFound(err) {
-			return nil // success
+			return fmt.Errorf("%w", ErrAlreadyAbsent)
 		}
 
 		// Non-retryable error

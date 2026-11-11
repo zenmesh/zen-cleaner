@@ -431,6 +431,7 @@ pkg/controller type StatusUpdater
 pkg/controller type TTLCalculator
 pkg/controller type TargetCapabilityError
 pkg/controller type TargetErrorType
+pkg/controller var ErrAlreadyAbsent
 pkg/controller var ErrNoDeleter
 pkg/controller var ErrResourceInformerCacheSyncFailed
 pkg/controller var ErrStaleUID
@@ -461,6 +462,7 @@ pkg/safety const ExclusionLabelKey
 pkg/safety const ReasonActiveWorkload
 pkg/safety const ReasonDeletesDisabled
 pkg/safety const ReasonExcludedLabel
+pkg/safety const ReasonMissingResourceVersion
 pkg/safety const ReasonMissingUID
 pkg/safety const ReasonNoLongerEligible
 pkg/safety const ReasonPolicyInvalid

@@ -116,9 +116,18 @@ func DeleteWithReceipt(ctx context.Context, c client.Client, planned []unstructu
 			// Preconditions bind the delete to exactly the planned UID and
 			// the object version actually verified above; anything landing
 			// between the verification read and the DELETE is rejected
-			// server-side as a conflict.
+			// server-side as a conflict. A verified object without a
+			// resourceVersion cannot be preconditioned — refuse rather than
+			// send a precondition that cannot be enforced (real API-server
+			// objects always carry one).
 			plannedUID := obj.GetUID()
 			verifiedRV := current.GetResourceVersion()
+			if verifiedRV == "" {
+				res.Class = ResultSkippedPreconditionMismatch
+				res.Detail = "verified object carries no resourceVersion; preconditioned delete refused"
+				receipt.Results = append(receipt.Results, res)
+				continue
+			}
 			err := c.Delete(ctx, current, client.Preconditions{
 				UID:             &plannedUID,
 				ResourceVersion: &verifiedRV,

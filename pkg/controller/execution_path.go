@@ -129,15 +129,26 @@ func (r *PolicyReconciler) ExecuteWithReceipt(
 		} else {
 			current, err = r.dynamicClient.Resource(gvr).Namespace(o.GetNamespace()).Get(ctx, o.GetName(), metav1.GetOptions{})
 		}
-		if recorded, ok := outcomes[objectKey(o)]; ok && !recorded.Deleted() &&
-			(recorded.Outcome == OutcomeRefused || recorded.Outcome == OutcomePreconditionConflict) {
-			res.Class = ResultSkippedPreconditionMismatch
-			res.Detail = "deletion refused, object survives: " + recorded.Reason
-			if recorded.Detail != "" {
-				res.Detail += " (" + recorded.Detail + ")"
+		if recorded, ok := outcomes[objectKey(o)]; ok && !recorded.Deleted() {
+			switch recorded.Outcome {
+			case OutcomeRefused, OutcomePreconditionConflict:
+				res.Class = ResultSkippedPreconditionMismatch
+				res.Detail = "deletion refused, object survives: " + recorded.Reason
+				if recorded.Detail != "" {
+					res.Detail += " (" + recorded.Detail + ")"
+				}
+				receipt.Results = append(receipt.Results, res)
+				continue
+			case OutcomeAlreadyAbsent:
+				// The batch path KNEW nothing was deleted by this run — that
+				// truth outranks the observed-state read (an external actor
+				// may have removed the object, which this run must not claim
+				// as its confirmed effect).
+				res.Class = ResultAlreadyAbsent
+				res.Detail = "already absent when the delete path ran; nothing deleted by this run"
+				receipt.Results = append(receipt.Results, res)
+				continue
 			}
-			receipt.Results = append(receipt.Results, res)
-			continue
 		}
 		switch {
 		case errors.IsNotFound(err):

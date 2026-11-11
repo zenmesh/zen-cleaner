@@ -167,9 +167,14 @@ func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource
 	// object: protected namespaces, hard-protected kinds, exclusion
 	// labels/annotations, workload laws, emergency stop. A same-UID update
 	// that adds an exclusion label between the batch decision and this gate
-	// is refused here.
+	// is refused here. The gate runs even when no governing policy context is
+	// available (empty behavior), so protection never depends on the policy.
+	gateBehavior := v1alpha1.BehaviorSpec{}
+	if policy != nil {
+		gateBehavior = policy.Spec.Behavior
+	}
 	if r.safetyGate != nil {
-		if allowed, reason := r.safetyGate.EvaluateObject(live, policy.Spec.Behavior); !allowed {
+		if allowed, reason := r.safetyGate.EvaluateObject(live, gateBehavior); !allowed {
 			RecordSafetyRefusal(reason)
 			r.logger.Info("Safety gate refused deletion (re-evaluated on live object)",
 				cleanerlog.Operation("delete_resource"),
@@ -182,7 +187,8 @@ func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource
 	// Policy re-evaluation on the LIVE object: the batch decision was made on
 	// an informer-cache observation; if the current object no longer matches
 	// the policy's selectors, conditions, or TTL, the decision no longer
-	// applies (fail closed and requeue under current policy).
+	// applies (fail closed and requeue under current policy). A missing
+	// governing policy context cannot be re-evaluated — fail closed.
 	if reason, detail := r.deletionEligibilityRefusal(live, policy); reason != "" {
 		RecordSafetyRefusal(safety.ReasonNoLongerEligible)
 		r.logger.Info("Deletion refused: current object no longer satisfies policy",
@@ -214,13 +220,28 @@ func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource
 		return DeletionOutcomeRecord{Outcome: OutcomeRefused, Reason: safety.ReasonStaleUID}, nil
 	}
 
+	// The evaluated safety/policy state must be bindable to a version. A
+	// live object without a resourceVersion (real API-server objects always
+	// carry one) refuses: a precondition that cannot be enforced must never
+	// be sent optimistically.
+	if live.GetResourceVersion() == "" {
+		RecordSafetyRefusal(safety.ReasonMissingResourceVersion)
+		r.logger.Error(nil, "Deletion refused: live object carries no resourceVersion; evaluated state cannot be preconditioned",
+			cleanerlog.Operation("delete_resource"),
+			cleanerlog.String("reason", safety.ReasonMissingResourceVersion),
+			cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
+		return DeletionOutcomeRecord{Outcome: OutcomeRefused, Reason: safety.ReasonMissingResourceVersion, Detail: "empty live resourceVersion"}, nil
+	}
+
 	// Server-side preconditions: the decision-time UID plus the
 	// resourceVersion of the object actually evaluated above. A replacement
 	// or a same-UID metadata/spec update after the evaluation is rejected by
 	// the API server (409 Conflict) instead of being deleted by name.
 	opts, err := deletionOptionsWithPreconditions(deleteOptions, observedUID, live.GetResourceVersion())
 	if err != nil {
-		RecordAPIError(err)
+		// A caller-contract conflict is a local failure to compose a safe
+		// delete, NOT an API error — it must not feed the API-error metric.
+		// It still fails closed (no DELETE, error propagates).
 		return DeletionOutcomeRecord{Outcome: OutcomeFailed}, err
 	}
 
@@ -261,10 +282,12 @@ func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource
 // deletionEligibilityRefusal re-evaluates the policy's scope selectors,
 // conditions, and TTL against the CURRENT object. It returns a non-empty
 // bounded detail when the deletion decision no longer applies (the caller
-// refuses and requeues under current policy).
+// refuses and requeues under current policy). A nil governing policy cannot
+// be re-evaluated — fail closed (the safety gate above still ran with the
+// default behavior).
 func (r *PolicyReconciler) deletionEligibilityRefusal(live *unstructured.Unstructured, policy *v1alpha1.ZenCleanerPolicy) (string, string) {
 	if policy == nil {
-		return "", ""
+		return safety.ReasonNoLongerEligible, "governing policy unavailable for re-evaluation"
 	}
 	if !r.matchesSelectors(live, &policy.Spec.TargetResource) {
 		return safety.ReasonNoLongerEligible, "live object no longer matches target selectors"
@@ -278,6 +301,12 @@ func (r *PolicyReconciler) deletionEligibilityRefusal(live *unstructured.Unstruc
 // deletionOptionsWithPreconditions copies the caller's delete options and
 // attaches the server-side UID + resourceVersion preconditions. The input
 // options pointer is never mutated (callers may share it across attempts).
+//
+// PRESERVATION LAW: caller-supplied preconditions are preserved, never
+// silently discarded or replaced. A caller precondition that AGREES with the
+// decision-time UID / evaluated live resourceVersion is carried (identical
+// values); one that CONFLICTS fails closed with an error — the conflicting
+// constraint must not be dropped to let the delete proceed.
 func deletionOptionsWithPreconditions(deleteOptions *metav1.DeleteOptions, observedUID types.UID, liveResourceVersion string) (*metav1.DeleteOptions, error) {
 	var opts *metav1.DeleteOptions
 	if deleteOptions != nil {
@@ -287,6 +316,14 @@ func deletionOptionsWithPreconditions(deleteOptions *metav1.DeleteOptions, obser
 	}
 	if observedUID == "" {
 		return nil, fmt.Errorf("cannot attach UID precondition: observed UID is empty")
+	}
+	if pre := opts.Preconditions; pre != nil {
+		if pre.UID != nil && *pre.UID != observedUID {
+			return nil, fmt.Errorf("caller-supplied UID precondition %q conflicts with the decision-time UID %q: refusing to overwrite a conflicting precondition", *pre.UID, observedUID)
+		}
+		if pre.ResourceVersion != nil && *pre.ResourceVersion != liveResourceVersion {
+			return nil, fmt.Errorf("caller-supplied resourceVersion precondition %q conflicts with the evaluated live resourceVersion %q: refusing to overwrite a conflicting precondition", *pre.ResourceVersion, liveResourceVersion)
+		}
 	}
 	rv := liveResourceVersion
 	opts.Preconditions = &metav1.Preconditions{

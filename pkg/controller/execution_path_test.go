@@ -46,6 +46,7 @@ func testConfigMap(ns, name, uid string) *unstructured.Unstructured {
 				"name":              name,
 				"namespace":         ns,
 				"uid":               string(uid),
+				"resourceVersion":   "rv-1",
 				"creationTimestamp": "2020-01-01T00:00:00Z", // TTL anchor (fixed past date)
 			},
 		},

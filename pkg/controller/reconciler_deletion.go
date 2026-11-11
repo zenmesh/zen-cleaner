@@ -110,8 +110,15 @@ func (r *PolicyReconciler) deleteResource(ctx context.Context, resource *unstruc
 		return err
 	}
 	switch outcome.Outcome {
-	case OutcomeDeleted, OutcomeAlreadyAbsent:
+	case OutcomeDeleted:
 		return nil
+	case OutcomeAlreadyAbsent:
+		// Truthful absence: nothing was deleted here — either the object was
+		// already gone at the precondition read or it vanished between that
+		// read and the DELETE. The typed signal keeps absence from
+		// masquerading as a performed deletion in batch accounting
+		// (count/events/metrics).
+		return ErrAlreadyAbsent
 	case OutcomeRefused, OutcomePreconditionConflict:
 		return refusalErr(outcome)
 	default:

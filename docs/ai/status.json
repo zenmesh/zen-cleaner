@@ -4,7 +4,7 @@
   "version": "0.1.19",
   "license": "Apache-2.0",
   "language": "Go",
-  "go_version": "1.27.3",
+  "go_version": "1.27.4",
   "maturity": "0.x community OSS (alpha); enforced-NetworkPolicy validated on k3s v1.35.5/v1.37.0 and kind/Calico v1.36.1 (2026-10-29)",
   "dry_run_semantics": "dry-run matches candidates and reports them; deletion counters/status reflect real deletions only",
   "api_stability": "v1alpha1 (may change)",

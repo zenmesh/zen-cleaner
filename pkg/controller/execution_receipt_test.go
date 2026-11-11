@@ -28,6 +28,7 @@ func cfgObj(ns, name, uid string) *unstructured.Unstructured {
 	if uid != "" {
 		o.SetUID(types.UID(uid))
 	}
+	o.SetResourceVersion("rv-1")
 	return o
 }
 

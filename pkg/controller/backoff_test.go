@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -199,9 +200,12 @@ func TestDeleteResourceWithBackoff_NotFound(t *testing.T) {
 	rateLimiter := ratelimiter.NewRateLimiter(10)
 	ctx := context.Background()
 
-	// NotFound errors should be treated as success (already deleted)
+	// NotFound is terminal: the wrapper must NOT retry absence, and it must
+	// surface the typed absence signal (never a plain nil success — the
+	// batch layer consumes ErrAlreadyAbsent so absence is not counted as a
+	// performed deletion).
 	err := reconciler.DeleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
-	if err != nil {
-		t.Errorf("deleteResourceWithBackoff() should treat NotFound as success, got error: %v", err)
+	if !errors.Is(err, ErrAlreadyAbsent) {
+		t.Errorf("deleteResourceWithBackoff() must return the typed absence signal without retry, got: %v", err)
 	}
 }

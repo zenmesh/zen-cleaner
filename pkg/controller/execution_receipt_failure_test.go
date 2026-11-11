@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -252,5 +253,45 @@ func TestDeleteWithReceipt_MatchingUIDDeletesWithPreconditions(t *testing.T) {
 	err := c.Get(context.Background(), client.ObjectKey{Namespace: "ns1", Name: "target"}, cfgObj("ns1", "target", ""))
 	if !apierrors.IsNotFound(err) {
 		t.Fatalf("object should be deleted, got err: %v", err)
+	}
+}
+
+// A verified object without a resourceVersion cannot be preconditioned:
+// skip truthfully (never a success, never a failure) instead of sending an
+// unenforceable precondition. NOTE: the controller-runtime fake AUTO-ASSIGNS
+// resourceVersion "1" to objects added via WithObjects, so the broken
+// backend shape is modeled with a Get interceptor that strips the RV from
+// every read.
+func TestDeleteWithReceipt_EmptyVerifiedResourceVersion_Refused(t *testing.T) {
+	obj := cfgObj("ns1", "target", "uid-original")
+	deleteCalls := 0
+	c := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(obj).WithInterceptorFuncs(interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, o client.Object, opts ...client.GetOption) error {
+			if err := c.Get(ctx, key, o, opts...); err != nil {
+				return err
+			}
+			if acc, aerr := meta.Accessor(o); aerr == nil {
+				acc.SetResourceVersion("") // model the RV-less backend
+			}
+			return nil
+		},
+		Delete: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.DeleteOption) error {
+			deleteCalls++
+			return nil
+		},
+	}).Build()
+
+	rc := DeleteWithReceipt(context.Background(), c, []unstructured.Unstructured{*cfgObj("ns1", "target", "uid-original")})
+	if len(rc.Results) != 1 || rc.Results[0].Class != ResultSkippedPreconditionMismatch {
+		t.Fatalf("empty-RV verification must classify SKIPPED_PRECONDITION_MISMATCH, got %+v", rc.Results)
+	}
+	if !containsFold(rc.Results[0].Detail, "resourceVersion") {
+		t.Fatalf("detail must name the resourceVersion law: %q", rc.Results[0].Detail)
+	}
+	if rc.OverallStatus != "PARTIAL" {
+		t.Fatalf("overall = %s, want PARTIAL", rc.OverallStatus)
+	}
+	if deleteCalls != 0 {
+		t.Fatal("a DELETE was issued without an enforceable resourceVersion precondition")
 	}
 }
