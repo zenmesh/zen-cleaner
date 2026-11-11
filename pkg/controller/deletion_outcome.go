@@ -115,6 +115,14 @@ func isDeletionRefused(err error) (*DeletionRefusedError, bool) {
 	return nil, false
 }
 
+// ErrAlreadyAbsent is the typed signal that the targeted object was already
+// gone before any DELETE was issued (or vanished between the precondition
+// read and the DELETE call). It is a truthful NON-event: nothing was deleted
+// by this path, so it must never be counted as a deletion, never fire a
+// "deleted" event/metric, and never be retried. It travels the error-only
+// deleter interface so absence cannot masquerade as a performed deletion.
+var ErrAlreadyAbsent = errors.New("already absent: nothing was deleted")
+
 // recordRefusedOutcome stores a truthful non-deletion outcome for one object
 // when a per-object outcome collection is active (receipt path); it is a
 // no-op otherwise.

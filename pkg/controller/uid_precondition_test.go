@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -53,8 +54,9 @@ func cmFixture(name, uid string, opts ...func(*unstructured.Unstructured)) *unst
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": "app",
+				"name":            name,
+				"namespace":       "app",
+				"resourceVersion": "rv-1",
 			},
 			"status": map[string]interface{}{
 				"completedAt": "2020-01-01T00:00:00Z",
@@ -79,7 +81,8 @@ func clusterFixture(name, uid string) *unstructured.Unstructured {
 			"apiVersion": "scheduling.k8s.io/v1",
 			"kind":       "PriorityClass",
 			"metadata": map[string]interface{}{
-				"name": name,
+				"name":            name,
+				"resourceVersion": "rv-1",
 			},
 			"status": map[string]interface{}{
 				"completedAt": "2020-01-01T00:00:00Z",
@@ -753,3 +756,216 @@ func TestExecuteWithReceipt_PreconditionConflictClassifiedAsSkipped(t *testing.T
 // ── helpers ──
 
 func deletionPropagationPtr(p metav1.DeletionPropagation) *metav1.DeletionPropagation { return &p }
+
+// ── Independent-review follow-ups (2026-11-11) ────────────────────────────
+
+// A live object without a resourceVersion cannot have its evaluated state
+// preconditioned: refuse instead of sending an unenforceable precondition
+// (real API-server objects always carry one).
+func TestPerformResourceDeletion_EmptyLiveResourceVersionRefused(t *testing.T) {
+	live := cmFixture("target", "uid-SAME")
+	unstructured.RemoveNestedField(live.Object, "metadata", "resourceVersion")
+	f := newAPIServerLawFake(t, live)
+	r := newDeleter(t, f)
+
+	outcome, err := r.performResourceDeletion(context.Background(), cmFixture("target", "uid-SAME"), cmGVR,
+		buildDeleteOptions(cmPolicy()), cmPolicy())
+	if err != nil {
+		t.Fatalf("empty-RV refusal must not be an API failure, got: %v", err)
+	}
+	if outcome.Outcome != OutcomeRefused || outcome.Reason != safety.ReasonMissingResourceVersion {
+		t.Fatalf("outcome = %+v, want refused/missing_resource_version", outcome)
+	}
+	if f.hasDelete() {
+		t.Fatal("a DELETE was issued without an enforceable resourceVersion precondition")
+	}
+	assertSurvives(t, f, cmGVR, nsScope, "target", "uid-SAME")
+}
+
+// A nil governing policy cannot be re-evaluated: fail closed (the safety
+// gate still ran with the default behavior and would still deny protected
+// objects).
+func TestPerformResourceDeletion_NilPolicyRefused(t *testing.T) {
+	live := cmFixture("target", "uid-SAME")
+	f := newAPIServerLawFake(t, live)
+	r := newDeleter(t, f)
+
+	outcome, err := r.performResourceDeletion(context.Background(), cmFixture("target", "uid-SAME"), cmGVR,
+		buildDeleteOptions(cmPolicy()), nil)
+	if err != nil {
+		t.Fatalf("nil-policy refusal must not be an API failure, got: %v", err)
+	}
+	if outcome.Outcome != OutcomeRefused || outcome.Reason != safety.ReasonNoLongerEligible {
+		t.Fatalf("outcome = %+v, want refused/no_longer_eligible", outcome)
+	}
+	if f.hasDelete() {
+		t.Fatal("a DELETE was issued without a governing policy context")
+	}
+	assertSurvives(t, f, cmGVR, nsScope, "target", "uid-SAME")
+}
+
+// PRESERVATION LAW: caller-supplied preconditions that AGREE with the
+// decision-time UID / evaluated RV are carried and the delete proceeds.
+func TestPerformResourceDeletion_CallerPreconditionsMatching_CarriedAndDeleted(t *testing.T) {
+	live := cmFixture("target", "uid-MATCH")
+	f := newAPIServerLawFake(t, live)
+	r := newDeleter(t, f)
+
+	opts := &metav1.DeleteOptions{Preconditions: &metav1.Preconditions{
+		UID:             uidPtr(types.UID("uid-MATCH")),
+		ResourceVersion: strPtr("rv-1"),
+	}}
+	outcome, err := r.performResourceDeletion(context.Background(), cmFixture("target", "uid-MATCH"), cmGVR, opts, cmPolicy())
+	if err != nil {
+		t.Fatalf("matching caller preconditions must not block the delete: %v", err)
+	}
+	if outcome.Outcome != OutcomeDeleted {
+		t.Fatalf("outcome = %+v, want deleted", outcome)
+	}
+	got := f.deletes[0].GetDeleteOptions()
+	if got.Preconditions == nil || got.Preconditions.UID == nil || *got.Preconditions.UID != "uid-MATCH" ||
+		got.Preconditions.ResourceVersion == nil || *got.Preconditions.ResourceVersion != "rv-1" {
+		t.Fatalf("preconditions not carried correctly: %+v", got.Preconditions)
+	}
+	// The caller's options pointer was not mutated.
+	if opts.Preconditions.UID == nil || *opts.Preconditions.UID != "uid-MATCH" {
+		t.Fatal("caller options were mutated")
+	}
+}
+
+// A caller-supplied UID precondition that CONFLICTS with the decision-time
+// UID fails closed with an error — never overwritten, never discarded.
+func TestPerformResourceDeletion_CallerPreconditionsConflictingUID_Refused(t *testing.T) {
+	live := cmFixture("target", "uid-MATCH")
+	f := newAPIServerLawFake(t, live)
+	r := newDeleter(t, f)
+
+	opts := &metav1.DeleteOptions{Preconditions: &metav1.Preconditions{
+		UID: uidPtr(types.UID("uid-DIFFERENT")),
+	}}
+	_, err := r.performResourceDeletion(context.Background(), cmFixture("target", "uid-MATCH"), cmGVR, opts, cmPolicy())
+	if err == nil {
+		t.Fatal("conflicting caller UID precondition must fail closed, got nil")
+	}
+	if _, isRefusal := isDeletionRefused(err); isRefusal {
+		t.Fatal("a caller-contract conflict is an error, not a safety-state refusal")
+	}
+	if !strings.Contains(err.Error(), "conflicts with the decision-time UID") {
+		t.Fatalf("error must name the conflict: %v", err)
+	}
+	if f.hasDelete() {
+		t.Fatal("a DELETE was issued with a conflicting caller precondition")
+	}
+	// The caller's options were not rewritten.
+	if *opts.Preconditions.UID != "uid-DIFFERENT" {
+		t.Fatal("caller precondition was mutated")
+	}
+	assertSurvives(t, f, cmGVR, nsScope, "target", "uid-MATCH")
+}
+
+// A caller-supplied resourceVersion precondition that CONFLICTS with the
+// evaluated live RV fails closed with an error.
+func TestPerformResourceDeletion_CallerPreconditionsConflictingRV_Refused(t *testing.T) {
+	live := cmFixture("target", "uid-MATCH")
+	f := newAPIServerLawFake(t, live)
+	r := newDeleter(t, f)
+
+	opts := &metav1.DeleteOptions{Preconditions: &metav1.Preconditions{
+		ResourceVersion: strPtr("rv-OLD"),
+	}}
+	_, err := r.performResourceDeletion(context.Background(), cmFixture("target", "uid-MATCH"), cmGVR, opts, cmPolicy())
+	if err == nil {
+		t.Fatal("conflicting caller RV precondition must fail closed, got nil")
+	}
+	if !strings.Contains(err.Error(), "conflicts with the evaluated live resourceVersion") {
+		t.Fatalf("error must name the conflict: %v", err)
+	}
+	if f.hasDelete() {
+		t.Fatal("a DELETE was issued with a conflicting caller precondition")
+	}
+	assertSurvives(t, f, cmGVR, nsScope, "target", "uid-MATCH")
+}
+
+// TRUTHFUL ABSENCE ACCOUNTING: an already-absent object is NOT counted as a
+// deletion, produces no error, and does not degrade the batch.
+func TestDeleteBatchShared_AbsentNotCountedAsDeletion(t *testing.T) {
+	f := newAPIServerLawFake(t, cmFixture("victim", "uid-VICTIM"))
+	r := newDeleter(t, f)
+
+	pol := cmPolicy()
+	batch := []*unstructured.Unstructured{
+		cmFixture("victim", "uid-VICTIM"), // real deletion
+		cmFixture("ghost", "uid-GHOST"),   // already absent
+	}
+	n, errs := deleteBatchShared(context.Background(), batch, pol, ratelimiter.NewRateLimiter(100), map[string]string{}, r, nil)
+	if n != 1 {
+		t.Fatalf("deletedCount = %d, want 1 (absence is not a deletion)", n)
+	}
+	if len(errs) != 0 {
+		t.Fatalf("absence must not surface as a failure: %v", errs)
+	}
+}
+
+func uidPtr(u types.UID) *types.UID { return &u }
+func strPtr(s string) *string       { return &s }
+
+// F1 (independent review): an object that vanishes BETWEEN the receipt
+// pre-read and the delete path must classify ALREADY_ABSENT ("nothing
+// deleted by this run") — never SUCCEEDED/"effect confirmed" for a deletion
+// this run did not perform.
+func TestExecuteWithReceipt_AbsenceBetweenPreReadAndDelete_ClassifiedAlreadyAbsent(t *testing.T) {
+	f := newAPIServerLawFake(t, cmFixture("vanish", "uid-V"))
+	gets := 0
+	f.dc.PrependReactor("get", "configmaps", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		ga, ok := action.(clienttesting.GetAction)
+		if !ok || ga.GetName() != "vanish" {
+			return false, nil, nil
+		}
+		gets++
+		if gets == 2 { // the live GET inside performResourceDeletion
+			_ = f.dc.Tracker().Delete(cmGVR, nsScope, "vanish")
+		}
+		return false, nil, nil // delegate to the tracker
+	})
+	r := newDeleter(t, f)
+
+	pol := cmPolicy()
+	batch := []*unstructured.Unstructured{cmFixture("vanish", "uid-V")}
+	outcomes := make(map[string]DeletionOutcomeRecord, 1)
+	n, errs, receipt := r.ExecuteWithReceipt(context.Background(), batch, pol, ratelimiter.NewRateLimiter(100), map[string]string{})
+	_ = outcomes
+	if n != 0 {
+		t.Fatalf("deletedCount = %d, want 0 (this run deleted nothing)", n)
+	}
+	if len(errs) != 0 {
+		t.Fatalf("absence must not surface as a failure: %v", errs)
+	}
+	if receipt == nil || len(receipt.Results) != 1 || receipt.Results[0].Class != ResultAlreadyAbsent {
+		t.Fatalf("receipt = %+v, want ALREADY_ABSENT", receipt)
+	}
+	if !containsFold(receipt.Results[0].Detail, "nothing deleted by this run") {
+		t.Fatalf("detail must be truthful about this run: %q", receipt.Results[0].Detail)
+	}
+}
+
+// F2 (independent review): a k8s NotFound escaping a deleter implementation
+// into the backoff wrapper surfaces as the TYPED absence signal — terminal,
+// non-retried, and never a bare nil that batch accounting would count as a
+// performed deletion.
+type notFoundStatusDeleter struct{ attempts int }
+
+func (d *notFoundStatusDeleter) DeleteResourceWithContext(ctx context.Context, resource *unstructured.Unstructured, policy *gcapi.ZenCleanerPolicy, rateLimiter *ratelimiter.RateLimiter) error {
+	d.attempts++
+	return apierrors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "x")
+}
+
+func TestDeleteResourceWithBackoffShared_NotFoundReturnsTypedAbsence(t *testing.T) {
+	d := &notFoundStatusDeleter{}
+	err := deleteResourceWithBackoffShared(context.Background(), cmFixture("x", "uid-X"), cmPolicy(), ratelimiter.NewRateLimiter(100), d, nil)
+	if !errors.Is(err, ErrAlreadyAbsent) {
+		t.Fatalf("NotFound through the wrapper must surface the typed absence signal, got: %v", err)
+	}
+	if d.attempts != 1 {
+		t.Fatalf("absence must not be retried, attempts = %d", d.attempts)
+	}
+}
