@@ -13,8 +13,8 @@
 # limitations under the License.
 
 # Build stage
-# Builder toolchain pinned by digest (golang:1.27.3-ALPINE). The module
-# declares `go 1.27.3`; the release contract (project.yaml goVersion, README,
+# Builder toolchain pinned by digest (golang:1.27.4-ALPINE). The module
+# declares `go 1.27.4`; the release contract (project.yaml goVersion, README,
 # .github workflow go-version pins) all declare Go 1.27.
 #
 # THE BASE VARIANT IS PART OF THE PIN, not an incidental detail. The build
@@ -24,16 +24,16 @@
 # this line with `apk: not found`. The digest was therefore reverted to the
 # Alpine variant of the SAME Go version.
 #
-# 1.27.3 also carries the GO-2026-6809 crypto/x509 fix (distrust compromised
-# intermediate certificates); binaries built with a 1.27.2 toolchain —
-# including the shipped release image — are affected. The 1.27.3 bump
+# 1.27.4 carries the GO-2026-6859 net/http fix (govulncheck fails the CI
+# check on a 1.27.3 toolchain since 2026-11-11); the prior 1.27.3 bump had
+# carried the GO-2026-6809 crypto/x509 fix the same way. The 1.27.4 bump
 # re-verified the base OS (Alpine, /sbin/apk present) and amd64+arm64
 # coverage before pinning, per the contract below.
 #
 # A future bump must re-verify the base OS (cat /etc/os-release) and not
 # just the Go version. This is also why the release path is not merely a
 # version bump.
-FROM golang@sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c AS builder
+FROM golang@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS builder
 
 WORKDIR /build
 

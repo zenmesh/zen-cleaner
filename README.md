@@ -90,7 +90,7 @@ helm install zen-cleaner ./deploy/helm/zen-cleaner \
 # for a kind cluster: kind load docker-image zen-cleaner:local first
 ```
 
-Requires Go 1.27.3+ and a container build; see BUILD_REQUIREMENTS.md.
+Requires Go 1.27.4+ and a container build; see BUILD_REQUIREMENTS.md.
 
 ### Supported environments and the default NetworkPolicy
 
