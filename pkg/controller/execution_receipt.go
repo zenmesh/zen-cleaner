@@ -80,14 +80,25 @@ func PlanDigest(objects []unstructured.Unstructured) string {
 	return fmt.Sprintf("%x", h[:16])
 }
 
-// DeleteWithReceipt deletes each planned object with a UID precondition
-// (stale-plan protection: a replaced object is skipped, not deleted) and
-// honest ALREADY_ABSENT idempotency. Results are per-object; one object's
+// DeleteWithReceipt deletes each planned object with server-side UID and
+// resourceVersion preconditions (stale-plan protection: a replaced object is
+// skipped, not deleted; a same-UID update after the verification read
+// refuses atomically instead of deleting the changed object) and honest
+// ALREADY_ABSENT idempotency. A planned object with an EMPTY UID refuses:
+// without a UID no precondition can protect the delete, and delete-by-name
+// is never silently degraded to. Results are per-object; one object's
 // failure does not abort the bounded set.
 func DeleteWithReceipt(ctx context.Context, c client.Client, planned []unstructured.Unstructured) ExecutionReceipt {
 	receipt := ExecutionReceipt{Version: ReceiptVersion, StartedAt: time.Now().UTC()}
 	for _, obj := range planned {
 		res := ObjectResult{Namespace: obj.GetNamespace(), Kind: obj.GetKind(), Name: obj.GetName(), UID: obj.GetUID()}
+		if obj.GetUID() == types.UID("") {
+			// Fail closed: no delete-by-name without a preconditionable UID.
+			res.Class = ResultSkippedPreconditionMismatch
+			res.Detail = "planned object carries no UID; delete-by-name refused"
+			receipt.Results = append(receipt.Results, res)
+			continue
+		}
 		current := &unstructured.Unstructured{}
 		current.SetGroupVersionKind(obj.GroupVersionKind())
 		err := c.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, current)
@@ -98,20 +109,32 @@ func DeleteWithReceipt(ctx context.Context, c client.Client, planned []unstructu
 		case err != nil:
 			res.Class = ResultFailed
 			res.Detail = "get failed: " + err.Error()
-		case obj.GetUID() != types.UID("") && current.GetUID() != obj.GetUID():
+		case current.GetUID() != obj.GetUID():
 			res.Class = ResultSkippedPreconditionMismatch
 			res.Detail = "UID changed since plan (stale plan protection)"
 		default:
-			if err := c.Delete(ctx, current); err != nil {
-				if errors.IsNotFound(err) {
-					res.Class = ResultAlreadyAbsent
-					res.Detail = "already absent"
-				} else {
-					res.Class = ResultFailed
-					res.Detail = "delete failed: " + err.Error()
-				}
-			} else {
+			// Preconditions bind the delete to exactly the planned UID and
+			// the object version actually verified above; anything landing
+			// between the verification read and the DELETE is rejected
+			// server-side as a conflict.
+			plannedUID := obj.GetUID()
+			verifiedRV := current.GetResourceVersion()
+			err := c.Delete(ctx, current, client.Preconditions{
+				UID:             &plannedUID,
+				ResourceVersion: &verifiedRV,
+			})
+			switch {
+			case err == nil:
 				res.Class = ResultSucceeded
+			case errors.IsNotFound(err):
+				res.Class = ResultAlreadyAbsent
+				res.Detail = "already absent"
+			case errors.IsConflict(err):
+				res.Class = ResultSkippedPreconditionMismatch
+				res.Detail = "precondition conflict: object replaced or updated since plan (stale plan protection)"
+			default:
+				res.Class = ResultFailed
+				res.Detail = "delete failed: " + err.Error()
 			}
 		}
 		receipt.Results = append(receipt.Results, res)

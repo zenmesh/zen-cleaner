@@ -61,6 +61,11 @@ spec:
                               type: string
                             operator:
                               type: string
+                              enum:
+                              - In
+                              - NotIn
+                              - Exists
+                              - DoesNotExist
                             values:
                               type: array
                               items:

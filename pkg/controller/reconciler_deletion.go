@@ -80,7 +80,10 @@ func (r *PolicyReconciler) meetsConditions(resource *unstructured.Unstructured, 
 	return meetsConditionsShared(resource, conditions)
 }
 
-// deleteResource deletes a resource based on policy behavior.
+// deleteResource deletes a resource based on policy behavior. A deliberate
+// non-deletion (safety/policy refusal, stale observation, missing UID, or an
+// API-server precondition conflict) is returned as a *DeletionRefusedError —
+// never as nil and never counted as a deletion effect.
 func (r *PolicyReconciler) deleteResource(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.ZenCleanerPolicy, rateLimiter *ratelimiter.RateLimiter) error {
 	// Rate limiting
 	if err := rateLimiter.Wait(ctx); err != nil {
@@ -100,8 +103,20 @@ func (r *PolicyReconciler) deleteResource(ctx context.Context, resource *unstruc
 	// Build delete options
 	deleteOptions := buildDeleteOptions(policy)
 
-	// Perform deletion (safety gate + UID precondition live inside).
-	return r.performResourceDeletion(ctx, resource, gvr, deleteOptions, policy.Spec.Behavior)
+	// Perform deletion (live re-evaluation + atomic UID/RV preconditions
+	// live inside).
+	outcome, err := r.performResourceDeletion(ctx, resource, gvr, deleteOptions, policy)
+	if err != nil {
+		return err
+	}
+	switch outcome.Outcome {
+	case OutcomeDeleted, OutcomeAlreadyAbsent:
+		return nil
+	case OutcomeRefused, OutcomePreconditionConflict:
+		return refusalErr(outcome)
+	default:
+		return fmt.Errorf("deletion returned unclassified outcome %d", outcome.Outcome)
+	}
 }
 
 // getBatchSize returns the batch size for a policy.

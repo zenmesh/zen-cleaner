@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	cleanerlog "github.com/zenmesh/zen-cleaner/internal/logging"
@@ -127,67 +128,172 @@ func buildDeleteOptions(policy *v1alpha1.ZenCleanerPolicy) *metav1.DeleteOptions
 	return deleteOptions
 }
 
-// ErrStaleUID is returned by performResourceDeletion when the live object's
-// UID differs from the observation the deletion decision was made on. The
+// ErrStaleUID is the sentinel cause of a stale-observation refusal: the live
+// object's UID differs from the UID the deletion decision was made on. The
 // object is NOT deleted: a stale-cache decision must never destroy a
-// replacement resource (SUPPORT2-033 Â§4).
+// replacement resource (SUPPORT2-033 §4). It is carried as the Cause of a
+// *DeletionRefusedError.
 var ErrStaleUID = errors.New("stale observation: live UID differs from the observed UID; deletion refused")
 
 // performResourceDeletion is the single choke point for DELETE calls. The
-// safety gate runs here unconditionally (last line of defense), and the live
-// UID precondition guarantees the decision still applies to the object that
-// is actually deleted.
-func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource *unstructured.Unstructured, gvr schema.GroupVersionResource, deleteOptions *metav1.DeleteOptions, behavior v1alpha1.BehaviorSpec) error {
-	// Last-line safety gate (SUPPORT2-033 Â§2): protected namespaces,
-	// hard-protected kinds, exclusion labels, workload laws, emergency stop.
-	if r.safetyGate != nil {
-		if allowed, reason := r.safetyGate.EvaluateObject(resource, behavior); !allowed {
-			RecordSafetyRefusal(reason)
-			r.logger.Info("Safety gate refused deletion",
-				cleanerlog.Operation("delete_resource"),
-				cleanerlog.String("reason", reason),
-				cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
-			return nil
-		}
-	}
-
-	// Live UID precondition: re-read the object from the API server and
-	// refuse to delete a replacement (same name, new UID) or an object that
-	// vanished after the decision (treated as already deleted).
+// contract (SUPPORT2-033 §4, atomic UID deletion):
+//
+//  1. The CURRENT object is re-read from the API server; every safety and
+//     policy condition (exclusion labels/annotations, workload laws, scope
+//     selectors, conditions, TTL) is re-evaluated on THAT object — never on
+//     the earlier observation the batch decision was made from.
+//  2. The DELETE carries the UID observed at decision time AND the
+//     resourceVersion of the object actually evaluated as server-side
+//     preconditions, so a replacement (new UID) or a same-UID update after
+//     the evaluation refuses atomically at the API server.
+//  3. An empty observed UID refuses the deletion outright instead of
+//     silently degrading to delete-by-name.
+//  4. The returned outcome is truthful: refusals and precondition conflicts
+//     are non-deletions (the object survives), never fake successes.
+func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource *unstructured.Unstructured, gvr schema.GroupVersionResource, deleteOptions *metav1.DeleteOptions, policy *v1alpha1.ZenCleanerPolicy) (DeletionOutcomeRecord, error) {
+	// Live UID precondition: re-read the object from the API server. An
+	// object that vanished after the decision is already deleted (idempotent
+	// no-op, nothing was deleted by this call).
 	live, err := r.getLiveForPrecondition(ctx, resource, gvr)
 	if err != nil {
 		RecordAPIError(err)
-		return err
+		return DeletionOutcomeRecord{Outcome: OutcomeFailed}, err
 	}
 	if live == nil {
-		// Already gone: idempotent success, nothing was deleted.
-		return nil
+		return DeletionOutcomeRecord{Outcome: OutcomeAlreadyAbsent}, nil
 	}
-	if live.GetUID() != resource.GetUID() {
+
+	// Last-line safety gate (SUPPORT2-033 §2) re-evaluated on the LIVE
+	// object: protected namespaces, hard-protected kinds, exclusion
+	// labels/annotations, workload laws, emergency stop. A same-UID update
+	// that adds an exclusion label between the batch decision and this gate
+	// is refused here.
+	if r.safetyGate != nil {
+		if allowed, reason := r.safetyGate.EvaluateObject(live, policy.Spec.Behavior); !allowed {
+			RecordSafetyRefusal(reason)
+			r.logger.Info("Safety gate refused deletion (re-evaluated on live object)",
+				cleanerlog.Operation("delete_resource"),
+				cleanerlog.String("reason", reason),
+				cleanerlog.String("resource", fmt.Sprintf("%s/%s", live.GetNamespace(), live.GetName())))
+			return DeletionOutcomeRecord{Outcome: OutcomeRefused, Reason: reason}, nil
+		}
+	}
+
+	// Policy re-evaluation on the LIVE object: the batch decision was made on
+	// an informer-cache observation; if the current object no longer matches
+	// the policy's selectors, conditions, or TTL, the decision no longer
+	// applies (fail closed and requeue under current policy).
+	if reason, detail := r.deletionEligibilityRefusal(live, policy); reason != "" {
+		RecordSafetyRefusal(safety.ReasonNoLongerEligible)
+		r.logger.Info("Deletion refused: current object no longer satisfies policy",
+			cleanerlog.Operation("delete_resource"),
+			cleanerlog.String("reason", safety.ReasonNoLongerEligible),
+			cleanerlog.String("detail", detail),
+			cleanerlog.String("resource", fmt.Sprintf("%s/%s", live.GetNamespace(), live.GetName())))
+		return DeletionOutcomeRecord{Outcome: OutcomeRefused, Reason: safety.ReasonNoLongerEligible, Detail: detail}, nil
+	}
+
+	// UID precondition input: the UID of the object ON WHICH THE DECISION WAS
+	// MADE — never a replacement UID re-read after the decision. An empty
+	// observed UID refuses instead of degrading to delete-by-name.
+	observedUID := resource.GetUID()
+	if observedUID == "" {
+		RecordSafetyRefusal(safety.ReasonMissingUID)
+		r.logger.Error(nil, "Deletion refused: observed object carries no UID; delete-by-name refused",
+			cleanerlog.Operation("delete_resource"),
+			cleanerlog.String("reason", safety.ReasonMissingUID),
+			cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
+		return DeletionOutcomeRecord{Outcome: OutcomeRefused, Reason: safety.ReasonMissingUID, Detail: "empty observed UID"}, nil
+	}
+	if live.GetUID() != observedUID {
 		RecordSafetyRefusal(safety.ReasonStaleUID)
 		r.logger.Info("Stale-cache deletion refused (UID precondition)",
 			cleanerlog.Operation("delete_resource"),
 			cleanerlog.String("reason", safety.ReasonStaleUID),
 			cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
-		return nil
+		return DeletionOutcomeRecord{Outcome: OutcomeRefused, Reason: safety.ReasonStaleUID}, nil
+	}
+
+	// Server-side preconditions: the decision-time UID plus the
+	// resourceVersion of the object actually evaluated above. A replacement
+	// or a same-UID metadata/spec update after the evaluation is rejected by
+	// the API server (409 Conflict) instead of being deleted by name.
+	opts, err := deletionOptionsWithPreconditions(deleteOptions, observedUID, live.GetResourceVersion())
+	if err != nil {
+		RecordAPIError(err)
+		return DeletionOutcomeRecord{Outcome: OutcomeFailed}, err
 	}
 
 	namespace := resource.GetNamespace()
 	RecordDeletionAttempted()
 	var err2 error
 	if namespace == "" {
-		err2 = r.dynamicClient.Resource(gvr).Delete(ctx, resource.GetName(), *deleteOptions)
+		err2 = r.dynamicClient.Resource(gvr).Delete(ctx, resource.GetName(), *opts)
 	} else {
-		err2 = r.dynamicClient.Resource(gvr).Namespace(namespace).Delete(ctx, resource.GetName(), *deleteOptions)
+		err2 = r.dynamicClient.Resource(gvr).Namespace(namespace).Delete(ctx, resource.GetName(), *opts)
 	}
 
-	if err2 != nil && !apierrors.IsNotFound(err2) {
-		RecordDeletionFailed()
-		RecordAPIError(err2)
-		return err2
+	if err2 == nil {
+		return DeletionOutcomeRecord{Outcome: OutcomeDeleted}, nil
 	}
+	if apierrors.IsNotFound(err2) {
+		// Removed between the precondition read and the DELETE: already
+		// gone, idempotent, nothing was deleted by this call.
+		return DeletionOutcomeRecord{Outcome: OutcomeAlreadyAbsent}, nil
+	}
+	if apierrors.IsConflict(err2) {
+		// The API server rejected the UID/RV precondition: the object was
+		// replaced or updated after the evaluation. The object survives;
+		// report the non-deletion truthfully and requeue under current
+		// policy (the regular reconcile cycle re-evaluates).
+		RecordSafetyRefusal(safety.ReasonPreconditionConflict)
+		r.logger.Info("Deletion refused by API server precondition conflict",
+			cleanerlog.Operation("delete_resource"),
+			cleanerlog.String("reason", safety.ReasonPreconditionConflict),
+			cleanerlog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
+		return DeletionOutcomeRecord{Outcome: OutcomePreconditionConflict, Reason: safety.ReasonPreconditionConflict}, nil
+	}
+	RecordDeletionFailed()
+	RecordAPIError(err2)
+	return DeletionOutcomeRecord{Outcome: OutcomeFailed}, err2
+}
 
-	return nil
+// deletionEligibilityRefusal re-evaluates the policy's scope selectors,
+// conditions, and TTL against the CURRENT object. It returns a non-empty
+// bounded detail when the deletion decision no longer applies (the caller
+// refuses and requeues under current policy).
+func (r *PolicyReconciler) deletionEligibilityRefusal(live *unstructured.Unstructured, policy *v1alpha1.ZenCleanerPolicy) (string, string) {
+	if policy == nil {
+		return "", ""
+	}
+	if !r.matchesSelectors(live, &policy.Spec.TargetResource) {
+		return safety.ReasonNoLongerEligible, "live object no longer matches target selectors"
+	}
+	if shouldDelete, reason := r.shouldDelete(live, policy); !shouldDelete {
+		return safety.ReasonNoLongerEligible, "live object no longer satisfies " + reason
+	}
+	return "", ""
+}
+
+// deletionOptionsWithPreconditions copies the caller's delete options and
+// attaches the server-side UID + resourceVersion preconditions. The input
+// options pointer is never mutated (callers may share it across attempts).
+func deletionOptionsWithPreconditions(deleteOptions *metav1.DeleteOptions, observedUID types.UID, liveResourceVersion string) (*metav1.DeleteOptions, error) {
+	var opts *metav1.DeleteOptions
+	if deleteOptions != nil {
+		opts = deleteOptions.DeepCopy()
+	} else {
+		opts = &metav1.DeleteOptions{}
+	}
+	if observedUID == "" {
+		return nil, fmt.Errorf("cannot attach UID precondition: observed UID is empty")
+	}
+	rv := liveResourceVersion
+	opts.Preconditions = &metav1.Preconditions{
+		UID:             &observedUID,
+		ResourceVersion: &rv,
+	}
+	return opts, nil
 }
 
 // getLiveForPrecondition re-reads the object from the API server for the UID
@@ -222,16 +328,31 @@ func normalizeNamespace(namespace string) string {
 	return namespace
 }
 
-// buildLabelSelectorFilter builds a label selector filter function for informer factory.
-func buildLabelSelectorFilter(policy *v1alpha1.ZenCleanerPolicy) func(options *metav1.ListOptions) {
-	return func(options *metav1.ListOptions) {
-		if policy.Spec.TargetResource.LabelSelector != nil {
-			selector, err := metav1.LabelSelectorAsSelector(policy.Spec.TargetResource.LabelSelector)
-			if err == nil {
-				options.LabelSelector = selector.String()
-			}
-		}
+// buildLabelSelectorFilter builds a label selector filter function for an
+// informer factory. FAIL-CLOSED LAW (SUPPORT2-033 §5): an invalid selector
+// returns an error and the caller must refuse to create or replace any
+// informer/list/watch — a silently unfiltered filter would broaden the
+// observed scope beyond the policy. An INTENTIONALLY ABSENT selector (nil)
+// yields a no-op filter: no selector is pushed down, and policy selection is
+// applied per-object at evaluation time (matchesSelectorsShared, which
+// independently fails closed on invalid selectors).
+//
+// NOTE (production reachability): the shared informer factory in
+// getOrCreateResourceInformer is deliberately UNFILTERED (no selector is
+// supplied), so no production caller supplies a selector today; this helper
+// must stay fail-closed so any future wiring cannot silently drop the
+// filter on a conversion error.
+func buildLabelSelectorFilter(policy *v1alpha1.ZenCleanerPolicy) (func(options *metav1.ListOptions), error) {
+	if policy.Spec.TargetResource.LabelSelector == nil {
+		return func(options *metav1.ListOptions) {}, nil
 	}
+	selector, err := metav1.LabelSelectorAsSelector(policy.Spec.TargetResource.LabelSelector)
+	if err != nil {
+		return nil, fmt.Errorf("invalid label selector: refusing to build an informer filter that would silently drop the selector: %w", err)
+	}
+	return func(options *metav1.ListOptions) {
+		options.LabelSelector = selector.String()
+	}, nil
 }
 
 // updateConditionReceipt writes an operator-visible condition onto the policy

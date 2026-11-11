@@ -76,6 +76,15 @@ func (r *PolicyReconciler) getOrCreateResourceInformer(ctx context.Context, poli
 		return nil, fmt.Errorf("invalid target resource: %w", err)
 	}
 
+	// SUPPORT2-033 §5 (selector fail-closed): if the policy supplies a label
+	// selector, it must convert cleanly BEFORE any informer/list/watch is
+	// created. No informer is created or replaced for a policy whose selector
+	// cannot be converted — the policy is surfaced as an error instead of
+	// observing a broader scope than declared.
+	if _, selErr := buildLabelSelectorFilter(policy); selErr != nil {
+		return nil, fmt.Errorf("policy %s/%s: %w", policy.Namespace, policy.Name, selErr)
+	}
+
 	// Normalize namespace for informer creation
 	namespace := normalizeNamespace(policy.Spec.TargetResource.Namespace)
 
