@@ -77,9 +77,37 @@ jobs:
       
       - name: Install bc
         run: sudo apt-get update && sudo apt-get install -y bc
-      
-      - name: Run tests
-        run: go test -v -race -timeout=15m ./...
+
+      - name: Install envtest binaries (real kube-apiserver + etcd)
+        run: |
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.25
+          "$(go env GOPATH)/bin/setup-envtest" use 1.35.0 --bin-dir "$HOME/.local/share/kubebuilder-envtest"
+          echo "KUBEBUILDER_ASSETS=$("$(go env GOPATH)/bin/setup-envtest" use 1.35.0 --bin-dir "$HOME/.local/share/kubebuilder-envtest" -p)" >> "$GITHUB_ENV"
+
+      - name: Run tests (includes the REAL API-server suite; a skip here is a failure signal, not a pass)
+        env:
+          KUBEBUILDER_ASSETS: ${{ env.KUBEBUILDER_ASSETS }}
+        run: |
+          go test -v -race -timeout=15m ./...
+          go test -json ./test/apiserver/... -count=1 | tee /tmp/apiserver-tests.json >/dev/null
+          python3 - <<'PY'
+          import json
+          ran = passed = skipped = 0
+          for line in open('/tmp/apiserver-tests.json'):
+              try: e = json.loads(line)
+              except Exception: continue
+              if e.get('Action') == 'run' and e.get('Test', '').startswith('TestRealAPIServer'):
+                  ran += 1
+              if e.get('Action') == 'pass' and e.get('Test', '').startswith('TestRealAPIServer'):
+                  passed += 1
+              if e.get('Action') == 'skip' and e.get('Test', '').startswith('TestRealAPIServer'):
+                  skipped += 1
+          print(f'real-API tests: ran={ran} passed={passed} skipped={skipped}')
+          if ran == 0 or skipped:
+              raise SystemExit('REAL API-server tests did not RUN — skips are not passes')
+          if passed != ran:
+              raise SystemExit('REAL API-server failures present')
+          PY
       
       - name: Check coverage
         run: make coverage
