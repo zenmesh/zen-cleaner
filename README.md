@@ -1,170 +1,75 @@
-
 <p align="center"><img src="docs/assets/zen-cleaner-logo.png" alt="Zen Cleaner logo" width="90"></p>
 
 # Zen Cleaner
 
+[![Release](https://img.shields.io/github/v/release/zenmesh/zen-cleaner)](https://github.com/zenmesh/zen-cleaner/releases/latest)
+[![CI](https://github.com/zenmesh/zen-cleaner/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/zenmesh/zen-cleaner/actions/workflows/ci.yml?query=branch%3Amain)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Go Version](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)](https://go.dev/)
-[![CI](https://github.com/zenmesh/zen-cleaner/workflows/CI/badge.svg)](https://github.com/zenmesh/zen-cleaner/actions)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.34+-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/zenmesh/zen-cleaner)](go.mod)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.34%2B-326CE5?logo=kubernetes&logoColor=white)](docs/compatibility/kubernetes.md)
+[![OCI chart](https://img.shields.io/badge/OCI%20chart-ghcr.io%2Fzenmesh%2Fcharts-277A9B?logo=helm)](https://github.com/zenmesh/zen-cleaner/pkgs/container/charts%2Fzen-cleaner)
 
-Kubernetes controller for **declarative resource cleanup**: define **`ZenCleanerPolicy`** objects (TTL, selectors, dry-run, rate limits) and let zen-cleaner delete matching resources safely.
+Kubernetes gives built-in TTL cleanup to **Jobs only**. For ConfigMaps, Secrets,
+Pods, ReplicaSets, CRDs and everything else you write bespoke controllers — or
+let clutter accumulate. **zen-cleaner** closes that gap with plain YAML policies:
+declare a TTL and a selector, and a small controller deletes matching objects
+when they expire. **Dry-run first**, rate-limited, observable via Kubernetes
+events and Prometheus metrics. **Independent Apache-2.0 OSS** — it does not
+require Zen Mesh (or any hosted service).
 
-**zen-cleaner** is a free and open source (Apache-2.0) **Kubernetes cleanup controller** from the **[Zen Mesh](https://zen-mesh.io)** team. It is designed for community use, self-managed Kubernetes clusters, and contributions. zen-cleaner is **complementary to but independent of** Zen Mesh — you can use zen-cleaner without Zen Mesh, and Zen Mesh does not require zen-cleaner.
+**60-second overview** ([1:16](https://www.youtube.com/shorts/i4I0RDWZnFw)) ·
+**Longer walkthrough** ([6:35](https://www.youtube.com/watch?v=7MgDgQ53zeU))
 
-- **Clean up** completed Jobs, temporary ConfigMaps, expired Secrets, evicted Pods, orphaned ReplicaSets, released PVCs, and other Kubernetes resources via declarative cleanup policies.
-- **Declarative TTL policies** — fixed, field-based, mapped, and relative expiration modes.
-- **Safe, rate-limited, observable** — dry-run mode, Prometheus metrics, Kubernetes events, leader election.
-
-**Related project — Zen Mesh:** [zen-mesh.io](https://zen-mesh.io) is a webhook delivery and data-plane operations platform for private Kubernetes networks from the same team. zen-cleaner is an independent Kubernetes cleanup controller; the two projects are separate and independent.
-
-**Security:** report vulnerabilities to **[security@zen-mesh.io](mailto:security@zen-mesh.io)** or via [GitHub Security Advisories](https://github.com/zenmesh/zen-cleaner/security) — see [SECURITY.md](SECURITY.md).
-
-Builds require **Go 1.27+** (see `go.mod`). Published container images are built with Go **1.27**.
+![Zen Cleaner demo: a ZenCleanerPolicy starts in dry-run, candidates are reported without deletions, then deletion is enabled and the expired temp ConfigMaps are removed while other objects remain](docs/assets/zen-cleaner-demo.gif)
+*A real terminal session on a disposable cluster (public `0.1.19` chart and image): the
+policy is applied with `dryRun: true`, candidates are reported without deletions, deletion is
+enabled, the expired temp ConfigMaps are removed, and every other object survives. Commands
+and outputs are unedited.*
 
 ## Quick start
 
-### Recommended: Helm (repository chart)
+> **⚠ Before you install** — the chart ships a default-on egress NetworkPolicy
+> (DNS + TCP/443 + TCP/6443). It is validated on k3s (kube-router) v1.35.5 /
+> v1.37.0 and kind + Calico v1.36.1; other CNIs are untested, and if your CNI
+> denies policy-covered egress differently the controller cannot reach the API
+> (it fails loudly: NOT-Ready `/readyz`, `APIUnreachable` events). See
+> [docs/compatibility/kubernetes.md](docs/compatibility/kubernetes.md) for the
+> full matrix, the 443/6443 post-DNAT explanation, and troubleshooting before
+> considering `networkPolicy.enabled=false` — which is an explicit, deliberate
+> exception, not the default solution.
 
-The chart is the supported install path: it renders valid manifests (no shell
-placeholders), runs without the admission webhook TLS dependency, and pins the
-image by its immutable digest. Install release 0.1.20 straight from the
-published OCI chart — no repository clone needed:
-
-```bash
-helm upgrade --install zen-cleaner \
-  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.20 \
-  --namespace zen-cleaner-system --create-namespace \
-  --set rbac.deleteNamespaces[0]=default
-# or, equivalently, from the plain-HTTP chart index (GitHub Releases):
-helm repo add zenmesh https://github.com/zenmesh/zen-cleaner/releases/latest/download
-helm repo update
-helm upgrade --install zen-cleaner zenmesh/zen-cleaner --version 0.1.20 \
-  --namespace zen-cleaner-system --create-namespace \
-  --set rbac.deleteNamespaces[0]=default
-```
-
-Both forms pin the exact released image digest inside the chart. The example
-policy below cleans ConfigMaps in the `default` namespace; the RBAC allowlist
-is Jobs-only by default and the release namespace is safety-protected, so the
-installs above authorize deletion in `default`. To also clean another resource
-kind, extend the allowlist with EVERY index spelled explicitly (a `group`-less
-entry is the core API group; a partially-set index produces a null entry and
-the chart refuses to render rather than ship corrupt RBAC):
+**1. Install** — the released chart pins the released image by digest. This
+first command already authorizes ConfigMap cleanup in `default` (the example
+policy below targets ConfigMaps; Jobs are the other default-validated kind):
 
 ```bash
 helm upgrade --install zen-cleaner \
-  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.20 \
+  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.19 \
   --namespace zen-cleaner-system --create-namespace \
   --set rbac.targetKinds[0].group=batch --set rbac.targetKinds[0].resource=jobs \
-  --set rbac.targetKinds[1].group= --set rbac.targetKinds[1].resource=configmaps \
+  --set-string rbac.targetKinds[1].group= --set-string rbac.targetKinds[1].resource=configmaps \
   --set rbac.deleteNamespaces[0]=default
 ```
 
-The chart bundles the ZenCleanerPolicy CRD (chart crds/): Helm installs it on
-`helm install` and never deletes or upgrades it on uninstall/upgrade. Then
-apply the example policy and watch it clean up:
+`0.1.19` is the **latest published release**. Release `0.1.20` (deletion-safety
+hardening: atomic UID/resourceVersion preconditions, uncached policy re-read
+before deletes) is merged on `main` and pending its release tag — until it is
+published, `0.1.19` is what installs, and `dryRun: true` remains the
+recommended posture for new users of any release.
 
-```bash
-kubectl apply -f examples/temp-configmap-cleanup.yaml
-```
-
-### Install from a clone (development / air-gapped)
-
-From a clone of this repo you can install the chart directory directly:
-
-```bash
-helm install zen-cleaner ./deploy/helm/zen-cleaner \
-  --namespace zen-cleaner-system --create-namespace \
-  --set image.tag=0.1.20 \
-  --set rbac.deleteNamespaces[0]=default
-# Pin by digest once you have chosen one (tag is then ignored):
-#   --set image.digest=sha256:ABCD...
-```
-
-### Build the image from source (no published image needed)
-
-```bash
-docker build -t zen-cleaner:local .
-helm install zen-cleaner ./deploy/helm/zen-cleaner \
-  --namespace zen-cleaner-system --create-namespace \
-  --set image.repository=zen-cleaner --set image.tag=local
-# for a kind cluster: kind load docker-image zen-cleaner:local first
-```
-
-Requires Go 1.27.4+ and a container build; see BUILD_REQUIREMENTS.md.
-
-### Supported environments and the default NetworkPolicy
-
-The chart ships an **opt-out-able but default-on egress NetworkPolicy** for
-the controller: DNS to kube-system (namespace selector) and TCP/443 + TCP/6443
-to any destination (`ipBlock: 0.0.0.0/0`).
-
-Platform note (verified by probe matrix, 2026-10-29, k3s v1.35.5 and v1.37.0):
-the k3s-embedded kube-router policy engine matches egress rules against the
-**post-DNAT endpoint tuple**, so the API path (ClusterIP:443 → endpoint:6443)
-requires TCP/6443 in the rule; 0.1.2/0.1.3 allowed 443 only and denied the
-controller's API access under enforcement (loudly signaled since 0.1.3:
-NOT-Ready `/readyz`, `APIUnreachable` events, `zen_cleaner_api_reachable=0`).
-0.1.4 allows 6443 and was **verified end-to-end under enforcement on both
-k3s versions**: API reach, leadership, TTL cleanup, dry-run, exclusion and
-RBAC denials all behave with the policy applied. On **upstream Kubernetes
-v1.36.1 (kind) + Calico v3.28.2**, the same enforced-policy matrix passes
-(single-node cluster, webhook disabled in the default install — see the
-evidence in `docs/evidence/kubernetes/v1.36/kind-calico-20261029.md`).
-Cilium and other CNIs have not been validated; if your CNI denies
-policy-covered egress differently, set `networkPolicy.enabled=false`
-deliberately and say so in your issue reports.
-
-### kubectl from a clone (advanced)
-
-The raw manifests under `deploy/manifests/` contain `${WEBHOOK_NAMESPACE}` and
-an image reference that `kubectl apply` does NOT substitute — use the install
-script (it renders them with `envsubst`), not raw `kubectl apply`:
-
-```bash
-CLEANER_IMAGE=ghcr.io/zenmesh/zen-cleaner:0.1.3 \
-WEBHOOK_NAMESPACE=zen-cleaner-system bash deploy/install.sh
-```
-
-The validating admission webhook requires **TLS** in the cluster before you
-rely on admission enforcement (the Helm path runs with the webhook disabled —
-policy validation then comes from the CRD schema alone). **Recommended
-webhook path:** cert-manager + Secret `zen-cleaner-webhook-cert` +
-`deploy/webhook/validating-webhook.yaml`. Full steps:
-**[docs/WEBHOOK_TLS.md](docs/WEBHOOK_TLS.md)**.
-
-Apply an example policy:
-
-```bash
-kubectl apply -f examples/temp-configmap-cleanup.yaml
-```
-
-### Minimal policy example
-
-Two chart laws shape any policy:
-
-1. **RBAC allowlist** — the default `rbac.targetKinds` is **Jobs only**; add
-   kinds explicitly (use `--set-string` for the core API group: plain `--set`
-   with an empty value renders null and produces an invalid empty
-   `apiGroups` list).
-2. **Safety law** — the controller's OWN namespace is always protected, and
-   with the default `rbac.namespaceScope: true` deletion is authorized ONLY
-   in the release namespace (+ `rbac.deleteNamespaces`) — where the safety
-   law refuses it. So point policies at a USER namespace and authorize that
-   namespace for deletion:
+**2. Apply a minimal policy — dry-run first.** Create `policy.yaml`:
 
 ```yaml
 apiVersion: cleaner.zen-mesh.io/v1alpha1
 kind: ZenCleanerPolicy
 metadata:
   name: cleanup-temp-configmaps
-  namespace: default              # a USER namespace (the release namespace is safety-protected)
+  namespace: default        # a USER namespace (the release namespace is safety-protected)
 spec:
   targetResource:
     apiVersion: v1
     kind: ConfigMap
-    namespace: default            # explicit namespace required by policy schema
+    namespace: default      # explicit namespace required by policy schema
     labelSelector:
       matchLabels:
         temporary: "true"
@@ -172,148 +77,118 @@ spec:
     secondsAfterCreation: 3600
   behavior:
     maxDeletionsPerSecond: 10
-    dryRun: true                   # START HERE: match and report, delete nothing
+    dryRun: true            # START HERE: match and report, delete nothing
 ```
-
-Watch the policy evaluate (Kubernetes events + `kubectl get zencleanerpolicy <name>
--o yaml` status), and when the candidate list is exactly what you expect, flip
-`dryRun: false` to enable deletion:
 
 ```bash
-helm upgrade zen-cleaner ./deploy/helm/zen-cleaner \
-  --namespace zen-cleaner-system \
-  --reuse-values \
-  --set rbac.targetKinds[0].group=batch --set rbac.targetKinds[0].resource=jobs \
-  --set-string rbac.targetKinds[1].group= --set rbac.targetKinds[1].resource=configmaps \
-  --set rbac.deleteNamespaces[0]=default
+kubectl apply -f policy.yaml
 ```
+
+**3. Observe, then enable deletion.** Each reconciliation emits Kubernetes
+events — dry-run reports candidates and deletes nothing:
+
+```bash
+kubectl get events --field-selector reason=PolicyEvaluated | tail -1
+# Evaluated policy: matched=N, deleted=0, pending=…
+```
+
+When the candidate list is exactly what you expect, flip `dryRun: false`
+(`kubectl patch zencleanerpolicy cleanup-temp-configmaps --type merge -p
+'{"spec":{"behavior":{"dryRun":false}}}'`), and watch
+`reason=PolicyExecutionReceipt` events for the deletion receipt.
 
 An object can always be made permanently invisible to every policy with the
 exclusion label `zen-cleaner.zen-mesh.io/exclude: "true"`.
-```
 
+**Deletion safety.** Every controller-issued delete binds the observed UID and
+resourceVersion, and the governing policy is re-read uncached at delete time: a
+resource replaced after the decision, or a policy disabled/edited since it, is
+not deleted — the API server refuses the stale delete (409) and the controller
+records a typed outcome (precondition conflict / policy changed / excluded).
+These laws are proven against a **real API server**
+(`test/apiserver/`, controller-runtime envtest) — and that suite **runs in CI**
+since the envtest binaries were wired into the pipeline, with a fail-closed
+guard that fails CI if the real-API tests skip.
 
-**Deletion safety (0.1.20+).** Every controller-issued delete binds the observed
-UID and resourceVersion and the governing policy is re-read uncached at delete
-time: a resource replaced after the decision, or a policy disabled/edited since
-it, is not deleted — the API server refuses the stale delete (409) and the
-controller records a typed outcome (precondition conflict / policy changed /
-excluded). Proven against a real API server (`test/apiserver/`, envtest); that
-suite skips in CI hermetically, so run it locally for API-server evidence.
+## TTL modes
 
-## Why zen-cleaner?
-
-Kubernetes only provides built-in TTL support for **Jobs**. For ConfigMaps, Secrets, Pods, CRDs, and everything else, you either write bespoke controllers or operate without automation. zen-cleaner fills that gap with plain YAML policies.
-
-## Powerful TTL options
-
-zen-cleaner supports **fixed**, **field-based**, **mapped**, and **relative** TTL modes — see [User Guide](docs/USER_GUIDE.md) for details.
-
-### Fixed TTL
+Four TTL modes — fixed, field-based, mapped, relative (details in the
+[User Guide](docs/USER_GUIDE.md)):
 
 ```yaml
 ttl:
-  secondsAfterCreation: 604800
+  secondsAfterCreation: 604800        # fixed: 7 days after creation
 ```
-
-### Field-based TTL
 
 ```yaml
 ttl:
-  fieldPath: "spec.ttlSeconds"
+  fieldPath: "spec.ttlSeconds"        # field-based: per-object TTL from its own field
 ```
 
-### Mapped TTL
-
 ```yaml
-ttl:
+ttl:                                  # mapped: severity → budget
   fieldPath: "spec.severity"
   mappings:
     CRITICAL: 1814400
-    HIGH: 1209600
     MEDIUM: 604800
-    LOW: 259200
   default: 604800
 ```
 
-### Relative TTL
-
 ```yaml
 ttl:
-  relativeTo: "status.lastProcessedAt"
+  relativeTo: "status.lastProcessedAt" # relative: from any timestamp field
   secondsAfter: 86400
 ```
 
-## Key benefits
+## Supported environments
 
-- Works with Kubernetes resources matched by label/field selectors
-- Policies as CRDs — no custom binaries per workload
-- Rate limiting, metrics, events, leader election
-- Dry-run mode to validate behavior before destructive deletes
-- Observable via Prometheus and Kubernetes events
+Validated under **enforced default NetworkPolicy** on k3s (kube-router)
+v1.35.5 and v1.37.0 — API reach, leadership, TTL cleanup, dry-run, exclusions,
+RBAC denials — and on **kind (upstream Kubernetes v1.36.1) + Calico v3.28.2**
+(single-node, webhook disabled). Cilium and other CNIs are **not validated**.
+Validated resource kinds: Pod, ReplicaSet, ConfigMap, Secret, Job; CRDs are
+supported by the API but not validated end-to-end. Full matrix, evidence
+links, and troubleshooting:
+**[docs/compatibility/kubernetes.md](docs/compatibility/kubernetes.md)**.
 
-## Use cases
+## Advanced install
 
-- Clean up completed Jobs and temporary CI/CD ConfigMaps/Secrets
-- Remove evicted Pods, orphaned ReplicaSets, released PVCs
-- Namespace-scoped or cluster-scoped policies with selectors
+- **From a clone (development / air-gapped):**
+  `helm install zen-cleaner ./deploy/helm/zen-cleaner --namespace zen-cleaner-system --create-namespace --set image.tag=<version> --set rbac.deleteNamespaces[0]=default`
+  (pin by digest once chosen: `--set image.digest=sha256:…` — the digest wins over the tag).
+  Requires Go 1.27.4+ and a container build; see BUILD_REQUIREMENTS.md.
+- **Raw kubectl:** the manifests under `deploy/manifests/` contain `${WEBHOOK_NAMESPACE}` and an
+  unsubstituted image reference — use the install script (`CLEANER_IMAGE=… WEBHOOK_NAMESPACE=…
+  bash deploy/install.sh`), not raw `kubectl apply`. The validating admission webhook requires
+  TLS; the Helm path runs with the webhook disabled (validation from the CRD schema alone).
+  Recommended webhook path: cert-manager + `deploy/webhook/validating-webhook.yaml` — see
+  [docs/WEBHOOK_TLS.md](docs/WEBHOOK_TLS.md).
+- **Example policies:** [examples/](examples/) — completed Jobs, evicted Pods, failed Pods,
+  old Secrets/Deployments/ReplicaSets, temp ConfigMaps, test Pods.
 
 ## Documentation
 
-- **[Webhook TLS (production)](docs/WEBHOOK_TLS.md)**: cert-manager vs manual CA — matches how we test on kind
-- **[Linting](docs/LINTING.md)**: golangci-lint scope and known debt
-- **[API Reference](docs/API_REFERENCE.md)**
-- **[User Guide](docs/USER_GUIDE.md)**
-- **[Operator Guide](docs/OPERATOR_GUIDE.md)**
-- **[Metrics](docs/METRICS.md)**
-- **[Security (operations)](docs/SECURITY.md)** and [SECURITY.md](SECURITY.md) (disclosure policy)
-- **[Secret / TLS storage](docs/SECRET_MANAGEMENT.md)**
-- **[Version compatibility](docs/VERSION_COMPATIBILITY.md)**
-- **[Architecture](docs/ARCHITECTURE.md)**
-- **[Examples](examples/)**
-- **[Contributing](CONTRIBUTING.md)**
-- **[Governance](GOVERNANCE.md)** · **[Maintainers](MAINTAINERS.md)** · **[Releasing](RELEASING.md)** · **[Adopters](ADOPTERS.md)**
+[User Guide](docs/USER_GUIDE.md) · [API Reference](docs/API_REFERENCE.md) ·
+[Compatibility](docs/compatibility/kubernetes.md) ·
+[Version compatibility](docs/VERSION_COMPATIBILITY.md) ·
+[Architecture](docs/ARCHITECTURE.md) · [Claims and maturity](docs/claims.md) ·
+[Evidence index](docs/evidence/README.md) · [Contributing](CONTRIBUTING.md) ·
+[Governance](GOVERNANCE.md) · [Maintainers](MAINTAINERS.md) · [Releasing](RELEASING.md)
 
-## Features
+**Status:** free community OSS (0.x, alpha maturity) — actively maintained,
+Apache-2.0; not an official product launch. **Source of truth:** this
+repository. **Independent:** zen-cleaner does not require
+[Zen Mesh](https://zen-mesh.io), and Zen Mesh does not require zen-cleaner;
+the `cleaner.zen-mesh.io` API group is this project's own CRD naming.
 
-- Resource support (validated: Pod, ReplicaSet, ConfigMap, Secret, Job; CRDs not validated)
-- Four TTL modes: fixed, field-based, mapped, relative
-- Label / field selectors and conditions
-- Rate limiting and dry-run
-- Prometheus metrics, Kubernetes events, leader election
-- Test suite with CI and optional kind e2e (`make e2e-kind`)
-
-## Status
-
-zen-cleaner is a public repository available for community use, feedback, and contributions. It is actively maintained as open source under the Apache-2.0 license. This is not an official product launch — zen-cleaner is a free community tool built by the Zen Mesh team.
-
-## Public surface
-
-- **Source of truth:** this GitHub repository — all documentation, evidence, and issue tracking live here
-- **Public trust & evidence:** [docs/evidence/README.md](docs/evidence/README.md)
-- **Claims and maturity:** [docs/claims.md](docs/claims.md)
-- **AI context:** [llms.txt](llms.txt)
-- **No hosted website:** zen-cleaner does not have a dedicated website; it is documented entirely in this repository. The `cleaner.zen-mesh.io` API group is this project's own CRD group naming; zen-cleaner itself is standalone and does not require the Zen Mesh platform
-
-## From the Zen Mesh team
-
-**zen-cleaner** is a free, independent Apache-2.0 OSS project from the same team that builds **Zen Mesh**. The two projects are **separate and independent** — zen-cleaner does not require Zen Mesh, and Zen Mesh does not require zen-cleaner.
-
-| Project | Description | License |
-|---------|-------------|---------|
-| [zen-cleaner](https://github.com/zenmesh/zen-cleaner) | Free OSS Kubernetes cleanup controller (this project) | Apache-2.0 |
-| [Zen Mesh](https://zen-mesh.io) | Webhook delivery and data-plane operations platform | Separate project |
+**Security:** report vulnerabilities to
+[security@zen-mesh.io](mailto:security@zen-mesh.io) or via
+[GitHub Security Advisories](https://github.com/zenmesh/zen-cleaner/security)
+— see [SECURITY.md](SECURITY.md). Issues and questions: the
+[issue tracker](https://github.com/zenmesh/zen-cleaner/issues).
 
 ## References
 
 - [Kubernetes TTL-after-finished](https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/)
 - [Kubernetes Enhancement Proposals](https://github.com/kubernetes/enhancements)
-
-## Links
-
-- **GitHub Repository**: [github.com/zenmesh/zen-cleaner](https://github.com/zenmesh/zen-cleaner)
-- **Documentation Index**: [docs/INDEX.md](docs/INDEX.md)
-- **Helm**: `deploy/helm/zen-cleaner` chart in this repository
-- **Quick overview video (1:16)**: [How Zen Cleaner Fixes Kubernetes Resource Clutter](https://www.youtube.com/shorts/i4I0RDWZnFw) — a short overview published by Zen Mesh Inc. covering the resource-clutter problem Zen Cleaner addresses. *Note: this is the publisher's overview video, not a recorded run of the commands in this README; the install steps below are the authoritative instructions.*
-- **Explainer video (~6 minutes)**: [zen-cleaner explainer](https://www.youtube.com/watch?v=7MgDgQ53zeU) — the longer walkthrough of what Zen Cleaner does and how it is deployed.
-- **Zen Mesh Inc.**: [zen-mesh.io](https://zen-mesh.io)
+- AI context: [llms.txt](llms.txt)
