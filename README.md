@@ -20,23 +20,12 @@ require Zen Mesh (or any hosted service).
 **60-second overview** ([1:16](https://www.youtube.com/shorts/i4I0RDWZnFw)) ·
 **Longer walkthrough** ([6:35](https://www.youtube.com/watch?v=7MgDgQ53zeU))
 
-![Zen Cleaner demo: a ZenCleanerPolicy starts in dry-run, candidates are reported without deletions, then deletion is enabled and the expired temp ConfigMaps are removed while other objects remain](docs/assets/zen-cleaner-demo.gif)
-*A real terminal session on a disposable cluster (public `0.1.19` chart and image): the
-policy is applied with `dryRun: true`, candidates are reported without deletions, deletion is
-enabled, the expired temp ConfigMaps are removed, and every other object survives. Commands
-and outputs are unedited.*
+![Zen Cleaner demo — real screen recording: a ZenCleanerPolicy is applied in dry-run, candidates are reported, deletion is enabled, and the two expired temp ConfigMaps disappear while the keeper object and kube-system stay untouched](docs/assets/zen-cleaner-demo.gif)
+*Real screen recording (~16 s, accelerated by cutting the reconcile wait): disposable cluster,
+published `0.1.20` chart and image, typed commands with live outputs — the expired temp
+ConfigMaps are removed and everything else survives.*
 
 ## Quick start
-
-> **⚠ Before you install** — the chart ships a default-on egress NetworkPolicy
-> (DNS + TCP/443 + TCP/6443). It is validated on k3s (kube-router) v1.35.5 /
-> v1.37.0 and kind + Calico v1.36.1; other CNIs are untested, and if your CNI
-> denies policy-covered egress differently the controller cannot reach the API
-> (it fails loudly: NOT-Ready `/readyz`, `APIUnreachable` events). See
-> [docs/compatibility/kubernetes.md](docs/compatibility/kubernetes.md) for the
-> full matrix, the 443/6443 post-DNAT explanation, and troubleshooting before
-> considering `networkPolicy.enabled=false` — which is an explicit, deliberate
-> exception, not the default solution.
 
 **1. Install** — the released chart pins the released image by digest. This
 first command already authorizes ConfigMap cleanup in `default` (the example
@@ -44,18 +33,16 @@ policy below targets ConfigMaps; Jobs are the other default-validated kind):
 
 ```bash
 helm upgrade --install zen-cleaner \
-  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.19 \
+  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.20 \
   --namespace zen-cleaner-system --create-namespace \
   --set rbac.targetKinds[0].group=batch --set rbac.targetKinds[0].resource=jobs \
   --set-string rbac.targetKinds[1].group= --set-string rbac.targetKinds[1].resource=configmaps \
   --set rbac.deleteNamespaces[0]=default
 ```
 
-`0.1.19` is the **latest published release**. Release `0.1.20` (deletion-safety
-hardening: atomic UID/resourceVersion preconditions, uncached policy re-read
-before deletes) is merged on `main` and pending its release tag — until it is
-published, `0.1.19` is what installs, and `dryRun: true` remains the
-recommended posture for new users of any release.
+Upgrading from 0.1.19? Apply the updated CRD and re-check policies in
+`dryRun` first — see the [CHANGELOG](CHANGELOG.md) for the upgrade notes and
+the deletion-safety changes in 0.1.20.
 
 **2. Apply a minimal policy — dry-run first.** Create `policy.yaml`:
 
