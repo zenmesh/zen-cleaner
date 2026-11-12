@@ -81,8 +81,11 @@ jobs:
       - name: Install envtest binaries (real kube-apiserver + etcd)
         run: |
           go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.25
-          "$(go env GOPATH)/bin/setup-envtest" use 1.35.0 --bin-dir "$HOME/.local/share/kubebuilder-envtest"
-          echo "KUBEBUILDER_ASSETS=$("$(go env GOPATH)/bin/setup-envtest" use 1.35.0 --bin-dir "$HOME/.local/share/kubebuilder-envtest" -p)" >> "$GITHUB_ENV"
+          SETUP_ENVTEST_BIN="$(go env GOPATH)/bin/setup-envtest"
+          ASSETS="$("$SETUP_ENVTEST_BIN" use 1.35.0 --bin-dir "$HOME/.local/share/kubebuilder-envtest" -p)"
+          test -x "$ASSETS/kube-apiserver" && test -x "$ASSETS/etcd"
+          echo "KUBEBUILDER_ASSETS=$ASSETS" >> "$GITHUB_ENV"
+          echo "envtest assets: $ASSETS"
 
       - name: Run tests (includes the REAL API-server suite; a skip here is a failure signal, not a pass)
         env:
