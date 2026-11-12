@@ -82,7 +82,7 @@ jobs:
         run: |
           go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.25
           SETUP_ENVTEST_BIN="$(go env GOPATH)/bin/setup-envtest"
-          ASSETS="$("$SETUP_ENVTEST_BIN" use 1.35.0 --bin-dir "$HOME/.local/share/kubebuilder-envtest" -p)"
+          ASSETS="$("$SETUP_ENVTEST_BIN" use 1.35.0 --bin-dir "$HOME/.local/share/kubebuilder-envtest" -p path)"
           test -x "$ASSETS/kube-apiserver" && test -x "$ASSETS/etcd"
           echo "KUBEBUILDER_ASSETS=$ASSETS" >> "$GITHUB_ENV"
           echo "envtest assets: $ASSETS"
