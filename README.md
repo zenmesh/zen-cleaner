@@ -21,7 +21,7 @@ require Zen Mesh (or any hosted service).
 **Longer walkthrough** ([6:35](https://www.youtube.com/watch?v=7MgDgQ53zeU))
 
 ![Zen Cleaner demo — real screen recording: a ZenCleanerPolicy is applied in dry-run, candidates are reported, deletion is enabled, and the two expired temp ConfigMaps disappear while the keeper object and kube-system stay untouched](docs/assets/zen-cleaner-demo.gif)
-*Real screen recording (~18s, with the reconcile wait cut): disposable cluster,
+*Real screen recording (~18s demonstration + end card, with the reconcile wait cut): disposable cluster,
 published `0.1.20` chart and image, typed commands with live outputs — the expired temp
 ConfigMaps are removed and everything else survives.*
 
@@ -156,6 +156,14 @@ links, and troubleshooting:
   [docs/WEBHOOK_TLS.md](docs/WEBHOOK_TLS.md).
 - **Example policies:** [examples/](examples/) — completed Jobs, evicted Pods, failed Pods,
   old Secrets/Deployments/ReplicaSets, temp ConfigMaps, test Pods.
+
+## Contributing
+
+zen-cleaner is young and your input shapes it — **feedback, ideas, bug reports, and pull
+requests are all welcome**. Open an
+[issue](https://github.com/zenmesh/zen-cleaner/issues) (a policy YAML plus dry-run output makes
+bug reports reproducible) or read
+[CONTRIBUTING.md](CONTRIBUTING.md) before your first PR. Every report helps, however small.
 
 ## Documentation
 
