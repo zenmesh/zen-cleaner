@@ -1,0 +1,52 @@
+# ISOLATED compatibility test for azure/setup-helm v5 (PR #29 review).
+# workflow_dispatch ONLY; contents:read; NO publishing, releases, tags,
+# production credentials, or write permissions. Exercises the exact action
+# + Helm version the release workflow uses, with representative read-only
+# chart operations on the existing chart.
+name: test setup-helm v5 (isolated)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: azure/setup-helm@v5
+        with:
+          version: v3.16.3
+
+      - name: Verify the exact Helm version the release workflow pins
+        run: |
+          set -euo pipefail
+          V="$(helm version --short)"
+          echo "helm version: $V"
+          case "$V" in
+            v3.16.3*) echo "OK: pinned version honored" ;;
+            *) echo "FAIL: expected v3.16.3.x, got $V"; exit 1 ;;
+          esac
+
+      - name: Representative chart operations (lint / template / package)
+        run: |
+          set -euo pipefail
+          helm lint deploy/helm/zen-cleaner
+          helm template zc-probe deploy/helm/zen-cleaner \
+            --namespace zen-cleaner-system \
+            --set rbac.targetKinds[0].group=batch --set rbac.targetKinds[0].resource=jobs \
+            --set-string rbac.targetKinds[1].group= --set rbac.targetKinds[1].resource=configmaps \
+            --set rbac.deleteNamespaces[0]=default > /tmp/zc-probe-render.yaml
+          grep -q "kind: Deployment" /tmp/zc-probe-render.yaml
+          grep -q "kind: NetworkPolicy" /tmp/p10-probe.yaml 2>/dev/null || grep -q "kind: NetworkPolicy" /tmp/zc-probe-render.yaml
+          helm package deploy/helm/zen-cleaner -d /tmp >/dev/null
+          ls /tmp/zen-cleaner-0.1.20.tgz
+          echo "OK: lint + template + package succeeded under setup-helm v5"
