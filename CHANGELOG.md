@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.20] — 2026-11-11
+
+### Fixed (deletion safety — upgrade before enabling deletes)
+
+- **Atomic UID + resourceVersion deletion preconditions** (#76): every controller-issued DELETE binds the exact UID and resourceVersion observed at policy evaluation and the policy is re-evaluated at delete time. A resource replaced or recreated between evaluation and deletion is no longer deleted: the API server rejects the stale-precondition delete (409 Conflict) and the controller records a typed outcome instead of proceeding.
+- **Caller preconditions preserved; truthful accounting** (#77): caller-supplied delete preconditions and propagation/grace settings are kept rather than overwritten, and deletion outcomes (deleted / not found / precondition conflict / refused) are accounted truthfully — absence is no longer reported as success.
+- **Uncached policy-freshness check before DELETE** (#78): the policy is re-read uncached immediately before any delete, so a policy edited or disabled seconds earlier takes effect before deletions fire.
+- **REAL API-server validation suite** (#78): a controller-runtime envtest suite (real kube-apiserver + etcd, no shared cluster) proves the 409 conflict semantics end to end — 7/7 scenarios including replace-race, stale resourceVersion and UID-mismatch refusals, zero unsafe deletes. CI runs hermetically WITHOUT envtest binaries: this suite SKIPS in CI (a named skip, not a PASS). Run it locally with `setup-envtest` (see `test/apiserver/`).
+
+### Upgrade notes (0.1.19 -> 0.1.20)
+
+- **CRD updated**: `labelSelector.matchExpressions.operator` is now constrained to the standard Kubernetes set (`In`, `NotIn`, `Exists`, `DoesNotExist`) — matching the controller's existing validation. Helm does NOT upgrade CRDs from a chart's `crds/` directory automatically; apply it explicitly before upgrading:
+  `kubectl apply -f https://raw.githubusercontent.com/zenmesh/zen-cleaner/0.1.20/deploy/crds/cleaner.zen-mesh.io_zencleanerpolicies.yaml`
+- Stored policies using operators outside that set keep running but are denied fail-closed, and new writes with such operators are rejected by the API server. Re-validate every policy in `dryRun: true` after upgrading before enabling deletion.
+- **0.1.19 advisory**: release 0.1.19 predates all of the deletion-safety fixes above. Users running 0.1.19 (or earlier) should keep `dryRun: true` and upgrade to 0.1.20 before enabling deletion.
+
 ## [0.1.19] — 2026-10-31
 
 ### Fixed

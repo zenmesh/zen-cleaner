@@ -163,6 +163,26 @@ func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource
 		return DeletionOutcomeRecord{Outcome: OutcomeAlreadyAbsent}, nil
 	}
 
+	// Policy-freshness check (uncached): the batch decision was made on a
+	// policy snapshot; before an irreversible DELETE, confirm through an
+	// UNCACHED read that the governing policy still exists, is still the same
+	// object (UID), and still says what the snapshot says (metadata.generation
+	// — the CRD carries a status subresource, so spec edits bump generation).
+	// A policy deleted or edited mid-cycle must not execute under its stale
+	// snapshot. HONEST LIMIT: this NARROWS the window (uncached read →
+	// immediate DELETE); a separate read cannot make updates to two
+	// Kubernetes objects atomic — a policy change landing between this read
+	// and the DELETE is caught by the next reconcile cycle, not by this call.
+	if reason, detail := r.policyFreshnessRefusal(ctx, policy); reason != "" {
+		RecordSafetyRefusal(reason)
+		r.logger.Info("Deletion refused: governing policy changed since the batch decision",
+			cleanerlog.Operation("delete_resource"),
+			cleanerlog.String("reason", reason),
+			cleanerlog.String("detail", detail),
+			cleanerlog.String("resource", fmt.Sprintf("%s/%s", live.GetNamespace(), live.GetName())))
+		return DeletionOutcomeRecord{Outcome: OutcomeRefused, Reason: reason, Detail: detail}, nil
+	}
+
 	// Last-line safety gate (SUPPORT2-033 §2) re-evaluated on the LIVE
 	// object: protected namespaces, hard-protected kinds, exclusion
 	// labels/annotations, workload laws, emergency stop. A same-UID update
@@ -277,6 +297,41 @@ func (r *PolicyReconciler) performResourceDeletion(ctx context.Context, resource
 	RecordDeletionFailed()
 	RecordAPIError(err2)
 	return DeletionOutcomeRecord{Outcome: OutcomeFailed}, err2
+}
+
+// policyFreshnessRefusal re-reads the GOVERNING policy through the UNCACHED
+// reader when one is wired and refuses when the policy the batch decision
+// was made on is no longer the live one: deleted (NotFound),
+// deleted-and-recreated (UID changed), or spec-edited (metadata.generation
+// moved; the CRD carries a status subresource so spec writes bump it).
+// The check deliberately does NOT fall back to the cache-backed Client: a
+// stale cache could silently miss a policy change, which would turn the
+// safety check into decoration. No apiReader (unit tests) ⇒ check skipped;
+// the production wiring (SetAPIReader(mgr.GetAPIReader())) always sets it.
+// A read FAILURE is a refusal (fail closed), never a silent allow. A nil
+// policy is refused by the eligibility re-evaluation that follows.
+func (r *PolicyReconciler) policyFreshnessRefusal(ctx context.Context, policy *v1alpha1.ZenCleanerPolicy) (string, string) {
+	if policy == nil {
+		return "", ""
+	}
+	if r.apiReader == nil {
+		return "", ""
+	}
+	fresh := &v1alpha1.ZenCleanerPolicy{}
+	err := r.apiReader.Get(ctx, types.NamespacedName{Namespace: policy.Namespace, Name: policy.Name}, fresh)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return safety.ReasonPolicyChanged, "governing policy deleted since the decision"
+		}
+		return safety.ReasonPolicyChanged, "governing policy re-read failed (fail closed): " + err.Error()
+	}
+	if fresh.GetUID() != policy.UID {
+		return safety.ReasonPolicyChanged, "governing policy recreated (UID changed since the decision)"
+	}
+	if fresh.GetGeneration() != policy.Generation {
+		return safety.ReasonPolicyChanged, "governing policy spec changed (generation moved since the decision)"
+	}
+	return "", ""
 }
 
 // deletionEligibilityRefusal re-evaluates the policy's scope selectors,

@@ -26,18 +26,18 @@ Builds require **Go 1.27+** (see `go.mod`). Published container images are built
 
 The chart is the supported install path: it renders valid manifests (no shell
 placeholders), runs without the admission webhook TLS dependency, and pins the
-image by its immutable digest. Install release 0.1.19 straight from the
+image by its immutable digest. Install release 0.1.20 straight from the
 published OCI chart — no repository clone needed:
 
 ```bash
 helm upgrade --install zen-cleaner \
-  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.19 \
+  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.20 \
   --namespace zen-cleaner-system --create-namespace \
   --set rbac.deleteNamespaces[0]=default
 # or, equivalently, from the plain-HTTP chart index (GitHub Releases):
 helm repo add zenmesh https://github.com/zenmesh/zen-cleaner/releases/latest/download
 helm repo update
-helm upgrade --install zen-cleaner zenmesh/zen-cleaner --version 0.1.19 \
+helm upgrade --install zen-cleaner zenmesh/zen-cleaner --version 0.1.20 \
   --namespace zen-cleaner-system --create-namespace \
   --set rbac.deleteNamespaces[0]=default
 ```
@@ -52,7 +52,7 @@ the chart refuses to render rather than ship corrupt RBAC):
 
 ```bash
 helm upgrade --install zen-cleaner \
-  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.19 \
+  oci://ghcr.io/zenmesh/charts/zen-cleaner --version 0.1.20 \
   --namespace zen-cleaner-system --create-namespace \
   --set rbac.targetKinds[0].group=batch --set rbac.targetKinds[0].resource=jobs \
   --set rbac.targetKinds[1].group= --set rbac.targetKinds[1].resource=configmaps \
@@ -74,7 +74,7 @@ From a clone of this repo you can install the chart directory directly:
 ```bash
 helm install zen-cleaner ./deploy/helm/zen-cleaner \
   --namespace zen-cleaner-system --create-namespace \
-  --set image.tag=0.1.19 \
+  --set image.tag=0.1.20 \
   --set rbac.deleteNamespaces[0]=default
 # Pin by digest once you have chosen one (tag is then ignored):
 #   --set image.digest=sha256:ABCD...
@@ -170,7 +170,12 @@ spec:
     secondsAfterCreation: 3600
   behavior:
     maxDeletionsPerSecond: 10
+    dryRun: true                   # START HERE: match and report, delete nothing
 ```
+
+Watch the policy evaluate (Kubernetes events + `kubectl get zencleanerpolicy <name>
+-o yaml` status), and when the candidate list is exactly what you expect, flip
+`dryRun: false` to enable deletion:
 
 ```bash
 helm upgrade zen-cleaner ./deploy/helm/zen-cleaner \
@@ -184,6 +189,15 @@ helm upgrade zen-cleaner ./deploy/helm/zen-cleaner \
 An object can always be made permanently invisible to every policy with the
 exclusion label `zen-cleaner.zen-mesh.io/exclude: "true"`.
 ```
+
+
+**Deletion safety (0.1.20+).** Every controller-issued delete binds the observed
+UID and resourceVersion and the governing policy is re-read uncached at delete
+time: a resource replaced after the decision, or a policy disabled/edited since
+it, is not deleted — the API server refuses the stale delete (409) and the
+controller records a typed outcome (precondition conflict / policy changed /
+excluded). Proven against a real API server (`test/apiserver/`, envtest); that
+suite skips in CI hermetically, so run it locally for API-server evidence.
 
 ## Why zen-cleaner?
 
