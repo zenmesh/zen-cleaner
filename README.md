@@ -170,7 +170,12 @@ spec:
     secondsAfterCreation: 3600
   behavior:
     maxDeletionsPerSecond: 10
+    dryRun: true                   # START HERE: match and report, delete nothing
 ```
+
+Watch the policy evaluate (Kubernetes events + `kubectl get zencleanerpolicy <name>
+-o yaml` status), and when the candidate list is exactly what you expect, flip
+`dryRun: false` to enable deletion:
 
 ```bash
 helm upgrade zen-cleaner ./deploy/helm/zen-cleaner \
@@ -184,6 +189,15 @@ helm upgrade zen-cleaner ./deploy/helm/zen-cleaner \
 An object can always be made permanently invisible to every policy with the
 exclusion label `zen-cleaner.zen-mesh.io/exclude: "true"`.
 ```
+
+
+**Deletion safety (0.1.20+).** Every controller-issued delete binds the observed
+UID and resourceVersion and the governing policy is re-read uncached at delete
+time: a resource replaced after the decision, or a policy disabled/edited since
+it, is not deleted — the API server refuses the stale delete (409) and the
+controller records a typed outcome (precondition conflict / policy changed /
+excluded). Proven against a real API server (`test/apiserver/`, envtest); that
+suite skips in CI hermetically, so run it locally for API-server evidence.
 
 ## Why zen-cleaner?
 
