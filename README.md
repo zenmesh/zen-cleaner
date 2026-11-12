@@ -1,4 +1,6 @@
 
+<p align="center"><img src="docs/assets/zen-cleaner-logo.png" alt="Zen Cleaner logo" width="90"></p>
+
 # Zen Cleaner
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
