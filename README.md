@@ -87,14 +87,18 @@ When the candidate list is exactly what you expect, flip `dryRun: false`
 An object can always be made permanently invisible to every policy with the
 exclusion label `zen-cleaner.zen-mesh.io/exclude: "true"`.
 
-**Deletion safety.** Every controller-issued delete binds the observed UID and
-resourceVersion, and the governing policy is re-read uncached at delete time: a
-resource replaced after the decision, or a policy disabled/edited since it, is
-not deleted — the API server refuses the stale delete (409) and the controller
-records a typed outcome (precondition conflict / policy changed / excluded).
-These laws are proven against a **real API server**
-(`test/apiserver/`, controller-runtime envtest) — and that suite **runs in CI**
-since the envtest binaries were wired into the pipeline, with a fail-closed
+**Deletion safety.** Every controller-issued delete binds the target's observed
+UID and resourceVersion: if the resource itself is replaced after the decision,
+the API server refuses the stale delete (409 Conflict) and the controller
+records a typed outcome — that protection is atomic and API-enforced. The
+governing policy is additionally re-read **uncached** immediately before each
+delete, so a policy disabled, edited, or deleted earlier refuses the deletion.
+Stated plainly: the policy re-read and the DELETE are two separate API
+operations, so a policy change landing in the instant between them is caught
+by the next reconcile cycle rather than that delete — target preconditions are
+atomic; policy freshness is best-effort and fail-closed on detection. These
+laws are proven against a **real API server** (`test/apiserver/`,
+controller-runtime envtest) — and that suite **runs in CI**, with a fail-closed
 guard that fails CI if the real-API tests skip.
 
 ## TTL modes
