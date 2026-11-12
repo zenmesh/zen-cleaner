@@ -67,3 +67,5 @@ kubeconfig
 bin/
 # Built binary at the repository root only (must not ignore deploy/helm/zen-cleaner)
 /zen-cleaner
+scripts/__pycache__/
+scripts/tests/__pycache__/
