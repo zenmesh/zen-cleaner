@@ -1,8 +1,16 @@
-# Kyverno / WG Policy Reports: prune stale PolicyReports.
+# Kyverno: TTL cleanup of DELIBERATELY LABELED disposable PolicyReports.
 #
-# Policy reporting controllers recreate PolicyReports per scan cycle; this
-# policy removes reports whose creation is older than 7 days (reports from
-# sources that have stopped reporting, so they stop updating).
+# IMPORTANT — why this policy is label-narrowed: zen-cleaner TTL modes anchor
+# on creation time (or a timestamp FIELD). The wgpolicyk8s.io/v1alpha2
+# PolicyReport schema carries NO update-timestamp field (verified against the
+# live CRD installed by Kyverno 1.20), so a creation-age policy cannot
+# distinguish an active report (Kyverno's reports-controller updates reports
+# in place as policies and resources change) from a stale one — a namespace-
+# wide creation-age policy WOULD sweep active reports. Only apply this
+# pattern to reports you (or your tooling) create and label as disposable.
+#
+# Typical use: ephemeral per-branch/per-preview reporting objects that your
+# pipeline labels `zen-cleaner.io/disposable: "true"` at creation.
 apiVersion: cleaner.zen-mesh.io/v1alpha1
 kind: ZenCleanerPolicy
 metadata:
@@ -13,8 +21,11 @@ spec:
     apiVersion: wgpolicyk8s.io/v1alpha2
     kind: PolicyReport
     namespace: default
+    labelSelector:
+      matchLabels:
+        zen-cleaner.io/disposable: "true"
   ttl:
-    secondsAfterCreation: 604800 # 7 days after creation
+    secondsAfterCreation: 3600 # 1 hour after creation (tune per pipeline)
   behavior:
     maxDeletionsPerSecond: 10
     dryRun: true

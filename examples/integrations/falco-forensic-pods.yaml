@@ -1,6 +1,8 @@
-# Falco (via Falcosidekick): cleanup of COMPLETED forensic-capture pods.
+# Falco quarantine cleanup: removal of COMPLETED forensic-capture pods.
 #
-# Falcosidekick can label a suspicious pod `quarantine: "true"` for forensic
+# The quarantine label is applied by EXTERNAL automation (e.g., a
+# webhook-driven controller reacting to a Falco/Falcosidekick event; falcosidekick's
+# outputs deliver events but do not label pods). For forensic
 # capture. This policy removes those pods after 2 hours — but ONLY once the
 # pod has reached a terminal phase (Succeeded/Failed). zen-cleaner REFUSES to
 # delete Running pods by design (typed outcome `active_workload` /
