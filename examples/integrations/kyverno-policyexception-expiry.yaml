@@ -1,0 +1,24 @@
+# Kyverno: auto-expire temporary PolicyExceptions.
+#
+# Incident/migration exceptions routinely outlive their reason. This policy
+# deletes PolicyException objects 48 hours after creation, so a forgotten
+# bypass cannot persist forever. Validated against Kyverno 1.20
+# (policies.kyverno.io/v1 — the CEL-based PolicyException API).
+#
+# Kyverno >= 1.20 also supports native `spec.expiresAt`; use zen-cleaner for
+# clusters on older versions or as a fail-safe backstop.
+apiVersion: cleaner.zen-mesh.io/v1alpha1
+kind: ZenCleanerPolicy
+metadata:
+  name: kyverno-policyexception-expiry
+  namespace: default
+spec:
+  targetResource:
+    apiVersion: policies.kyverno.io/v1
+    kind: PolicyException
+    namespace: default
+  ttl:
+    secondsAfterCreation: 172800 # 48 hours after creation
+  behavior:
+    maxDeletionsPerSecond: 10
+    dryRun: true

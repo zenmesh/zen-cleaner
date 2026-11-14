@@ -1,0 +1,27 @@
+# Trivy Operator: prune stale VulnerabilityReports (etcd/API bloat control).
+#
+# Trivy Operator regenerates VulnerabilityReports on every scan cycle; this
+# policy ages out reports whose last scan is older than 7 days. The TTL is
+# relative to the report's own `report.updateTimestamp` (RFC3339), so a
+# freshly re-scanned app always gets a fresh window.
+#
+# NOTE: trivy-operator 0.36.x reports carry no other per-report timestamp
+# (verified against the operator's CRD); creation-age (secondsAfterCreation)
+# is the alternative if you upgrade the operator across report-format
+# changes.
+apiVersion: cleaner.zen-mesh.io/v1alpha1
+kind: ZenCleanerPolicy
+metadata:
+  name: trivy-stale-vulnerabilityreports
+  namespace: default
+spec:
+  targetResource:
+    apiVersion: aquasecurity.github.io/v1alpha1
+    kind: VulnerabilityReport
+    namespace: default
+  ttl:
+    relativeTo: "report.updateTimestamp"
+    secondsAfter: 604800 # 7 days after the last scan update
+  behavior:
+    maxDeletionsPerSecond: 10
+    dryRun: true # flip to false after reviewing the candidate list
