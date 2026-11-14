@@ -1,0 +1,20 @@
+# Kyverno / WG Policy Reports: prune stale PolicyReports.
+#
+# Policy reporting controllers recreate PolicyReports per scan cycle; this
+# policy removes reports whose creation is older than 7 days (reports from
+# sources that have stopped reporting, so they stop updating).
+apiVersion: cleaner.zen-mesh.io/v1alpha1
+kind: ZenCleanerPolicy
+metadata:
+  name: kyverno-policyreport-prune
+  namespace: default
+spec:
+  targetResource:
+    apiVersion: wgpolicyk8s.io/v1alpha2
+    kind: PolicyReport
+    namespace: default
+  ttl:
+    secondsAfterCreation: 604800 # 7 days after creation
+  behavior:
+    maxDeletionsPerSecond: 10
+    dryRun: true

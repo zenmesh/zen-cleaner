@@ -1,0 +1,31 @@
+# Falco (via Falcosidekick): cleanup of COMPLETED forensic-capture pods.
+#
+# Falcosidekick can label a suspicious pod `quarantine: "true"` for forensic
+# capture. This policy removes those pods after 2 hours — but ONLY once the
+# pod has reached a terminal phase (Succeeded/Failed). zen-cleaner REFUSES to
+# delete Running pods by design (typed outcome `active_workload` /
+# `workload_managed`): make the capture container exit when forensics are
+# done, and this policy removes the shell afterwards.
+#
+# Requires behavior.allowWorkloadDeletion: true — pods are a protected
+# workload kind; without the opt-in every pod delete is refused
+# (`workload_managed`).
+apiVersion: cleaner.zen-mesh.io/v1alpha1
+kind: ZenCleanerPolicy
+metadata:
+  name: falco-forensic-pod-cleanup
+  namespace: default
+spec:
+  targetResource:
+    apiVersion: v1
+    kind: Pod
+    namespace: default
+    labelSelector:
+      matchLabels:
+        quarantine: "true"
+  ttl:
+    secondsAfterCreation: 7200 # 2 hours after creation
+  behavior:
+    allowWorkloadDeletion: true # terminal-phase pods only (see above)
+    maxDeletionsPerSecond: 10
+    dryRun: true

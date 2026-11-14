@@ -131,6 +131,13 @@ ttl:
   secondsAfter: 86400
 ```
 
+## Security-stack integrations
+
+zen-cleaner pairs naturally with Trivy Operator (stale VulnerabilityReport pruning),
+Kyverno (auto-expiring PolicyExceptions, PolicyReport pruning, cleanup labels on generated
+resources) and Falco/Falcosidekick (removal of COMPLETED forensic-capture pods). Validated
+policies and caveats: [examples/integrations/README.md](examples/integrations/README.md).
+
 ## Supported environments
 
 Validated under **enforced default NetworkPolicy** on k3s (kube-router)
