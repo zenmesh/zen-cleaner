@@ -33,7 +33,7 @@
 # A future bump must re-verify the base OS (cat /etc/os-release) and not
 # just the Go version. This is also why the release path is not merely a
 # version bump.
-FROM golang@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS builder
+FROM golang@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf AS builder
 
 WORKDIR /build
 
